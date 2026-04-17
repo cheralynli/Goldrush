@@ -3,6 +3,7 @@
 #include <vector>
 #include <cstdlib>
 #include <ctime>
+#include <chrono>
 
 struct Player {
     std::string name;
@@ -80,11 +81,10 @@ static int spin(WINDOW* w, bool hasColor) {
 
     nodelay(w, TRUE);
     int result = 1;
-    int lastSpaceTick = 0;
-    int tick = 0;
+    auto lastInput = std::chrono::steady_clock::now();
 
     while (true) {
-        result = (result % 10) + 1;
+        result = (std::rand() % 10) + 1;
         werase(w);
         box(w, 0, 0);
         mvwprintw(w, 1, 2, "Rolling: %d", result);
@@ -92,11 +92,12 @@ static int spin(WINDOW* w, bool hasColor) {
 
         napms(80);
         ch = wgetch(w);
-        tick += 1;
         if (ch == ' ') {
-            lastSpaceTick = tick;
+            lastInput = std::chrono::steady_clock::now();
         }
-        if (tick - lastSpaceTick > 2) break;
+        auto now = std::chrono::steady_clock::now();
+        auto ms = std::chrono::duration_cast<std::chrono::milliseconds>(now - lastInput).count();
+        if (ms > 300) break;
     }
     nodelay(w, FALSE);
 
