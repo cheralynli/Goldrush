@@ -4,6 +4,19 @@
 #include <cstdlib>
 #include <ctime>
 #include <chrono>
+#include <cstring>
+
+static const int MIN_W = 80;
+static const int MIN_H = 24;
+
+static const int TITLE_W = 76;
+static const int TITLE_H = 3;
+static const int BOARD_W = 76;
+static const int BOARD_H = 14;
+static const int INFO_W = 76;
+static const int INFO_H = 4;
+static const int MSG_W = 76;
+static const int MSG_H = 3;
 
 struct Player {
     std::string name;
@@ -64,6 +77,68 @@ static void waitForEnter(WINDOW* w, int y, int x, const std::string& msg) {
     do {
         ch = wgetch(w);
     } while (ch != '\n' && ch != KEY_ENTER);
+}
+
+static void applyWindowBg(WINDOW* w, bool hasColor) {
+    if (!w) return;
+    if (hasColor) {
+        wbkgd(w, COLOR_PAIR(5));
+    }
+}
+
+static bool ensureMinSize(bool hasColor) {
+    int h, w;
+    while (true) {
+        getmaxyx(stdscr, h, w);
+        if (h >= MIN_H && w >= MIN_W) return true;
+
+        if (hasColor) {
+            bkgd(COLOR_PAIR(5));
+        }
+        clear();
+        const char* msg1 = "Terminal too small - please resize";
+        const char* msg2 = "Press Q to quit";
+        int x1 = (w - static_cast<int>(std::strlen(msg1))) / 2;
+        int x2 = (w - static_cast<int>(std::strlen(msg2))) / 2;
+        int y = h / 2;
+        if (x1 < 0) x1 = 0;
+        if (x2 < 0) x2 = 0;
+        mvprintw(y, x1, "%s", msg1);
+        mvprintw(y + 1, x2, "%s", msg2);
+        refresh();
+
+        timeout(200);
+        int ch = getch();
+        if (ch == 'q' || ch == 'Q') return false;
+        if (ch == KEY_RESIZE) {
+            clear();
+        }
+    }
+}
+
+static void createWindows(int termH, int termW, WINDOW*& titleWin, WINDOW*& boardWin, WINDOW*& infoWin, WINDOW*& msgWin, bool hasColor) {
+    int totalH = TITLE_H + BOARD_H + INFO_H + MSG_H;
+    int startY = (termH - totalH) / 2;
+    int startX = (termW - TITLE_W) / 2;
+    if (startY < 0) startY = 0;
+    if (startX < 0) startX = 0;
+
+    titleWin = newwin(TITLE_H, TITLE_W, startY, startX);
+    boardWin = newwin(BOARD_H, BOARD_W, startY + TITLE_H, startX);
+    infoWin = newwin(INFO_H, INFO_W, startY + TITLE_H + BOARD_H, startX);
+    msgWin = newwin(MSG_H, MSG_W, startY + TITLE_H + BOARD_H + INFO_H, startX);
+
+    applyWindowBg(titleWin, hasColor);
+    applyWindowBg(boardWin, hasColor);
+    applyWindowBg(infoWin, hasColor);
+    applyWindowBg(msgWin, hasColor);
+}
+
+static void destroyWindows(WINDOW*& titleWin, WINDOW*& boardWin, WINDOW*& infoWin, WINDOW*& msgWin) {
+    if (titleWin) { delwin(titleWin); titleWin = nullptr; }
+    if (boardWin) { delwin(boardWin); boardWin = nullptr; }
+    if (infoWin) { delwin(infoWin); infoWin = nullptr; }
+    if (msgWin) { delwin(msgWin); msgWin = nullptr; }
 }
 
 static int spin(WINDOW* w, bool hasColor) {
@@ -239,47 +314,44 @@ int main() {
     bool hasColor = has_colors();
     if (hasColor) {
         start_color();
-        use_default_colors();
-        init_pair(1, COLOR_GREEN, -1);   // Player 1
-        init_pair(2, COLOR_CYAN, -1);    // Player 2
-        init_pair(3, COLOR_MAGENTA, -1); // Player 3
-        init_pair(4, COLOR_YELLOW, -1);  // Player 4
-        init_pair(5, COLOR_WHITE, -1);   // Default text
-        init_pair(6, COLOR_RED, -1);     // Risk
-        init_pair(7, COLOR_BLUE, -1);    // Safe
+        init_pair(1, COLOR_GREEN, COLOR_BLACK);   // Player 1
+        init_pair(2, COLOR_CYAN, COLOR_BLACK);    // Player 2
+        init_pair(3, COLOR_MAGENTA, COLOR_BLACK); // Player 3
+        init_pair(4, COLOR_YELLOW, COLOR_BLACK);  // Player 4
+        init_pair(5, COLOR_WHITE, COLOR_BLACK);   // Default text
+        init_pair(6, COLOR_RED, COLOR_BLACK);     // Risk / blink
+        init_pair(7, COLOR_BLUE, COLOR_BLACK);    // Safe
+        bkgd(COLOR_PAIR(5));
     }
 
+    if (!ensureMinSize(hasColor)) {
+        endwin();
+        return 0;
+    }
+
+    WINDOW* titleWin = nullptr;
+    WINDOW* boardWin = nullptr;
+    WINDOW* infoWin = nullptr;
+    WINDOW* msgWin = nullptr;
     int termH, termW;
     getmaxyx(stdscr, termH, termW);
-    if (termH < 34 || termW < 80) {
-        clear();
-        mvprintw(2, 2, "Terminal too small. Minimum 80x34.");
-        refresh();
-        getch();
-        endwin();
-        return 1;
-    }
-
-    WINDOW* titleWin = newwin(3, 76, 1, 1);
-    WINDOW* boardWin = newwin(20, 76, 4, 1);
-    WINDOW* infoWin = newwin(6, 76, 25, 1);
-    WINDOW* msgWin = newwin(4, 76, 31, 1);
+    createWindows(termH, termW, titleWin, boardWin, infoWin, msgWin, hasColor);
 
     std::vector<Node> nodes(NODE_COUNT);
     nodes[START] = {"START", 2, 8, COLLEGE, CAREER, true};
     nodes[COLLEGE] = {"COLLEGE", 4, 8, GRADUATION, -1, false};
     nodes[CAREER] = {"CAREER", 4, 28, GRADUATION, -1, false};
-    nodes[GRADUATION] = {"GRAD", 6, 18, WEDDING, -1, false};
-    nodes[WEDDING] = {"WEDDING", 8, 18, BRANCH_FC, -1, false};
-    nodes[BRANCH_FC] = {"BRANCH", 10, 18, FAMILY_PATH, CAREER_PATH, true};
-    nodes[FAMILY_PATH] = {"FAMILY", 10, 10, HOUSE, -1, false};
-    nodes[HOUSE] = {"HOUSE", 12, 10, BRANCH_SR, -1, false};
-    nodes[CAREER_PATH] = {"CAREER", 10, 26, PROMOTION, -1, false};
-    nodes[PROMOTION] = {"PROMO", 12, 26, BRANCH_SR, -1, false};
-    nodes[BRANCH_SR] = {"BRANCH", 14, 18, SAFE_ROAD, RISK_ROAD, true};
-    nodes[SAFE_ROAD] = {"SAFE", 14, 10, RETIREMENT, -1, false};
-    nodes[RISK_ROAD] = {"RISK", 14, 26, RETIREMENT, -1, false};
-    nodes[RETIREMENT] = {"RETIRE", 16, 18, -1, -1, false};
+    nodes[GRADUATION] = {"GRAD", 5, 18, WEDDING, -1, false};
+    nodes[WEDDING] = {"WEDDING", 6, 18, BRANCH_FC, -1, false};
+    nodes[BRANCH_FC] = {"BRANCH", 7, 18, FAMILY_PATH, CAREER_PATH, true};
+    nodes[FAMILY_PATH] = {"FAMILY", 7, 10, HOUSE, -1, false};
+    nodes[HOUSE] = {"HOUSE", 9, 10, BRANCH_SR, -1, false};
+    nodes[CAREER_PATH] = {"CAREER", 7, 26, PROMOTION, -1, false};
+    nodes[PROMOTION] = {"PROMO", 9, 26, BRANCH_SR, -1, false};
+    nodes[BRANCH_SR] = {"BRANCH", 10, 18, SAFE_ROAD, RISK_ROAD, true};
+    nodes[SAFE_ROAD] = {"SAFE", 10, 10, RETIREMENT, -1, false};
+    nodes[RISK_ROAD] = {"RISK", 10, 26, RETIREMENT, -1, false};
+    nodes[RETIREMENT] = {"RETIRE", 12, 18, -1, -1, false};
 
     // Title
     werase(titleWin);
@@ -323,6 +395,15 @@ int main() {
     int current = 0;
 
     while (!allRetired) {
+        if (!ensureMinSize(hasColor)) {
+            destroyWindows(titleWin, boardWin, infoWin, msgWin);
+            endwin();
+            return 0;
+        }
+        getmaxyx(stdscr, termH, termW);
+        destroyWindows(titleWin, boardWin, infoWin, msgWin);
+        createWindows(termH, termW, titleWin, boardWin, infoWin, msgWin, hasColor);
+
         Player& p = players[current];
         if (p.retired) {
             current = (current + 1) % numPlayers;
@@ -334,21 +415,20 @@ int main() {
         box(boardWin, 0, 0);
 
         // Draw path lines
-        drawVLine(boardWin, 6, 2, 6);
-        drawVLine(boardWin, 32, 2, 6);
+        drawVLine(boardWin, 6, 2, 4);
+        drawVLine(boardWin, 32, 2, 4);
         drawHLine(boardWin, 4, 6, 32);
-        drawVLine(boardWin, 19, 6, 10);
-        drawVLine(boardWin, 9, 10, 13);
-        drawVLine(boardWin, 29, 10, 13);
+        drawVLine(boardWin, 19, 4, 7);
+        drawVLine(boardWin, 9, 7, 9);
+        drawVLine(boardWin, 29, 7, 9);
+        drawHLine(boardWin, 7, 9, 29);
+        drawVLine(boardWin, 19, 9, 10);
         drawHLine(boardWin, 10, 9, 29);
-        drawVLine(boardWin, 19, 12, 16);
-        drawHLine(boardWin, 14, 9, 29);
-        drawVLine(boardWin, 19, 15, 16);
 
         mvwaddch(boardWin, 4, 6, ACS_LLCORNER);
         mvwaddch(boardWin, 4, 32, ACS_LRCORNER);
+        mvwaddch(boardWin, 7, 19, ACS_PLUS);
         mvwaddch(boardWin, 10, 19, ACS_PLUS);
-        mvwaddch(boardWin, 14, 19, ACS_PLUS);
 
         // Labels
         for (int i = 0; i < NODE_COUNT; ++i) {
@@ -468,6 +548,7 @@ int main() {
     wrefresh(msgWin);
     waitForEnter(msgWin, 2, 40, "Press ENTER to exit");
 
+    destroyWindows(titleWin, boardWin, infoWin, msgWin);
     endwin();
     return 0;
 }
