@@ -4,8 +4,8 @@
 #include <string>
 #include <vector>
 
-#include "Board.hpp"
-#include "Player.hpp"
+#include "board.hpp"
+#include "player.hpp"
 
 enum GoldrushUiColorPair {
     GOLDRUSH_GOLD_BLACK = 1,

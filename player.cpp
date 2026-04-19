@@ -1,4 +1,4 @@
-#include "Player.hpp"
+#include "player.hpp"
 
 char tokenForName(const std::string& name, int index) {
     if (!name.empty()) {

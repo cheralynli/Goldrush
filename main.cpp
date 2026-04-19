@@ -1,6 +1,6 @@
 #include <ncurses.h>
 
-#include "Game.hpp"
+#include "game.hpp"
 #include "ui.h"
 
 int main() {

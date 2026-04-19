@@ -4,7 +4,7 @@
 #include <string>
 #include <vector>
 
-#include "Player.hpp"
+#include "player.hpp"
 
 static const int TILE_COUNT = 89;
 
