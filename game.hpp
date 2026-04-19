@@ -1,67 +1,59 @@
 #pragma once
-#include <vector>
-#include <string>
+
 #include <ncurses.h>
+#include <string>
+#include <vector>
+
 #include "Board.hpp"
 #include "Player.hpp"
-#include "Deck.hpp"
 
 class Game {
-    Board board;
-    std::vector<Player> players;
-    int currentPlayer = 0;
-
-    Deck chanceCards;
-    Deck careerCards;
-    Deck houseCards;
-
-    WINDOW* boardWin = nullptr;
-    WINDOW* msgWin = nullptr;
-    WINDOW* ctrlWin = nullptr;
-    WINDOW* pWins[4] = {nullptr, nullptr, nullptr, nullptr};
-
-    bool quitRequested = false;
-
 public:
     Game();
     ~Game();
 
-    void showTitleScreen();
-    void setupPlayers();
-    void run();
-
-    // Manual actions from input shortcuts
-    void drawCareerCard();
-    void drawHouseCard();
-    void buyInsurance();
+    bool run();
 
 private:
-    void initWindows();
+    static const int MIN_W = 116;
+    static const int MIN_H = 40;
+    static const int TITLE_W = 114;
+    static const int TITLE_H = 8;
+    static const int BOARD_W = 82;
+    static const int BOARD_H = 28;
+    static const int INFO_W = 32;
+    static const int INFO_H = 30;
+    static const int MSG_W = 114;
+    static const int MSG_H = 4;
+
+    Board board;
+    std::vector<Player> players;
+    WINDOW* titleWin;
+    WINDOW* boardWin;
+    WINDOW* infoWin;
+    WINDOW* msgWin;
+    bool hasColor;
+
+    bool ensureMinSize() const;
+    void createWindows();
     void destroyWindows();
+    void waitForEnter(WINDOW* w, int y, int x, const std::string& text) const;
+    void applyWindowBg(WINDOW* w) const;
 
-    void render();
-    void renderPlayers();
-    void renderControls(const std::string& line1, const std::string& line2);
+    bool showStartScreen();
+    void setupPlayers();
+    void renderGame(int currentPlayer, const std::string& msg) const;
+    void renderHeader() const;
+    int rollSpinner();
+    int showBranchPopup(const std::string& title,
+                        const std::vector<std::string>& lines,
+                        char a,
+                        char b);
+    int playActionCard(const Tile& tile, Player& player);
+    void applyTileEffect(Player& player, const Tile& tile);
+    int chooseNextTile(Player& player, const Tile& tile);
+    void animateMove(int currentPlayer, int steps);
 
-    void processTurn();
-    int spin();
-    void movePlayer(Player& p, int spaces);
-
-    void handleSpace(Player& p);
-    void handleCareer(Player& p);
-    void handleHouse(Player& p);
-    void handleChance(Player& p);
-    void handleMarriage(Player& p);
-    void handleBaby(Player& p);
-    void handleInsurance(Player& p);
-    void handleStock(Player& p);
-    void handleJobLoss(Player& p);
-
-    bool checkGameOver();
-    void showWinner();
-
-    void showMessage(const std::string& text, int colorPair = 5);
-    bool confirmYesNo(const std::string& question);
-
-    void ensureCash(Player& p, int cost);
+    int minRewardForTier(int tier) const;
+    int maxRewardForTier(int tier) const;
 };
