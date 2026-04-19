@@ -19,6 +19,11 @@ enum TileKind {
     TILE_MARRIAGE,
     TILE_SPLIT_FAMILY,
     TILE_FAMILY,
+    TILE_NIGHT_SCHOOL,
+    TILE_SPLIT_RISK,
+    TILE_SAFE,
+    TILE_RISKY,
+    TILE_SPIN_AGAIN,
     TILE_CAREER_2,
     TILE_PAYDAY,
     TILE_BABY,
@@ -35,6 +40,7 @@ struct Tile {
     int next;
     int altNext;
     int value;
+    bool stop;
 };
 
 class Board {
@@ -42,6 +48,8 @@ public:
     Board();
 
     const Tile& tileAt(int id) const;
+    bool isStopSpace(const Tile& tile) const;
+    std::vector<std::string> tutorialLegend() const;
     void render(WINDOW* boardWin,
                 const std::vector<Player>& players,
                 bool hasColor) const;

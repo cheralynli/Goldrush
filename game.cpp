@@ -1,25 +1,37 @@
 #include "game.hpp"
+#include "spins.hpp"
 #include "ui.h"
 
+#include <algorithm>
 #include <chrono>
 #include <cstdlib>
 #include <cstring>
 #include <ctime>
+#include <sstream>
 
 namespace {
-enum MiniGameKind {
-    MINIGAME_RED_BLACK,
-    MINIGAME_MATH,
-    MINIGAME_ODD_EVEN
-};
+std::string appendLoanText(const std::string& base, const PaymentResult& payment) {
+    if (payment.loansTaken <= 0) {
+        return base;
+    }
+
+    std::ostringstream out;
+    out << base << " Auto-loan +" << payment.loansTaken << ".";
+    return out.str();
+}
 }
 
 Game::Game()
-    : titleWin(nullptr),
+    : rules(makeNormalRules()),
+      decks(rules),
+      bank(rules),
+      history(6),
+      titleWin(nullptr),
       boardWin(nullptr),
       infoWin(nullptr),
       msgWin(nullptr),
-      hasColor(has_colors()) {
+      hasColor(has_colors()),
+      retiredCount(0) {
     std::srand(static_cast<unsigned>(std::time(nullptr)));
 }
 
@@ -29,6 +41,10 @@ Game::~Game() {
 
 void Game::applyWindowBg(WINDOW* w) const {
     apply_ui_background(w);
+}
+
+void Game::addHistory(const std::string& entry) {
+    history.add(entry);
 }
 
 bool Game::ensureMinSize() const {
@@ -46,7 +62,7 @@ bool Game::ensureMinSize() const {
         }
         clear();
         const char* line1 = "Terminal too small - please resize";
-        const char* line2 = "Minimum size: 116x40";
+        const char* line2 = "Minimum size: 122x40";
         const char* line3 = "Press Q to quit";
         int x1 = (w - static_cast<int>(std::strlen(line1))) / 2;
         int x2 = (w - static_cast<int>(std::strlen(line2))) / 2;
@@ -89,6 +105,8 @@ void Game::createWindows() {
     infoWin = newwin(INFO_H, INFO_W, startY + TITLE_H, startX + BOARD_W);
     msgWin = newwin(MSG_H, MSG_W, startY + TITLE_H + BOARD_H, startX);
 
+    keypad(infoWin, TRUE);
+    keypad(msgWin, TRUE);
     applyWindowBg(titleWin);
     applyWindowBg(boardWin);
     applyWindowBg(infoWin);
@@ -101,7 +119,7 @@ void Game::waitForEnter(WINDOW* w, int y, int x, const std::string& text) const 
     int ch;
     do {
         ch = wgetch(w);
-    } while (ch != '\n' && ch != KEY_ENTER);
+    } while (ch != '\n' && ch != KEY_ENTER && ch != '\r');
 }
 
 bool Game::showStartScreen() {
@@ -127,9 +145,9 @@ bool Game::showStartScreen() {
         if (startX < 0) startX = 0;
 
         if (hasColor) attron(COLOR_PAIR(GOLDRUSH_GOLD_BLACK));
-        mvprintw(startY - 1, startX - 4, "╔══════════════════════════════════════════════════════════════════╗");
-        mvprintw(startY + 6, startX - 4, "║                                                                  ║");
-        mvprintw(startY + 7, startX - 4, "╚══════════════════════════════════════════════════════════════════╝");
+        mvprintw(startY - 1, startX - 4, "***********************************************");
+        mvprintw(startY + 6, startX - 4, "*                                             *");
+        mvprintw(startY + 7, startX - 4, "***********************************************");
         if (hasColor) attroff(COLOR_PAIR(GOLDRUSH_GOLD_BLACK));
 
         if (hasColor) wattron(stdscr, COLOR_PAIR(GOLDRUSH_GOLD_BLACK) | A_BOLD);
@@ -143,7 +161,7 @@ bool Game::showStartScreen() {
         if (hasColor) wattroff(stdscr, COLOR_PAIR(GOLDRUSH_GOLD_SAND) | A_BOLD);
 
         if (hasColor) wattron(stdscr, COLOR_PAIR(GOLDRUSH_BROWN_SAND));
-        mvprintw(startY + 11, (w - 30) / 2, "An Adventure in Text");
+        mvprintw(startY + 11, (w - 34) / 2, "A Hasbro-style Life Journey");
         mvprintw(startY + 13, (w - 20) / 2, "S  Start    Q  Quit");
         if (hasColor) wattroff(stdscr, COLOR_PAIR(GOLDRUSH_BROWN_SAND));
         refresh();
@@ -153,6 +171,168 @@ bool Game::showStartScreen() {
         if (ch == 'q' || ch == 'Q') return false;
         if (ch == KEY_RESIZE && !ensureMinSize()) return false;
     }
+}
+
+void Game::configureCustomRules() {
+    int h, w;
+    getmaxyx(stdscr, h, w);
+    WINDOW* popup = newwin(18, 72, (h - 18) / 2, (w - 72) / 2);
+    applyWindowBg(popup);
+    keypad(popup, TRUE);
+
+    struct ToggleRow {
+        const char* label;
+        bool* value;
+    };
+
+    std::vector<ToggleRow> rows;
+    rows.push_back({"Tutorial", &rules.toggles.tutorialEnabled});
+    rows.push_back({"Family path", &rules.toggles.familyPathEnabled});
+    rows.push_back({"Night school", &rules.toggles.nightSchoolEnabled});
+    rows.push_back({"Risky route", &rules.toggles.riskyRouteEnabled});
+    rows.push_back({"Investments", &rules.toggles.investmentEnabled});
+    rows.push_back({"Pets", &rules.toggles.petsEnabled});
+    rows.push_back({"Spin to Win", &rules.toggles.spinToWinEnabled});
+    rows.push_back({"Electronic banking theme", &rules.toggles.electronicBankingEnabled});
+    rows.push_back({"House sale spins", &rules.toggles.houseSaleSpinEnabled});
+    rows.push_back({"Retirement bonuses", &rules.toggles.retirementBonusesEnabled});
+
+    int highlight = 0;
+    const int startRowIndex = static_cast<int>(rows.size());
+
+    while (true) {
+        werase(popup);
+        box(popup, 0, 0);
+        mvwprintw(popup, 1, 2, "Custom Mode");
+        mvwprintw(popup, 2, 2, "Toggle rules with SPACE or ENTER. Select Start Game when ready.");
+
+        for (size_t i = 0; i < rows.size(); ++i) {
+            if (static_cast<int>(i) == highlight) wattron(popup, A_REVERSE);
+            mvwprintw(popup, 4 + static_cast<int>(i), 2, "[%c] %s",
+                      *rows[i].value ? 'x' : ' ', rows[i].label);
+            if (static_cast<int>(i) == highlight) wattroff(popup, A_REVERSE);
+        }
+
+        if (highlight == startRowIndex) wattron(popup, A_REVERSE);
+        mvwprintw(popup, 15, 2, "Start Game");
+        if (highlight == startRowIndex) wattroff(popup, A_REVERSE);
+        mvwprintw(popup, 16, 2, "Up/Down move  Enter/Space toggle  Q close config");
+        wrefresh(popup);
+
+        int ch = wgetch(popup);
+        if (ch == KEY_UP) {
+            highlight = highlight == 0 ? startRowIndex : highlight - 1;
+        } else if (ch == KEY_DOWN) {
+            highlight = highlight == startRowIndex ? 0 : highlight + 1;
+        } else if (ch == 'q' || ch == 'Q') {
+            break;
+        } else if (ch == ' ' || ch == '\n' || ch == '\r' || ch == KEY_ENTER) {
+            if (highlight == startRowIndex) {
+                break;
+            }
+            *rows[highlight].value = !*rows[highlight].value;
+        }
+    }
+
+    delwin(popup);
+
+    rules.components.investCards = rules.toggles.investmentEnabled ? 4 : 0;
+    rules.components.petCards = rules.toggles.petsEnabled ? 12 : 0;
+    rules.components.spinToWinTokens = rules.toggles.spinToWinEnabled ? 5 : 0;
+}
+
+void Game::showTutorial() {
+    if (!rules.toggles.tutorialEnabled) {
+        return;
+    }
+
+    std::vector<std::vector<std::string> > pages;
+    pages.push_back(std::vector<std::string>());
+    pages[0].push_back("Reach retirement with the highest final wealth.");
+    pages[0].push_back("Spinner rolls move your car from Start to Retirement.");
+    pages[0].push_back("STOP spaces end movement immediately and resolve on the spot.");
+    pages[0].push_back("College/Career, Family/Life, and Safe/Risky are branch decisions.");
+    pages[0].push_back("Paydays add salary. Action cards shake up your money.");
+    pages[0].push_back("Marriage, babies, and house sales use special event spins.");
+    pages[0].push_back("Retirement lets you choose MM or CA and awards order bonuses.");
+
+    std::vector<std::string> legend = board.tutorialLegend();
+    pages.push_back(std::vector<std::string>(legend.begin(), legend.begin() + 9));
+    pages.push_back(std::vector<std::string>(legend.begin() + 9, legend.end()));
+
+    int h, w;
+    getmaxyx(stdscr, h, w);
+    WINDOW* popup = newwin(18, 78, (h - 18) / 2, (w - 78) / 2);
+    applyWindowBg(popup);
+    keypad(popup, TRUE);
+
+    for (size_t page = 0; page < pages.size(); ++page) {
+        while (true) {
+            werase(popup);
+            box(popup, 0, 0);
+            mvwprintw(popup, 1, 2, "Quick Tutorial (%d/%d)", static_cast<int>(page + 1), static_cast<int>(pages.size()));
+            for (size_t line = 0; line < pages[page].size() && line < 12; ++line) {
+                mvwprintw(popup, 3 + static_cast<int>(line), 2, "%s", pages[page][line].c_str());
+            }
+            mvwprintw(popup, 16, 2, "ENTER next  S skip");
+            wrefresh(popup);
+
+            int ch = wgetch(popup);
+            if (ch == 's' || ch == 'S') {
+                delwin(popup);
+                addHistory("Tutorial skipped");
+                return;
+            }
+            if (ch == '\n' || ch == '\r' || ch == KEY_ENTER) {
+                break;
+            }
+        }
+    }
+
+    delwin(popup);
+    addHistory("Tutorial reviewed");
+}
+
+void Game::showControlsPopup() const {
+    int h, w;
+    getmaxyx(stdscr, h, w);
+    WINDOW* popup = newwin(13, 66, (h - 13) / 2, (w - 66) / 2);
+    applyWindowBg(popup);
+    box(popup, 0, 0);
+    mvwprintw(popup, 1, 2, "Controls");
+    mvwprintw(popup, 3, 2, "ENTER  Confirm a menu or start your turn spin");
+    mvwprintw(popup, 4, 2, "SPACE  Hold/release to spin the wheel");
+    mvwprintw(popup, 5, 2, "UP/DN  Move through menus and custom mode toggles");
+    mvwprintw(popup, 6, 2, "K/?    Open this controls popup");
+    mvwprintw(popup, 7, 2, "Q      Quit the game");
+    mvwprintw(popup, 9, 2, "STOP spaces end movement immediately.");
+    mvwprintw(popup, 10, 2, "Safe/Risky and retirement choices are prompted when needed.");
+    mvwprintw(popup, 11, 2, "Press ENTER");
+    wrefresh(popup);
+    waitForEnter(popup, 11, 15, "");
+    delwin(popup);
+}
+
+void Game::setupRules() {
+    int modeChoice = showBranchPopup(
+        "Choose mode",
+        std::vector<std::string>{
+            "- Normal mode: every optional system is enabled",
+            "- Custom mode: open a rules page and toggle features"
+        },
+        'A',
+        'B');
+
+    rules = modeChoice == 0 ? makeNormalRules() : makeCustomRules();
+    if (modeChoice == 1) {
+        configureCustomRules();
+    }
+
+    decks.reset(rules);
+    bank.configure(rules);
+    retiredCount = 0;
+    history.clear();
+    addHistory("Mode: " + rules.editionName);
 }
 
 void Game::setupPlayers() {
@@ -188,29 +368,67 @@ void Game::setupPlayers() {
         p.salary = 0;
         p.married = false;
         p.kids = 0;
+        p.collegeGraduate = false;
+        p.usedNightSchool = false;
         p.hasHouse = false;
+        p.houseName = "";
         p.houseValue = 0;
+        p.loans = 0;
+        p.investedNumber = 0;
+        p.investPayout = 0;
+        p.spinToWinTokens = 0;
+        p.retirementPlace = 0;
+        p.retirementBonus = 0;
+        p.finalHouseSaleValue = 0;
+        p.retirementHome = "";
+        p.actionCards.clear();
+        p.petCards.clear();
         p.retired = false;
         p.startChoice = -1;
         p.familyChoice = -1;
+        p.riskChoice = -1;
         players.push_back(p);
+        addHistory("Joined: " + p.name);
     }
 
     noecho();
     curs_set(0);
 }
 
+void Game::setupInvestments() {
+    if (!rules.toggles.investmentEnabled) {
+        return;
+    }
+
+    for (size_t i = 0; i < players.size(); ++i) {
+        assignInvestment(players[i]);
+    }
+}
+
+int Game::waitForTurnCommand(int currentPlayer) {
+    while (true) {
+        int ch = wgetch(infoWin);
+        if (ch == 'q' || ch == 'Q') return ch;
+        if (ch == 'k' || ch == 'K' || ch == '?') {
+            showControlsPopup();
+            renderGame(currentPlayer, players[currentPlayer].name + "'s turn", "ENTER spin | K keys | Q quit");
+            continue;
+        }
+        if (ch == '\n' || ch == '\r' || ch == KEY_ENTER) {
+            return ch;
+        }
+    }
+}
+
 void Game::renderHeader() const {
     draw_title_banner_ui(titleWin);
 }
 
-void Game::renderGame(int currentPlayer, const std::string& msg) const {
+void Game::renderGame(int currentPlayer, const std::string& msg, const std::string& detail) const {
     renderHeader();
     draw_board_ui(boardWin, board, players, players[currentPlayer].tile);
-
-    const Player& p = players[currentPlayer];
-    draw_right_panel_ui(infoWin, p, currentPlayer);
-    draw_message_ui(msgWin, msg, "");
+    draw_sidebar_ui(infoWin, players, currentPlayer, history.recent(), rules);
+    draw_message_ui(msgWin, msg, detail);
 }
 
 int Game::minRewardForTier(int tier) const {
@@ -225,11 +443,20 @@ int Game::maxRewardForTier(int tier) const {
     return 2000;
 }
 
-int Game::rollSpinner() {
+void Game::showInfoPopup(const std::string& line1, const std::string& line2) const {
     werase(msgWin);
     box(msgWin, 0, 0);
-    mvwprintw(msgWin, 1, 2, "Hold SPACE to roll. Release to stop.");
-    mvwprintw(msgWin, 2, 2, "Result will blink. Press ENTER to confirm.");
+    mvwprintw(msgWin, 1, 2, "%s", line1.c_str());
+    mvwprintw(msgWin, 2, 2, "%s", line2.c_str());
+    wrefresh(msgWin);
+    waitForEnter(msgWin, 2, 2, "");
+}
+
+int Game::rollSpinner(const std::string& title, const std::string& detail) {
+    werase(msgWin);
+    box(msgWin, 0, 0);
+    mvwprintw(msgWin, 1, 2, "%s", title.c_str());
+    mvwprintw(msgWin, 2, 2, "%s", detail.c_str());
     wrefresh(msgWin);
 
     int ch;
@@ -244,8 +471,8 @@ int Game::rollSpinner() {
         value = (std::rand() % 10) + 1;
         werase(msgWin);
         box(msgWin, 0, 0);
-        mvwprintw(msgWin, 1, 2, "Rolling: %d", value);
-        mvwprintw(msgWin, 2, 2, "Release SPACE to stop");
+        mvwprintw(msgWin, 1, 2, "%s", title.c_str());
+        mvwprintw(msgWin, 2, 2, "Rolling: %d  Release SPACE to stop", value);
         wrefresh(msgWin);
         napms(80);
 
@@ -259,25 +486,12 @@ int Game::rollSpinner() {
     }
     nodelay(msgWin, FALSE);
 
-    for (int i = 0; i < 4; ++i) {
-        werase(msgWin);
-        box(msgWin, 0, 0);
-        if (hasColor) wattron(msgWin, COLOR_PAIR(GOLDRUSH_BLACK_GOLD));
-        mvwprintw(msgWin, 1, 2, "Rolled: %d", value);
-        if (hasColor) wattroff(msgWin, COLOR_PAIR(GOLDRUSH_BLACK_GOLD));
-        mvwprintw(msgWin, 2, 2, "Press ENTER to confirm");
-        wrefresh(msgWin);
-        napms(140);
-
-        werase(msgWin);
-        box(msgWin, 0, 0);
-        mvwprintw(msgWin, 1, 2, "Rolled: %d", value);
-        mvwprintw(msgWin, 2, 2, "Press ENTER to confirm");
-        wrefresh(msgWin);
-        napms(140);
-    }
-
-    waitForEnter(msgWin, 2, 26, "");
+    werase(msgWin);
+    box(msgWin, 0, 0);
+    mvwprintw(msgWin, 1, 2, "%s", title.c_str());
+    mvwprintw(msgWin, 2, 2, "Spin result: %d. Press ENTER to confirm", value);
+    wrefresh(msgWin);
+    waitForEnter(msgWin, 2, 2, "");
     return value;
 }
 
@@ -294,124 +508,75 @@ int Game::showBranchPopup(const std::string& title,
 }
 
 int Game::playActionCard(const Tile& tile, Player& player) {
-    int h, w;
-    getmaxyx(stdscr, h, w);
-    WINDOW* popup = newwin(9, 34, (h - 9) / 2, (w - 34) / 2);
-    applyWindowBg(popup);
+    ActionCard card = decks.drawActionCard();
+    player.actionCards.push_back(card.title);
 
-    int minAmount = minRewardForTier(tile.value);
-    int maxAmount = maxRewardForTier(tile.value);
-    int amount = minAmount + (std::rand() % (maxAmount - minAmount + 1));
-    MiniGameKind game = static_cast<MiniGameKind>(std::rand() % 3);
-    int ch;
+    int amount = 0;
+    PaymentResult payment;
+    payment.charged = 0;
+    payment.loansTaken = 0;
+    std::string result;
 
-    if (game == MINIGAME_RED_BLACK) {
-        werase(popup);
-        box(popup, 0, 0);
-        mvwprintw(popup, 1, 2, "BLACK TILE ACTION");
-        mvwprintw(popup, 2, 2, "Mini Game: Red / Black");
-        mvwprintw(popup, 4, 2, "Pick [R]ed or [B]lack");
-        mvwprintw(popup, 6, 2, "Win or lose: $%d", amount);
-        wrefresh(popup);
-
-        char guess = 'R';
-        while (true) {
-            ch = wgetch(popup);
-            if (ch == 'r' || ch == 'R') { guess = 'R'; break; }
-            if (ch == 'b' || ch == 'B') { guess = 'B'; break; }
-        }
-
-        char result = (std::rand() % 2 == 0) ? 'R' : 'B';
-        bool win = (guess == result);
-        if (win) player.cash += amount;
-        else player.cash -= amount;
-
-        werase(popup);
-        box(popup, 0, 0);
-        if (hasColor) wattron(popup, COLOR_PAIR(win ? GOLDRUSH_GOLD_FOREST : GOLDRUSH_BLACK_TERRA));
-        mvwprintw(popup, 1, 2, "The wheel landed on %s!", result == 'R' ? "RED" : "BLACK");
-        mvwprintw(popup, 3, 2, "You %s $%d", win ? "WIN" : "LOSE", amount);
-        if (hasColor) wattroff(popup, COLOR_PAIR(win ? GOLDRUSH_GOLD_FOREST : GOLDRUSH_BLACK_TERRA));
-        mvwprintw(popup, 5, 2, "New cash: $%d", player.cash);
-        mvwprintw(popup, 6, 2, "Press ENTER");
-        wrefresh(popup);
-    } else if (game == MINIGAME_MATH) {
-        int a = 2 + (std::rand() % 9);
-        int b = 1 + (std::rand() % 9);
-        bool add = (std::rand() % 2 == 0);
-        int answer = add ? (a + b) : (a - b);
-        if (!add && a < b) {
-            int t = a;
-            a = b;
-            b = t;
-            answer = a - b;
-        }
-
-        echo();
-        curs_set(1);
-        werase(popup);
-        box(popup, 0, 0);
-        mvwprintw(popup, 1, 2, "BLACK TILE ACTION");
-        mvwprintw(popup, 2, 2, "Mini Game: Quick Math");
-        mvwprintw(popup, 4, 2, "Solve: %d %c %d = ", a, add ? '+' : '-', b);
-        mvwprintw(popup, 6, 2, "Win or lose: $%d", amount);
-        wrefresh(popup);
-
-        char buf[16] = {0};
-        wgetnstr(popup, buf, 15);
-        noecho();
-        curs_set(0);
-        int guess = std::atoi(buf);
-        bool win = (guess == answer);
-        if (win) player.cash += amount;
-        else player.cash -= amount;
-
-        werase(popup);
-        box(popup, 0, 0);
-        if (hasColor) wattron(popup, COLOR_PAIR(win ? GOLDRUSH_GOLD_FOREST : GOLDRUSH_BLACK_TERRA));
-        mvwprintw(popup, 1, 2, "Correct answer: %d", answer);
-        mvwprintw(popup, 3, 2, "You %s $%d", win ? "WIN" : "LOSE", amount);
-        if (hasColor) wattroff(popup, COLOR_PAIR(win ? GOLDRUSH_GOLD_FOREST : GOLDRUSH_BLACK_TERRA));
-        mvwprintw(popup, 5, 2, "New cash: $%d", player.cash);
-        mvwprintw(popup, 6, 2, "Press ENTER");
-        wrefresh(popup);
-    } else {
-        werase(popup);
-        box(popup, 0, 0);
-        mvwprintw(popup, 1, 2, "BLACK TILE ACTION");
-        mvwprintw(popup, 2, 2, "Mini Game: Odd / Even");
-        mvwprintw(popup, 4, 2, "Pick [O]dd or [E]ven");
-        mvwprintw(popup, 6, 2, "Win or lose: $%d", amount);
-        wrefresh(popup);
-
-        char guess = 'O';
-        while (true) {
-            ch = wgetch(popup);
-            if (ch == 'o' || ch == 'O') { guess = 'O'; break; }
-            if (ch == 'e' || ch == 'E') { guess = 'E'; break; }
-        }
-
-        int spin = 1 + (std::rand() % 10);
-        bool even = (spin % 2 == 0);
-        bool win = (guess == 'E' && even) || (guess == 'O' && !even);
-        if (win) player.cash += amount;
-        else player.cash -= amount;
-
-        werase(popup);
-        box(popup, 0, 0);
-        if (hasColor) wattron(popup, COLOR_PAIR(win ? GOLDRUSH_GOLD_FOREST : GOLDRUSH_BLACK_TERRA));
-        mvwprintw(popup, 1, 2, "Spin: %d", spin);
-        mvwprintw(popup, 2, 2, "%s number!", even ? "Even" : "Odd");
-        mvwprintw(popup, 3, 2, "You %s $%d", win ? "WIN" : "LOSE", amount);
-        if (hasColor) wattroff(popup, COLOR_PAIR(win ? GOLDRUSH_GOLD_FOREST : GOLDRUSH_BLACK_TERRA));
-        mvwprintw(popup, 5, 2, "New cash: $%d", player.cash);
-        mvwprintw(popup, 6, 2, "Press ENTER");
-        wrefresh(popup);
+    switch (card.effect) {
+        case ACTION_GAIN_CASH:
+            amount = card.amount + (tile.value * 2000);
+            bank.credit(player, amount);
+            result = "Collected $" + std::to_string(amount) + ".";
+            break;
+        case ACTION_PAY_CASH:
+            amount = card.amount + (tile.value * 2000);
+            payment = bank.charge(player, amount);
+            result = appendLoanText("Paid $" + std::to_string(amount) + ".", payment);
+            amount = -amount;
+            break;
+        case ACTION_GAIN_PER_KID:
+            amount = player.kids * card.amount;
+            bank.credit(player, amount);
+            result = "Collected $" + std::to_string(amount) + " for family bonuses.";
+            break;
+        case ACTION_PAY_PER_KID:
+            amount = player.kids * card.amount;
+            payment = bank.charge(player, amount);
+            result = appendLoanText("Paid $" + std::to_string(amount) + " for family costs.", payment);
+            amount = -amount;
+            break;
+        case ACTION_GAIN_SALARY_BONUS:
+            player.salary += card.amount;
+            bank.credit(player, card.amount);
+            amount = card.amount;
+            result = "Salary +$" + std::to_string(card.amount) + " and immediate bonus paid.";
+            break;
+        case ACTION_BONUS_IF_MARRIED:
+            if (player.married) {
+                amount = card.amount;
+                bank.credit(player, amount);
+                result = "Marriage bonus paid $" + std::to_string(amount) + ".";
+            } else {
+                result = "No payout because you are not married yet.";
+            }
+            break;
     }
 
+    addHistory(player.name + " drew " + card.title);
+
+    int h, w;
+    getmaxyx(stdscr, h, w);
+    WINDOW* popup = newwin(10, 54, (h - 10) / 2, (w - 54) / 2);
+    applyWindowBg(popup);
+    werase(popup);
+    box(popup, 0, 0);
+    mvwprintw(popup, 1, 2, "ACTION CARD");
+    mvwprintw(popup, 2, 2, "%s", card.title.c_str());
+    mvwprintw(popup, 4, 2, "%s", card.description.c_str());
+    mvwprintw(popup, 5, 2, "%s", result.c_str());
+    mvwprintw(popup, 6, 2, "Cash now: $%d  Loans: %d", player.cash, player.loans);
+    mvwprintw(popup, 8, 2, "Press ENTER");
+    wrefresh(popup);
+
+    int ch;
     do {
         ch = wgetch(popup);
-    } while (ch != '\n' && ch != KEY_ENTER);
+    } while (ch != '\n' && ch != '\r' && ch != KEY_ENTER);
 
     delwin(popup);
     touchwin(msgWin);
@@ -419,85 +584,333 @@ int Game::playActionCard(const Tile& tile, Player& player) {
     return amount;
 }
 
-void Game::applyTileEffect(Player& player, const Tile& tile) {
+void Game::chooseCareer(Player& player, bool requiresDegree) {
+    std::vector<CareerCard> choices = decks.drawCareerChoices(requiresDegree, 2);
+    if (choices.size() < 2) {
+        return;
+    }
+
+    std::vector<std::string> lines;
+    lines.push_back("- " + choices[0].title + " ($" + std::to_string(choices[0].salary) + ")");
+    lines.push_back("- " + choices[1].title + " ($" + std::to_string(choices[1].salary) + ")");
+    int choice = showBranchPopup(requiresDegree ? "Choose a college career" : "Choose a career", lines, 'A', 'B');
+
+    player.job = choices[choice].title;
+    player.salary = choices[choice].salary;
+    if (requiresDegree) {
+        player.collegeGraduate = true;
+    }
+
+    addHistory(player.name + " became " + player.job);
+    showInfoPopup(player.name + " became a " + player.job,
+                  "Salary set to $" + std::to_string(player.salary));
+}
+
+void Game::resolveFamilyStop(Player& player) {
+    if (!rules.toggles.familyPathEnabled) {
+        player.familyChoice = 1;
+        addHistory(player.name + " stays on the life path");
+        showInfoPopup("Family STOP", "Family path is disabled. Staying on the life path.");
+        return;
+    }
+
+    int choice = showBranchPopup(
+        "Family or Life path?",
+        std::vector<std::string>{
+            "- Family path: babies and houses",
+            "- Life path: careers, safe/risky route"
+        },
+        'A',
+        'B');
+    player.familyChoice = choice;
+    addHistory(player.name + (choice == 0 ? " chose Family path" : " chose Life path"));
+    showInfoPopup("Family STOP", choice == 0 ? "Family path selected." : "Life path selected.");
+}
+
+void Game::resolveNightSchool(Player& player) {
+    if (!rules.toggles.nightSchoolEnabled) {
+        addHistory(player.name + " passed Night School");
+        showInfoPopup("Night School", "Night School is disabled in this mode.");
+        return;
+    }
+    if (player.usedNightSchool) {
+        showInfoPopup("Night School", "You already used Night School.");
+        return;
+    }
+
+    int choice = showBranchPopup(
+        "Night School?",
+        std::vector<std::string>{
+            "- Pay $100000 to draw a new college career",
+            "- Keep your current career"
+        },
+        'A',
+        'B');
+    if (choice == 0) {
+        PaymentResult payment = bank.charge(player, 100000);
+        player.usedNightSchool = true;
+        addHistory(appendLoanText(player.name + " paid $100000 for Night School", payment));
+        chooseCareer(player, true);
+    } else {
+        addHistory(player.name + " skipped Night School");
+        showInfoPopup("Night School", "Current career kept.");
+    }
+}
+
+void Game::resolveMarriageStop(Player& player) {
+    if (!player.married) {
+        player.married = true;
+    }
+    int spin = rollSpinner("Marriage Gifts", "Hold SPACE to spin wedding gifts");
+    int gift = marriageGiftFromSpin(spin);
+    bank.credit(player, gift);
+    addHistory(player.name + " married and received $" + std::to_string(gift));
+    maybeAwardPetCard(player, "Family edition bonus: a pet joined the family.");
+    showInfoPopup("Get Married", "Gift spin paid $" + std::to_string(gift) + ".");
+}
+
+void Game::resolveBabyStop(Player& player, const Tile& tile) {
+    int spin = rollSpinner("Baby Spin", "Hold SPACE to spin for 0 / 1 / 2 / 3 babies");
+    int babies = babiesFromSpin(spin);
+    player.kids += babies;
+    addHistory(player.name + ": " + babiesLabel(babies) + " on " + tile.label);
+    showInfoPopup(tile.label + " resolved", babiesLabel(babies));
+}
+
+void Game::resolveSafeRoute(Player& player) {
+    int spin = rollSpinner("Safe Route", "Spin for a smaller guaranteed reward");
+    int payout = safeRoutePayout(spin);
+    bank.credit(player, payout);
+    addHistory(player.name + " took Safe route for $" + std::to_string(payout));
+    showInfoPopup("Safe Route", "Collected $" + std::to_string(payout) + ".");
+}
+
+void Game::resolveRiskyRoute(Player& player) {
+    int spin = rollSpinner("Risky Route", "Spin for a big win or painful loss");
+    int payout = riskyRoutePayout(spin);
+    if (payout >= 0) {
+        bank.credit(player, payout);
+        addHistory(player.name + " won $" + std::to_string(payout) + " on Risky route");
+        showInfoPopup("Risky Route", "You won $" + std::to_string(payout) + ".");
+        return;
+    }
+
+    PaymentResult payment = bank.charge(player, -payout);
+    addHistory(appendLoanText(player.name + " lost $" + std::to_string(-payout) + " on Risky route", payment));
+    showInfoPopup("Risky Route", appendLoanText("You lost $" + std::to_string(-payout) + ".", payment));
+}
+
+void Game::resolveRetirement(int playerIndex) {
+    Player& player = players[playerIndex];
+    if (player.retired) {
+        return;
+    }
+
+    int choice = showBranchPopup(
+        "Choose retirement destination",
+        std::vector<std::string>{
+            "- Millionaire Mansion",
+            "- Countryside Acres"
+        },
+        'A',
+        'B');
+
+    player.retired = true;
+    player.retirementHome = choice == 0 ? "MM" : "CA";
+    player.tile = choice == 0 ? 87 : 88;
+    ++retiredCount;
+    player.retirementPlace = retiredCount;
+    player.retirementBonus = rules.toggles.retirementBonusesEnabled ? retirementBonusForPlace(retiredCount) : 0;
+
+    std::ostringstream line;
+    line << "Place " << player.retirementPlace;
+    if (player.retirementBonus > 0) {
+        line << " bonus $" << player.retirementBonus;
+    }
+    addHistory(player.name + " retired to " + player.retirementHome);
+    showInfoPopup("Retirement: " + player.retirementHome, line.str());
+}
+
+void Game::buyHouse(Player& player) {
+    if (player.hasHouse) {
+        showInfoPopup("House", "You already own " + player.houseName + ".");
+        return;
+    }
+
+    HouseCard house = decks.drawHouseCard();
+    PaymentResult payment = bank.charge(player, house.cost);
+    player.hasHouse = true;
+    player.houseName = house.title;
+    player.houseValue = house.saleValue;
+    player.finalHouseSaleValue = 0;
+    addHistory(appendLoanText(player.name + " bought " + house.title, payment));
+    maybeAwardPetCard(player, "House purchase bonus: a pet moved in.");
+    showInfoPopup("House: " + house.title,
+                  appendLoanText("Paid $" + std::to_string(house.cost) +
+                                 ", spin sale base $" + std::to_string(house.saleValue) + ".", payment));
+}
+
+void Game::assignInvestment(Player& player) {
+    InvestCard card = decks.drawInvestCard();
+    if (card.number <= 0) {
+        return;
+    }
+
+    player.investedNumber = card.number;
+    player.investPayout = card.payout;
+    addHistory(player.name + " invested on " + std::to_string(card.number));
+}
+
+void Game::resolveInvestmentPayouts(int spinnerValue) {
+    if (!rules.toggles.investmentEnabled) {
+        return;
+    }
+
+    std::ostringstream summary;
+    bool anyMatch = false;
+    for (size_t i = 0; i < players.size(); ++i) {
+        if (players[i].investedNumber != spinnerValue || players[i].investPayout <= 0) {
+            continue;
+        }
+        bank.credit(players[i], players[i].investPayout);
+        addHistory(players[i].name + " investment matched " + std::to_string(spinnerValue));
+        if (anyMatch) {
+            summary << " | ";
+        }
+        summary << players[i].name << " +$" << players[i].investPayout;
+        anyMatch = true;
+    }
+
+    if (anyMatch) {
+        showInfoPopup("Investment payout on spin " + std::to_string(spinnerValue), summary.str());
+    }
+}
+
+void Game::maybeAwardSpinToWin(Player& player, int spinnerValue) {
+    if (!rules.toggles.spinToWinEnabled || spinnerValue != 10) {
+        return;
+    }
+
+    ++player.spinToWinTokens;
+    bank.credit(player, rules.spinToWinPrize);
+    addHistory(player.name + " triggered Spin to Win");
+    showInfoPopup("Spin to Win!", player.name + " gains a token and $" +
+                  std::to_string(rules.spinToWinPrize) + ".");
+}
+
+void Game::maybeAwardPetCard(Player& player, const std::string& reason) {
+    if (!rules.toggles.petsEnabled) {
+        return;
+    }
+
+    PetCard pet = decks.drawPetCard();
+    if (pet.title.empty()) {
+        return;
+    }
+
+    player.petCards.push_back(pet.title);
+    addHistory(player.name + " adopted a " + pet.title);
+    showInfoPopup(player.name + " adopted a " + pet.title, reason);
+}
+
+void Game::applyTileEffect(int playerIndex, const Tile& tile) {
+    Player& player = players[playerIndex];
     std::string line = "Keep moving.";
 
     switch (tile.kind) {
         case TILE_START:
             line = "START: The journey begins.";
+            addHistory(player.name + " started the journey");
             break;
         case TILE_BLACK:
             playActionCard(tile, player);
             return;
-        case TILE_COLLEGE:
-            player.cash += 10000;
-            line = "COLLEGE: -$10K tuition, +$20K loan.";
+        case TILE_COLLEGE: {
+            PaymentResult payment = bank.charge(player, 100000);
+            player.collegeGraduate = false;
+            line = appendLoanText("COLLEGE: tuition/loan cost $100000.", payment);
+            addHistory(appendLoanText(player.name + " entered college", payment));
             break;
+        }
         case TILE_CAREER:
-            player.job = "Clerk";
-            player.salary = 3000;
-            line = "CAREER: You became a Clerk ($3000).";
-            break;
+            chooseCareer(player, false);
+            return;
         case TILE_GRADUATION:
-            if (player.startChoice == 0) {
-                player.job = "Doctor";
-                player.salary = 8000;
-                line = "GRADUATION: Doctor path unlocked. Salary is now $8000.";
-            } else {
-                player.job = "Manager";
-                player.salary = 5000;
-                line = "GRADUATION: Career path pays off. Salary is now $5000.";
+            if (player.startChoice == 0 || player.job == "Unemployed") {
+                chooseCareer(player, true);
+                return;
             }
+            line = "GRADUATION STOP: career route keeps the current job.";
+            addHistory(player.name + " cleared Graduation");
             break;
         case TILE_MARRIAGE:
-            player.cash -= 5000;
-            player.married = true;
-            line = "MARRIAGE: -$5000 and married.";
-            break;
+            resolveMarriageStop(player);
+            return;
+        case TILE_FAMILY:
+            resolveFamilyStop(player);
+            return;
+        case TILE_NIGHT_SCHOOL:
+            resolveNightSchool(player);
+            return;
+        case TILE_SPLIT_RISK:
+            if (!rules.toggles.riskyRouteEnabled) {
+                player.riskChoice = 0;
+                addHistory(player.name + " defaults to the Safe route");
+                showInfoPopup("Risk split", "Risky route is disabled. Safe route selected.");
+            } else {
+                int riskChoice = showBranchPopup(
+                    "Safe or Risky route?",
+                    std::vector<std::string>{
+                        "- Safe route: smaller payout, no huge swings",
+                        "- Risky route: bigger wins and losses"
+                    },
+                    'A',
+                    'B');
+                player.riskChoice = riskChoice;
+                addHistory(player.name + (riskChoice == 0 ? " chose Safe route" : " chose Risky route"));
+                showInfoPopup("Risk split", riskChoice == 0 ? "Safe route selected." : "Risky route selected.");
+            }
+            return;
+        case TILE_SAFE:
+            resolveSafeRoute(player);
+            return;
+        case TILE_RISKY:
+            resolveRiskyRoute(player);
+            return;
+        case TILE_SPIN_AGAIN:
+            addHistory(player.name + " hit Spin Again");
+            showInfoPopup("Spin Again", "Take another full movement spin right now.");
+            takeMovementSpin(playerIndex, "Spin Again");
+            return;
         case TILE_CAREER_2:
             player.salary += tile.value;
-            line = "CAREER PATH: promotion! Salary increased.";
+            line = "PROMOTION: salary increased to $" + std::to_string(player.salary) + ".";
+            addHistory(player.name + " got a promotion");
             break;
-        case TILE_PAYDAY:
-            player.cash += tile.value;
-            line = "PAYDAY: cash increased.";
+        case TILE_PAYDAY: {
+            int payout = tile.value + player.salary;
+            bank.credit(player, payout);
+            line = "PAYDAY: collected $" + std::to_string(payout) + ".";
+            addHistory(player.name + " collected payday $" + std::to_string(payout));
             break;
+        }
         case TILE_BABY:
-            player.kids += tile.value;
-            player.cash -= tile.value * 1000;
-            line = "FAMILY ROAD: babies added to the family.";
-            break;
+            resolveBabyStop(player, tile);
+            return;
         case TILE_HOUSE:
-            player.cash -= 50000;
-            player.hasHouse = true;
-            player.houseValue = tile.value;
-            line = "HOUSE: bought a house on the family road.";
-            break;
+            buyHouse(player);
+            return;
         case TILE_RETIREMENT:
-            if (tile.id == 88) {
-                player.retired = true;
-                line = "RETIREMENT: You finished the game.";
-            } else {
-                line = "Retirement stretch.";
-            }
-            break;
+            resolveRetirement(playerIndex);
+            return;
         case TILE_SPLIT_START:
         case TILE_SPLIT_FAMILY:
         case TILE_EMPTY:
-        case TILE_FAMILY:
         default:
             break;
     }
 
-    werase(msgWin);
-    box(msgWin, 0, 0);
-    mvwprintw(msgWin, 1, 2, "%s", line.c_str());
-    mvwprintw(msgWin, 2, 2, "Press ENTER to continue");
-    wrefresh(msgWin);
-    int ch;
-    do {
-        ch = wgetch(msgWin);
-    } while (ch != '\n' && ch != KEY_ENTER);
+    showInfoPopup(tile.label + " resolved", line);
 }
 
 int Game::chooseNextTile(Player& player, const Tile& tile) {
@@ -505,44 +918,123 @@ int Game::chooseNextTile(Player& player, const Tile& tile) {
         int c = showBranchPopup(
             "College or Career?",
             std::vector<std::string>{
-                "- College: debt now, stronger graduation payoff",
-                "- Career: income sooner, steadier path"
+                "- College: debt now, stronger jobs later",
+                "- Career: choose a job right away"
             },
             'A',
             'B');
         player.startChoice = c;
+        addHistory(player.name + (c == 0 ? " chose College" : " chose Career"));
     }
-    if (tile.kind == TILE_SPLIT_FAMILY && tile.id == 58 && player.familyChoice == -1) {
-        int c = showBranchPopup(
-            "Family or Career?",
-            std::vector<std::string>{
-                "- Family: babies, house chances, more chaos",
-                "- Career: more payday tiles and promotions"
-            },
-            'A',
-            'B');
-        player.familyChoice = c;
+
+    if (tile.kind == TILE_SPLIT_FAMILY) {
+        if (player.familyChoice == -1) {
+            player.familyChoice = 1;
+        }
+        return player.familyChoice == 0 ? tile.next : tile.altNext;
+    }
+
+    if (tile.kind == TILE_SPLIT_RISK) {
+        if (player.riskChoice == -1) {
+            player.riskChoice = 0;
+        }
+        return player.riskChoice == 0 ? tile.next : tile.altNext;
     }
 
     if (tile.kind == TILE_SPLIT_START) {
-        return (player.startChoice == 0) ? tile.next : tile.altNext;
+        return player.startChoice == 0 ? tile.next : tile.altNext;
     }
-    if (tile.kind == TILE_SPLIT_FAMILY && tile.id == 58) {
-        return (player.familyChoice == 0) ? tile.next : tile.altNext;
-    }
+
     return tile.next;
 }
 
-void Game::animateMove(int currentPlayer, int steps) {
+bool Game::animateMove(int currentPlayer, int steps) {
     Player& player = players[currentPlayer];
     for (int step = 0; step < steps; ++step) {
         const Tile& current = board.tileAt(player.tile);
         int nextTile = chooseNextTile(player, current);
         if (nextTile < 0) break;
         player.tile = nextTile;
-        renderGame(currentPlayer, player.name + " moved to tile " + std::to_string(player.tile));
+
+        const Tile& landed = board.tileAt(player.tile);
+        std::string message = player.name + " moved to " + landed.label;
+        if (board.isStopSpace(landed)) {
+            message = "STOP! " + player.name + " hit " + landed.label;
+        }
+        renderGame(currentPlayer, message, "Movement in progress...");
         napms(170);
+
+        if (board.isStopSpace(landed)) {
+            applyTileEffect(currentPlayer, landed);
+            return true;
+        }
     }
+    return false;
+}
+
+void Game::takeMovementSpin(int currentPlayer, const std::string& reason) {
+    Player& player = players[currentPlayer];
+    int roll = rollSpinner(reason, "Hold SPACE to spin movement");
+    addHistory(player.name + " spun " + std::to_string(roll));
+    maybeAwardSpinToWin(player, roll);
+    resolveInvestmentPayouts(roll);
+
+    bool stoppedEarly = animateMove(currentPlayer, roll);
+    if (!stoppedEarly) {
+        applyTileEffect(currentPlayer, board.tileAt(player.tile));
+    }
+}
+
+bool Game::allPlayersRetired() const {
+    for (size_t i = 0; i < players.size(); ++i) {
+        if (!players[i].retired) {
+            return false;
+        }
+    }
+    return true;
+}
+
+void Game::finalizeScoring() {
+    for (size_t i = 0; i < players.size(); ++i) {
+        Player& player = players[i];
+        if (player.hasHouse) {
+            if (rules.toggles.houseSaleSpinEnabled) {
+                int spin = rollSpinner(player.name + " house sale", "Spin to sell your house");
+                player.finalHouseSaleValue = houseSaleValueFromSpin(player.houseValue, spin);
+            } else {
+                player.finalHouseSaleValue = player.houseValue;
+            }
+            addHistory(player.name + " sold " + player.houseName + " for $" + std::to_string(player.finalHouseSaleValue));
+        }
+
+        int actionScore = static_cast<int>(player.actionCards.size()) * 100000;
+        int petScore = static_cast<int>(player.petCards.size()) * 100000;
+        int babyScore = player.kids * 50000;
+        int loanPenalty = bank.totalLoanDebt(player);
+        int houseScore = player.finalHouseSaleValue;
+
+        std::ostringstream line1;
+        std::ostringstream line2;
+        line1 << player.name << ": cash $" << player.cash
+              << " + house $" << houseScore
+              << " + actions $" << actionScore;
+        line2 << "pets $" << petScore
+              << " + babies $" << babyScore
+              << " + retire $" << player.retirementBonus
+              << " - loans $" << loanPenalty;
+        showInfoPopup(line1.str(), line2.str());
+    }
+}
+
+int Game::calculateFinalWorth(const Player& player) const {
+    int worth = player.cash;
+    worth += player.finalHouseSaleValue > 0 ? player.finalHouseSaleValue : player.houseValue;
+    worth += static_cast<int>(player.actionCards.size()) * 100000;
+    worth += static_cast<int>(player.petCards.size()) * 100000;
+    worth += player.kids * 50000;
+    worth += player.retirementBonus;
+    worth -= bank.totalLoanDebt(player);
+    return worth;
 }
 
 bool Game::run() {
@@ -550,50 +1042,38 @@ bool Game::run() {
     if (!showStartScreen()) return false;
 
     createWindows();
+    setupRules();
     setupPlayers();
+    setupInvestments();
+    showTutorial();
 
     int currentPlayer = 0;
-    bool allRetired = false;
-    while (!allRetired) {
+    while (!allPlayersRetired()) {
         if (!ensureMinSize()) return false;
         destroyWindows();
         createWindows();
 
         if (players[currentPlayer].retired) {
             currentPlayer = (currentPlayer + 1) % static_cast<int>(players.size());
-            allRetired = true;
-            for (size_t i = 0; i < players.size(); ++i) {
-                if (!players[i].retired) allRetired = false;
-            }
             continue;
         }
 
-        renderGame(currentPlayer, players[currentPlayer].name + "'s turn");
-
-        int ch;
-        do {
-            ch = wgetch(infoWin);
-            if (ch == 'q' || ch == 'Q') return false;
-        } while (ch != '\n' && ch != KEY_ENTER);
-
-        int roll = rollSpinner();
-        animateMove(currentPlayer, roll);
-        applyTileEffect(players[currentPlayer], board.tileAt(players[currentPlayer].tile));
-
-        allRetired = true;
-        for (size_t i = 0; i < players.size(); ++i) {
-            if (!players[i].retired) {
-                allRetired = false;
-                break;
-            }
+        renderGame(currentPlayer, players[currentPlayer].name + "'s turn", "ENTER spin | K keys | Q quit");
+        int command = waitForTurnCommand(currentPlayer);
+        if (command == 'q' || command == 'Q') {
+            return false;
         }
+
+        takeMovementSpin(currentPlayer, "Movement Spin");
         currentPlayer = (currentPlayer + 1) % static_cast<int>(players.size());
     }
 
+    finalizeScoring();
+
     int winner = 0;
-    int best = totalWorth(players[0]);
+    int best = calculateFinalWorth(players[0]);
     for (size_t i = 1; i < players.size(); ++i) {
-        int worth = totalWorth(players[i]);
+        int worth = calculateFinalWorth(players[i]);
         if (worth > best) {
             best = worth;
             winner = static_cast<int>(i);
@@ -605,6 +1085,6 @@ bool Game::run() {
     mvwprintw(msgWin, 1, 2, "Game Over! %s wins with $%d.", players[winner].name.c_str(), best);
     mvwprintw(msgWin, 2, 2, "Press ENTER to exit");
     wrefresh(msgWin);
-    waitForEnter(msgWin, 2, 22, "");
+    waitForEnter(msgWin, 2, 2, "");
     return true;
 }

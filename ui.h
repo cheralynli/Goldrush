@@ -6,6 +6,7 @@
 
 #include "board.hpp"
 #include "player.hpp"
+#include "rules.hpp"
 
 enum GoldrushUiColorPair {
     GOLDRUSH_GOLD_BLACK = 1,
@@ -34,7 +35,11 @@ void initialize_game_ui();
 void destroy_game_ui();
 void apply_ui_background(WINDOW* window);
 void draw_board_ui(WINDOW* boardWin, const Board& board, const std::vector<Player>& players, int highlightedTile);
-void draw_right_panel_ui(WINDOW* panelWin, const Player& player, int playerIndex);
+void draw_sidebar_ui(WINDOW* panelWin,
+                     const std::vector<Player>& players,
+                     int currentPlayer,
+                     const std::vector<std::string>& historyLines,
+                     const RuleSet& rules);
 void draw_message_ui(WINDOW* msgWin, const std::string& line1, const std::string& line2);
 void draw_title_banner_ui(WINDOW* titleWin);
 int selector_component(char* prompt_text, char** option_texts, int* option_values, int number_of_options, int default_value, int y_offset, int width, int height);

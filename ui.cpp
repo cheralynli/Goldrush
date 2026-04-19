@@ -123,49 +123,53 @@ void draw_board_ui(WINDOW* boardWin, const Board& board, const std::vector<Playe
     board.render(boardWin, players, has_colors());
 }
 
-void draw_right_panel_ui(WINDOW* panelWin, const Player& player, int playerIndex) {
+void draw_sidebar_ui(WINDOW* panelWin,
+                     const std::vector<Player>& players,
+                     int currentPlayer,
+                     const std::vector<std::string>& historyLines,
+                     const RuleSet& rules) {
     werase(panelWin);
     box(panelWin, 0, 0);
 
     wattron(panelWin, COLOR_PAIR(GOLDRUSH_GOLD_BLACK) | A_BOLD);
-    mvwprintw(panelWin, 1, 2, "PLAYER");
-    mvwprintw(panelWin, 15, 2, "CONTROLS");
-    mvwprintw(panelWin, 20, 2, "LEGEND");
-    mvwprintw(panelWin, 25, 2, "GOAL");
+    mvwprintw(panelWin, 1, 2, "PLAYERS");
+    mvwprintw(panelWin, 15, 2, "HISTORY");
+    mvwprintw(panelWin, 23, 2, "MODE");
     wattroff(panelWin, COLOR_PAIR(GOLDRUSH_GOLD_BLACK) | A_BOLD);
 
-    wattron(panelWin, COLOR_PAIR(ui_player_color_pair(playerIndex)) | A_BOLD);
-    mvwprintw(panelWin, 3, 2, "%s [%c]", player.name.c_str(), player.token);
-    wattroff(panelWin, COLOR_PAIR(ui_player_color_pair(playerIndex)) | A_BOLD);
+    int row = 2;
+    for (size_t i = 0; i < players.size(); ++i) {
+        const Player& player = players[i];
+        std::string marker = (static_cast<int>(i) == currentPlayer) ? ">" : " ";
+        std::string home = player.retirementHome.empty() ? "--" : player.retirementHome;
+        std::string invest = player.investedNumber > 0 ? std::to_string(player.investedNumber) : "-";
+
+        wattron(panelWin, COLOR_PAIR(ui_player_color_pair(static_cast<int>(i))) | A_BOLD);
+        mvwprintw(panelWin, row, 2, "%sP%d %.12s [%c]", marker.c_str(), static_cast<int>(i) + 1, player.name.c_str(), player.token);
+        wattroff(panelWin, COLOR_PAIR(ui_player_color_pair(static_cast<int>(i))) | A_BOLD);
+
+        wattron(panelWin, COLOR_PAIR(GOLDRUSH_BROWN_CREAM));
+        mvwprintw(panelWin, row + 1, 2, "$%d L:%d S:%s K:%d P:%d", player.cash, player.loans, player.married ? "Y" : "N", player.kids, static_cast<int>(player.petCards.size()));
+        mvwprintw(panelWin, row + 2, 2, "J:%-.10s I:%s H:%-.8s", player.job.c_str(), invest.c_str(), home.c_str());
+        wattroff(panelWin, COLOR_PAIR(GOLDRUSH_BROWN_CREAM));
+        row += 3;
+    }
 
     wattron(panelWin, COLOR_PAIR(GOLDRUSH_BROWN_CREAM));
-    mvwprintw(panelWin, 5, 2, "Cash:      $%d", player.cash);
-    mvwprintw(panelWin, 6, 2, "Career:    %s", player.job.c_str());
-    mvwprintw(panelWin, 7, 2, "Salary:    $%d", player.salary);
-    mvwprintw(panelWin, 8, 2, "Married:   %s", player.married ? "Yes" : "No");
-    mvwprintw(panelWin, 9, 2, "Kids:      %d", player.kids);
-    mvwprintw(panelWin, 10, 2, "House:     %s", player.hasHouse ? "Yes" : "No");
-    mvwprintw(panelWin, 11, 2, "Value:     $%d", player.houseValue);
-    mvwprintw(panelWin, 16, 2, "[ENTER] Spin");
-    mvwprintw(panelWin, 17, 2, "[Q] Quit");
-    mvwprintw(panelWin, 18, 2, "Hold SPACE to roll");
-    mvwprintw(panelWin, 21, 2, "Green  = regular");
-    mvwprintw(panelWin, 22, 2, "Red    = black/special");
-    mvwprintw(panelWin, 23, 2, "Gold   = milestones");
-    mvwprintw(panelWin, 26, 2, "Reach retirement");
-    mvwprintw(panelWin, 27, 2, "with the highest");
-    mvwprintw(panelWin, 28, 2, "total worth.");
-    wattroff(panelWin, COLOR_PAIR(GOLDRUSH_BROWN_CREAM));
+    for (size_t i = 0; i < historyLines.size() && i < 6; ++i) {
+        mvwprintw(panelWin, 16 + static_cast<int>(i), 2, "%-.34s", historyLines[i].c_str());
+    }
 
-    wattron(panelWin, COLOR_PAIR(3));
-    mvwprintw(panelWin, 21, 24, "[]");
-    wattroff(panelWin, COLOR_PAIR(3));
-    wattron(panelWin, COLOR_PAIR(5));
-    mvwprintw(panelWin, 22, 24, "[]");
-    wattroff(panelWin, COLOR_PAIR(5));
-    wattron(panelWin, COLOR_PAIR(4));
-    mvwprintw(panelWin, 23, 24, "[]");
-    wattroff(panelWin, COLOR_PAIR(4));
+    mvwprintw(panelWin, 24, 2, "%-.34s", rules.editionName.c_str());
+    mvwprintw(panelWin, 25, 2, "Tut:%s Inv:%s Pets:%s",
+              rules.toggles.tutorialEnabled ? "Y" : "N",
+              rules.toggles.investmentEnabled ? "Y" : "N",
+              rules.toggles.petsEnabled ? "Y" : "N");
+    mvwprintw(panelWin, 26, 2, "Risk:%s Night:%s Spin:%s",
+              rules.toggles.riskyRouteEnabled ? "Y" : "N",
+              rules.toggles.nightSchoolEnabled ? "Y" : "N",
+              rules.toggles.spinToWinEnabled ? "Y" : "N");
+    wattroff(panelWin, COLOR_PAIR(GOLDRUSH_BROWN_CREAM));
 
     wrefresh(panelWin);
 }

@@ -2,7 +2,7 @@ CXX = g++
 CXXFLAGS = -std=c++11 -Wall -Wextra
 LIBS = -lncurses
 
-OBJS = main.o game.o board.o player.o ui.o
+OBJS = main.o game.o board.o player.o ui.o rules.o cards.o bank.o history.o spins.o
 
 all: gameoflife
 

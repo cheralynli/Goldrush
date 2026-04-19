@@ -57,6 +57,7 @@ void Board::initTiles() {
         tiles[i].next = (i < TILE_COUNT - 1) ? i + 1 : -1;
         tiles[i].altNext = -1;
         tiles[i].value = 0;
+        tiles[i].stop = false;
     }
 
     for (int i = 0; i <= 9; ++i) {
@@ -64,55 +65,76 @@ void Board::initTiles() {
         tiles[i].kind = TILE_BLACK;
         tiles[i].value = 1;
     }
+
     tiles[10].label = "ST";
     tiles[10].kind = TILE_START;
+
     tiles[11].label = "BK";
     tiles[11].kind = TILE_BLACK;
     tiles[11].value = 1;
+
     tiles[12].label = "SP";
     tiles[12].kind = TILE_SPLIT_START;
     tiles[12].next = 13;
     tiles[12].altNext = 25;
 
-    tiles[13].label = "COL";
+    tiles[13].label = "CO";
     tiles[13].kind = TILE_COLLEGE;
     for (int i = 14; i <= 24; ++i) {
         tiles[i].label = "BK";
         tiles[i].kind = TILE_BLACK;
         tiles[i].value = (i >= 20) ? 2 : 1;
     }
+    tiles[20].label = "PD";
+    tiles[20].kind = TILE_PAYDAY;
+    tiles[20].value = 5000;
     tiles[24].next = 38;
 
-    tiles[25].label = "CAR";
+    tiles[25].label = "CR";
     tiles[25].kind = TILE_CAREER;
+    tiles[25].stop = true;
     for (int i = 26; i <= 37; ++i) {
         tiles[i].label = "BK";
         tiles[i].kind = TILE_BLACK;
         tiles[i].value = (i >= 33) ? 2 : 1;
     }
+    tiles[31].label = "PD";
+    tiles[31].kind = TILE_PAYDAY;
+    tiles[31].value = 7000;
     tiles[37].next = 38;
 
-    tiles[38].label = "GRD";
+    tiles[38].label = "GR";
     tiles[38].kind = TILE_GRADUATION;
+    tiles[38].stop = true;
     for (int i = 39; i <= 48; ++i) {
         tiles[i].label = "BK";
         tiles[i].kind = TILE_BLACK;
         tiles[i].value = 2;
     }
-    tiles[41].label = "PAY";
+    tiles[41].label = "PD";
     tiles[41].kind = TILE_PAYDAY;
-    tiles[41].value = 4000;
-    tiles[44].label = "WED";
+    tiles[41].value = 10000;
+    tiles[44].label = "GM";
     tiles[44].kind = TILE_MARRIAGE;
-    tiles[47].label = "PAY";
+    tiles[44].stop = true;
+    tiles[47].label = "PD";
     tiles[47].kind = TILE_PAYDAY;
-    tiles[47].value = 5000;
+    tiles[47].value = 15000;
 
     for (int i = 49; i <= 57; ++i) {
         tiles[i].label = "BK";
         tiles[i].kind = TILE_BLACK;
         tiles[i].value = 2;
     }
+    tiles[50].label = "FM";
+    tiles[50].kind = TILE_FAMILY;
+    tiles[50].stop = true;
+    tiles[52].label = "NS";
+    tiles[52].kind = TILE_NIGHT_SCHOOL;
+    tiles[52].stop = true;
+    tiles[55].label = "PD";
+    tiles[55].kind = TILE_PAYDAY;
+    tiles[55].value = 12000;
     tiles[58].label = "SP";
     tiles[58].kind = TILE_SPLIT_FAMILY;
     tiles[58].next = 59;
@@ -125,16 +147,19 @@ void Board::initTiles() {
     }
     tiles[60].label = "3B";
     tiles[60].kind = TILE_BABY;
-    tiles[60].value = 3;
+    tiles[60].stop = true;
     tiles[64].label = "2B";
     tiles[64].kind = TILE_BABY;
-    tiles[64].value = 2;
-    tiles[68].label = "HSE";
+    tiles[64].stop = true;
+    tiles[68].label = "HS";
     tiles[68].kind = TILE_HOUSE;
-    tiles[68].value = 100000;
+    tiles[68].stop = true;
+    tiles[70].label = "PD";
+    tiles[70].kind = TILE_PAYDAY;
+    tiles[70].value = 18000;
     tiles[72].label = "1B";
     tiles[72].kind = TILE_BABY;
-    tiles[72].value = 1;
+    tiles[72].stop = true;
     tiles[72].next = 87;
 
     for (int i = 73; i <= 86; ++i) {
@@ -142,33 +167,89 @@ void Board::initTiles() {
         tiles[i].kind = TILE_BLACK;
         tiles[i].value = 2;
     }
-    tiles[75].label = "PAY";
+    tiles[75].label = "PD";
     tiles[75].kind = TILE_PAYDAY;
-    tiles[75].value = 5000;
-    tiles[79].label = "PRM";
-    tiles[79].kind = TILE_CAREER_2;
-    tiles[79].value = 3000;
-    tiles[83].label = "PAY";
-    tiles[83].kind = TILE_PAYDAY;
-    tiles[83].value = 7000;
-    tiles[86].label = "BK";
-    tiles[86].value = 3;
+    tiles[75].value = 20000;
+    tiles[76].label = "PR";
+    tiles[76].kind = TILE_CAREER_2;
+    tiles[76].value = 10000;
+    tiles[79].label = "RS";
+    tiles[79].kind = TILE_SPLIT_RISK;
+    tiles[79].stop = true;
+    tiles[79].next = 80;
+    tiles[79].altNext = 83;
+    tiles[80].label = "SF";
+    tiles[80].kind = TILE_SAFE;
+    tiles[80].stop = true;
+    tiles[81].label = "PD";
+    tiles[81].kind = TILE_PAYDAY;
+    tiles[81].value = 25000;
+    tiles[82].label = "SG";
+    tiles[82].kind = TILE_SPIN_AGAIN;
+    tiles[82].stop = true;
+    tiles[82].next = 86;
+    tiles[83].label = "RK";
+    tiles[83].kind = TILE_RISKY;
+    tiles[83].stop = true;
+    tiles[84].label = "BK";
+    tiles[84].kind = TILE_BLACK;
+    tiles[84].value = 3;
+    tiles[85].label = "RK";
+    tiles[85].kind = TILE_RISKY;
+    tiles[85].stop = true;
+    tiles[85].next = 86;
+    tiles[86].label = "PD";
+    tiles[86].kind = TILE_PAYDAY;
+    tiles[86].value = 30000;
     tiles[86].next = 87;
 
-    tiles[87].label = "RT";
+    tiles[87].label = "MM";
     tiles[87].kind = TILE_RETIREMENT;
-    tiles[88].label = "RT";
+    tiles[87].stop = true;
+    tiles[87].next = -1;
+
+    tiles[88].label = "CA";
     tiles[88].kind = TILE_RETIREMENT;
-    tiles[87].next = 88;
+    tiles[88].stop = true;
     tiles[88].next = -1;
+}
+
+bool Board::isStopSpace(const Tile& tile) const {
+    return tile.stop;
+}
+
+std::vector<std::string> Board::tutorialLegend() const {
+    std::vector<std::string> lines;
+    lines.push_back("ST = Start");
+    lines.push_back("SP = Branch point");
+    lines.push_back("CO = College path");
+    lines.push_back("CR = Choose a career");
+    lines.push_back("GR = Graduation STOP");
+    lines.push_back("GM = Get Married STOP");
+    lines.push_back("FM = Family STOP");
+    lines.push_back("NS = Night School");
+    lines.push_back("PD = Payday");
+    lines.push_back("PR = Promotion");
+    lines.push_back("HS = House");
+    lines.push_back("3B/2B/1B = Baby STOP spaces");
+    lines.push_back("RS = Risk split");
+    lines.push_back("SF = Safe route");
+    lines.push_back("RK = Risky route");
+    lines.push_back("SG = Spin again");
+    lines.push_back("MM = Millionaire Mansion");
+    lines.push_back("CA = Countryside Acres");
+    lines.push_back("BK = Action / black card");
+    return lines;
 }
 
 int Board::colorForTile(const Tile& tile) const {
     switch (tile.kind) {
         case TILE_BLACK:
+        case TILE_RISKY:
         case TILE_MARRIAGE:
         case TILE_SPLIT_START:
         case TILE_SPLIT_FAMILY:
+        case TILE_SPLIT_RISK:
         case TILE_HOUSE:
             return 5;
         case TILE_START:
@@ -176,6 +257,8 @@ int Board::colorForTile(const Tile& tile) const {
         case TILE_PAYDAY:
         case TILE_GRADUATION:
         case TILE_BABY:
+        case TILE_NIGHT_SCHOOL:
+        case TILE_SPIN_AGAIN:
             return 4;
         default:
             return 3;
@@ -224,7 +307,7 @@ void Board::drawTreeGuides(WINDOW* boardWin) const {
 
 void Board::drawTile(WINDOW* boardWin, const Tile& tile, bool hasColor) const {
     std::string label = tile.label;
-    if (tile.kind == TILE_BLACK || tile.kind == TILE_EMPTY) {
+    if (tile.kind == TILE_EMPTY) {
         label = "  ";
     }
     mvwaddch(boardWin, tile.y, tile.x, '[');
