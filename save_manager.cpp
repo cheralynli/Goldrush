@@ -2,9 +2,19 @@
 
 #include "game.hpp"
 
+#include <algorithm>
+#include <chrono>
+#include <cctype>
+#include <ctime>
+#include <filesystem>
 #include <fstream>
+#include <map>
+#include <random>
 #include <sstream>
+#include <system_error>
 #include <vector>
+
+namespace fs = std::filesystem;
 
 namespace {
 struct LoadedGameState {
@@ -23,7 +33,54 @@ struct LoadedGameState {
     int currentPlayerIndex;
     int turnCounter;
     int retiredCount;
+    std::string gameId;
+    std::string assignedFilename;
+    std::time_t createdTime;
+    std::time_t lastSavedTime;
 };
+
+bool fillLocalTime(std::time_t timestamp, std::tm& out) {
+#if defined(_WIN32)
+    return localtime_s(&out, &timestamp) == 0;
+#else
+    return localtime_r(&timestamp, &out) != 0;
+#endif
+}
+
+fs::path saveDirectoryPath() {
+    return fs::path("saves");
+}
+
+bool hasSavExtension(const std::string& filename) {
+    return filename.size() >= 4 && filename.substr(filename.size() - 4) == ".sav";
+}
+
+std::string ensureSavExtension(const std::string& filename) {
+    if (filename.empty() || hasSavExtension(filename)) {
+        return filename;
+    }
+    return filename + ".sav";
+}
+
+std::time_t fileTimeToTimeT(const fs::file_time_type& value) {
+    const std::chrono::system_clock::time_point systemPoint =
+        std::chrono::time_point_cast<std::chrono::system_clock::duration>(
+            value - fs::file_time_type::clock::now() + std::chrono::system_clock::now());
+    return std::chrono::system_clock::to_time_t(systemPoint);
+}
+
+std::string formatTimestamp(std::time_t timestamp, const char* pattern) {
+    std::tm localTime;
+    if (!fillLocalTime(timestamp, localTime)) {
+        return "unknown";
+    }
+
+    char buffer[64] = {0};
+    if (std::strftime(buffer, sizeof(buffer), pattern, &localTime) == 0) {
+        return "unknown";
+    }
+    return buffer;
+}
 
 std::string escapeField(const std::string& value) {
     std::string escaped;
@@ -121,6 +178,17 @@ bool parseUInt(const std::string& text, std::uint32_t& value) {
     return true;
 }
 
+bool parseTimeValue(const std::string& text, std::time_t& value) {
+    std::istringstream in(text);
+    long long parsed = 0;
+    in >> parsed;
+    if (in.fail() || !in.eof()) {
+        return false;
+    }
+    value = static_cast<std::time_t>(parsed);
+    return true;
+}
+
 bool parseBool(const std::string& text, bool& value) {
     int parsed = 0;
     if (!parseInt(text, parsed)) {
@@ -132,6 +200,114 @@ bool parseBool(const std::string& text, bool& value) {
 
 std::string boolText(bool value) {
     return value ? "1" : "0";
+}
+
+void finalizeSaveFileInfo(SaveFileInfo& info) {
+    if (info.assignedFilename.empty()) {
+        info.assignedFilename = info.filename;
+    } else {
+        const fs::path assignedPath(info.assignedFilename);
+        if (assignedPath.has_filename()) {
+            info.assignedFilename = ensureSavExtension(assignedPath.filename().string());
+        } else {
+            info.assignedFilename = ensureSavExtension(info.assignedFilename);
+        }
+    }
+    if (info.createdTime <= 0) {
+        info.createdTime = info.modifiedTime;
+    }
+    if (info.lastSavedTime <= 0) {
+        info.lastSavedTime = info.modifiedTime;
+    }
+
+    info.createdText = formatTimestamp(info.createdTime, "%Y-%m-%d %H:%M:%S");
+    info.lastSavedText = formatTimestamp(info.lastSavedTime, "%Y-%m-%d %H:%M:%S");
+    info.assignedTarget = info.assignedFilename == info.filename;
+}
+
+bool readSaveFileMetadata(const fs::path& path, SaveFileInfo& info) {
+    std::ifstream in(path.c_str());
+    if (!in) {
+        return false;
+    }
+
+    std::string line;
+    if (!std::getline(in, line)) {
+        return false;
+    }
+
+    std::vector<std::string> headerParts = splitTabbed(line);
+    if (headerParts.size() != 2 || headerParts[0] != "GOLDRUSH_SAVE") {
+        return false;
+    }
+
+    int version = 0;
+    if (!parseInt(headerParts[1], version) || version < 1 || version > SaveManager::SAVE_VERSION) {
+        return false;
+    }
+
+    info.saveVersion = version;
+
+    while (std::getline(in, line)) {
+        if (line.empty()) {
+            continue;
+        }
+
+        std::vector<std::string> parts = splitTabbed(line);
+        for (std::size_t i = 0; i < parts.size(); ++i) {
+            std::string decoded;
+            if (!unescapeField(parts[i], decoded)) {
+                return false;
+            }
+            parts[i] = decoded;
+        }
+
+        if (parts.empty()) {
+            continue;
+        }
+        if (parts[0] == "END") {
+            break;
+        }
+
+        if (parts[0] == "GAME" && parts.size() >= 3) {
+            if (parts[1] == "ID") {
+                info.gameId = parts[2];
+            } else if (parts[1] == "CREATED_AT") {
+                if (!parseTimeValue(parts[2], info.createdTime)) {
+                    return false;
+                }
+            } else if (parts[1] == "LAST_SAVED_AT") {
+                if (!parseTimeValue(parts[2], info.lastSavedTime)) {
+                    return false;
+                }
+            } else if (parts[1] == "ASSIGNED_FILE") {
+                info.assignedFilename = parts[2];
+            }
+        }
+
+        if (parts[0] == "PLAYERS" ||
+            parts[0] == "PLAYER" ||
+            parts[0] == "HISTORY" ||
+            parts[0] == "DECK") {
+            break;
+        }
+    }
+
+    info.metadataValid = true;
+    finalizeSaveFileInfo(info);
+    return true;
+}
+
+fs::path makeArchivePath(const fs::path& originalPath) {
+    fs::path candidate(originalPath.string() + ".bak");
+    int suffix = 1;
+    std::error_code errorCode;
+    while (fs::exists(candidate, errorCode)) {
+        candidate = fs::path(originalPath.string() + ".bak" + std::to_string(suffix));
+        ++suffix;
+        errorCode.clear();
+    }
+    return candidate;
 }
 
 std::string deckSlotName(DeckSlot slot) {
@@ -402,20 +578,263 @@ bool parseRuleField(RuleSet& rules,
 }
 
 bool SaveManager::saveExists(const std::string& filename) const {
-    std::ifstream in(filename.c_str());
-    return in.good();
+    const fs::path path(resolvePath(filename));
+    std::error_code errorCode;
+    return fs::exists(path, errorCode) && fs::is_regular_file(path, errorCode);
+}
+
+bool SaveManager::ensureSaveDirectory(std::string& error) const {
+    const fs::path directory = saveDirectoryPath();
+    std::error_code errorCode;
+
+    if (fs::exists(directory, errorCode)) {
+        if (errorCode) {
+            error = "Could not inspect saves folder.";
+            return false;
+        }
+        if (!fs::is_directory(directory, errorCode)) {
+            error = "A non-folder item is blocking saves/.";
+            return false;
+        }
+        return true;
+    }
+
+    if (!fs::create_directories(directory, errorCode) && errorCode) {
+        error = "Could not create saves/ folder.";
+        return false;
+    }
+    return true;
+}
+
+std::vector<SaveFileInfo> SaveManager::listSaveFiles(std::string& error) const {
+    std::vector<SaveFileInfo> files;
+    const fs::path directory = saveDirectoryPath();
+    std::error_code errorCode;
+
+    if (!fs::exists(directory, errorCode)) {
+        return files;
+    }
+    if (errorCode) {
+        error = "Could not inspect saves/ folder.";
+        return files;
+    }
+    if (!fs::is_directory(directory, errorCode)) {
+        error = "saves/ exists but is not a folder.";
+        return files;
+    }
+
+    for (fs::directory_iterator it(directory, errorCode), end; !errorCode && it != end; it.increment(errorCode)) {
+        const fs::directory_entry& entry = *it;
+        if (!entry.is_regular_file(errorCode) || errorCode) {
+            continue;
+        }
+
+        const fs::path path = entry.path();
+        if (path.extension() != ".sav") {
+            continue;
+        }
+
+        SaveFileInfo info;
+        info.saveVersion = 0;
+        info.filename = path.filename().string();
+        info.path = path.string();
+        info.gameId.clear();
+        info.assignedFilename.clear();
+        info.createdText = "unknown";
+        info.sizeBytes = entry.file_size(errorCode);
+        if (errorCode) {
+            info.sizeBytes = 0;
+            errorCode.clear();
+        }
+
+        const fs::file_time_type modified = entry.last_write_time(errorCode);
+        if (errorCode) {
+            info.createdTime = 0;
+            info.modifiedTime = 0;
+            info.modifiedText = "unknown";
+            info.lastSavedText = "unknown";
+            info.lastSavedTime = 0;
+            errorCode.clear();
+        } else {
+            info.createdTime = 0;
+            info.modifiedTime = fileTimeToTimeT(modified);
+            info.modifiedText = formatTimestamp(info.modifiedTime, "%Y-%m-%d %H:%M:%S");
+            info.lastSavedText = info.modifiedText;
+            info.lastSavedTime = info.modifiedTime;
+        }
+        info.metadataValid = false;
+        info.duplicateGameId = false;
+        info.assignedTarget = true;
+        readSaveFileMetadata(path, info);
+        files.push_back(info);
+    }
+
+    if (errorCode) {
+        error = "Could not read one or more save files.";
+        files.clear();
+        return files;
+    }
+
+    std::map<std::string, int> gameIdCounts;
+    for (std::size_t i = 0; i < files.size(); ++i) {
+        if (!files[i].gameId.empty()) {
+            ++gameIdCounts[files[i].gameId];
+        }
+    }
+    for (std::size_t i = 0; i < files.size(); ++i) {
+        if (!files[i].gameId.empty() && gameIdCounts[files[i].gameId] > 1) {
+            files[i].duplicateGameId = true;
+        }
+    }
+
+    std::sort(files.begin(), files.end(), [](const SaveFileInfo& left, const SaveFileInfo& right) {
+        const std::time_t leftNewest = left.lastSavedTime > 0 ? left.lastSavedTime : left.modifiedTime;
+        const std::time_t rightNewest = right.lastSavedTime > 0 ? right.lastSavedTime : right.modifiedTime;
+        if (leftNewest != rightNewest) {
+            return leftNewest > rightNewest;
+        }
+        return left.filename < right.filename;
+    });
+    return files;
+}
+
+std::string SaveManager::defaultSaveFilename() const {
+    const std::time_t now = std::time(0);
+    return formatTimestamp(now, "%Y-%m-%d_%H-%M-%S.sav");
+}
+
+std::string SaveManager::generateGameId() const {
+    static std::uint64_t counter = 0;
+    const std::uint64_t timePart = static_cast<std::uint64_t>(
+        std::chrono::duration_cast<std::chrono::microseconds>(
+            std::chrono::system_clock::now().time_since_epoch()).count());
+    std::random_device randomDevice;
+    const std::uint64_t randomPart =
+        (static_cast<std::uint64_t>(randomDevice()) << 32) ^
+        static_cast<std::uint64_t>(randomDevice());
+
+    ++counter;
+    std::ostringstream out;
+    out << "G" << std::hex << std::uppercase
+        << timePart << "-" << randomPart << "-" << counter;
+    return out.str();
+}
+
+std::string SaveManager::normalizeFilename(const std::string& filename) const {
+    std::string trimmed = filename;
+    while (!trimmed.empty() && std::isspace(static_cast<unsigned char>(trimmed[0]))) {
+        trimmed.erase(trimmed.begin());
+    }
+    while (!trimmed.empty() && std::isspace(static_cast<unsigned char>(trimmed[trimmed.size() - 1]))) {
+        trimmed.erase(trimmed.end() - 1);
+    }
+
+    if (trimmed.empty()) {
+        return defaultSaveFilename();
+    }
+
+    fs::path requested(trimmed);
+    if (requested.has_filename()) {
+        trimmed = requested.filename().string();
+    } else {
+        return defaultSaveFilename();
+    }
+    if (trimmed.empty()) {
+        return defaultSaveFilename();
+    }
+    return ensureSavExtension(trimmed);
+}
+
+std::string SaveManager::resolvePath(const std::string& filename) const {
+    return (saveDirectoryPath() / normalizeFilename(filename)).string();
+}
+
+bool SaveManager::archiveDuplicateSaves(const std::string& gameId,
+                                        const std::string& keepFilename,
+                                        int& archivedCount,
+                                        std::string& error) const {
+    archivedCount = 0;
+    error.clear();
+    if (gameId.empty()) {
+        return true;
+    }
+    if (!ensureSaveDirectory(error)) {
+        return false;
+    }
+
+    const std::string keepNormalized = normalizeFilename(keepFilename);
+    const fs::path directory = saveDirectoryPath();
+    std::error_code errorCode;
+    for (fs::directory_iterator it(directory, errorCode), end; !errorCode && it != end; it.increment(errorCode)) {
+        const fs::directory_entry& entry = *it;
+        if (!entry.is_regular_file(errorCode) || errorCode) {
+            continue;
+        }
+
+        const fs::path sourcePath = entry.path();
+        if (sourcePath.extension() != ".sav") {
+            continue;
+        }
+        if (sourcePath.filename().string() == keepNormalized) {
+            continue;
+        }
+
+        SaveFileInfo info;
+        info.saveVersion = 0;
+        info.filename = sourcePath.filename().string();
+        info.path = sourcePath.string();
+        info.gameId.clear();
+        info.assignedFilename.clear();
+        info.createdText = "unknown";
+        info.modifiedText = "unknown";
+        info.lastSavedText = "unknown";
+        info.sizeBytes = 0;
+        info.createdTime = 0;
+        info.modifiedTime = 0;
+        info.lastSavedTime = 0;
+        info.metadataValid = false;
+        info.duplicateGameId = false;
+        info.assignedTarget = false;
+
+        if (!readSaveFileMetadata(sourcePath, info) || info.gameId != gameId) {
+            continue;
+        }
+
+        const fs::path archivePath = makeArchivePath(sourcePath);
+        fs::rename(sourcePath, archivePath, errorCode);
+        if (errorCode) {
+            error = "Saved, but could not archive duplicate file " + sourcePath.filename().string() + ".";
+            return false;
+        }
+        ++archivedCount;
+    }
+
+    if (errorCode) {
+        error = "Saved, but duplicate cleanup could not finish.";
+        return false;
+    }
+    return true;
 }
 
 bool SaveManager::saveGame(const Game& game,
                            const std::string& filename,
                            std::string& error) const {
-    std::ofstream out(filename.c_str(), std::ios::out | std::ios::trunc);
+    if (!ensureSaveDirectory(error)) {
+        return false;
+    }
+
+    const std::string resolvedPath = resolvePath(filename);
+    std::ofstream out(resolvedPath.c_str(), std::ios::out | std::ios::trunc);
     if (!out) {
         error = "Could not open file for writing.";
         return false;
     }
 
     out << "GOLDRUSH_SAVE\t" << SAVE_VERSION << "\n";
+    out << "GAME\tID\t" << escapeField(game.gameId) << "\n";
+    out << "GAME\tCREATED_AT\t" << static_cast<long long>(game.createdTime) << "\n";
+    out << "GAME\tLAST_SAVED_AT\t" << static_cast<long long>(game.lastSavedTime) << "\n";
+    out << "GAME\tASSIGNED_FILE\t" << escapeField(game.assignedSaveFilename) << "\n";
     out << "GAME\tCURRENT_PLAYER\t" << game.currentPlayerIndex << "\n";
     out << "GAME\tTURN_COUNTER\t" << game.turnCounter << "\n";
     out << "GAME\tRETIRED_COUNT\t" << game.retiredCount << "\n";
@@ -453,7 +872,8 @@ bool SaveManager::saveGame(const Game& game,
 bool SaveManager::loadGame(Game& game,
                            const std::string& filename,
                            std::string& error) const {
-    std::ifstream in(filename.c_str());
+    const std::string resolvedPath = resolvePath(filename);
+    std::ifstream in(resolvedPath.c_str());
     if (!in) {
         error = "Save file not found.";
         return false;
@@ -476,7 +896,7 @@ bool SaveManager::loadGame(Game& game,
         error = "Invalid save version.";
         return false;
     }
-    if (version != SAVE_VERSION) {
+    if (version < 1 || version > SAVE_VERSION) {
         error = "Unsupported save version.";
         return false;
     }
@@ -488,6 +908,17 @@ bool SaveManager::loadGame(Game& game,
     data.currentPlayerIndex = 0;
     data.turnCounter = 0;
     data.retiredCount = 0;
+    data.gameId.clear();
+    data.assignedFilename.clear();
+    data.createdTime = 0;
+    data.lastSavedTime = 0;
+
+    std::time_t fileModifiedTime = std::time(0);
+    std::error_code fileTimeError;
+    const fs::file_time_type fileWriteTime = fs::last_write_time(fs::path(resolvedPath), fileTimeError);
+    if (!fileTimeError) {
+        fileModifiedTime = fileTimeToTimeT(fileWriteTime);
+    }
 
     while (std::getline(in, line)) {
         if (line.empty()) {
@@ -518,7 +949,21 @@ bool SaveManager::loadGame(Game& game,
                 return false;
             }
 
-            if (parts[1] == "CURRENT_PLAYER") {
+            if (parts[1] == "ID") {
+                data.gameId = parts[2];
+            } else if (parts[1] == "CREATED_AT") {
+                if (!parseTimeValue(parts[2], data.createdTime)) {
+                    error = "Invalid created time.";
+                    return false;
+                }
+            } else if (parts[1] == "LAST_SAVED_AT") {
+                if (!parseTimeValue(parts[2], data.lastSavedTime)) {
+                    error = "Invalid last-saved time.";
+                    return false;
+                }
+            } else if (parts[1] == "ASSIGNED_FILE") {
+                data.assignedFilename = parts[2];
+            } else if (parts[1] == "CURRENT_PLAYER") {
                 if (!parseInt(parts[2], data.currentPlayerIndex)) {
                     error = "Invalid current player index.";
                     return false;
@@ -654,6 +1099,19 @@ bool SaveManager::loadGame(Game& game,
         error = "Saved current player index is out of range.";
         return false;
     }
+    if (data.gameId.empty()) {
+        data.gameId = generateGameId();
+    }
+    if (data.assignedFilename.empty()) {
+        data.assignedFilename = fs::path(resolvedPath).filename().string();
+    }
+    data.assignedFilename = normalizeFilename(data.assignedFilename);
+    if (data.createdTime <= 0) {
+        data.createdTime = fileModifiedTime;
+    }
+    if (data.lastSavedTime <= 0) {
+        data.lastSavedTime = fileModifiedTime;
+    }
     if (!game.rng.restoreState(data.rngState, data.rngFixedSeed, data.rngSeedValue)) {
         error = "Could not restore RNG state.";
         return false;
@@ -665,6 +1123,10 @@ bool SaveManager::loadGame(Game& game,
     game.currentPlayerIndex = data.currentPlayerIndex;
     game.turnCounter = data.turnCounter;
     game.retiredCount = data.retiredCount;
+    game.gameId = data.gameId;
+    game.assignedSaveFilename = data.assignedFilename;
+    game.createdTime = data.createdTime;
+    game.lastSavedTime = data.lastSavedTime;
     game.decks.reset(game.rules, false);
 
     if (!game.decks.restoreDeckState(DECK_ACTION, data.actionDeck, error)) return false;

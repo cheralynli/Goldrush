@@ -2,6 +2,7 @@
 
 #include <ncurses.h>
 #include <cstdint>
+#include <ctime>
 #include <string>
 #include <vector>
 
@@ -14,6 +15,7 @@
 #include "rules.hpp"
 
 class SaveManager;
+struct SaveFileInfo;
 
 class Game {
 public:
@@ -58,6 +60,10 @@ private:
     int retiredCount;
     int currentPlayerIndex;
     int turnCounter;
+    std::string gameId;
+    std::string assignedSaveFilename;
+    std::time_t createdTime;
+    std::time_t lastSavedTime;
 
     bool ensureMinSize() const;
     void createWindows();
@@ -70,6 +76,7 @@ private:
     bool promptForFilename(const std::string& action,
                            const std::string& defaultName,
                            std::string& filename);
+    bool chooseSaveFileToLoad(SaveFileInfo& selected);
     bool saveCurrentGame();
     bool loadSavedGame();
 

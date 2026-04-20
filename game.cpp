@@ -19,6 +19,49 @@ std::string appendLoanText(const std::string& base, const PaymentResult& payment
     out << base << " Auto-loan +" << payment.loansTaken << ".";
     return out.str();
 }
+
+std::string clipMenuText(const std::string& text, std::size_t width) {
+    if (text.size() <= width) {
+        return text;
+    }
+    if (width <= 3) {
+        return text.substr(0, width);
+    }
+    return text.substr(0, width - 3) + "...";
+}
+
+std::string formatSaveSize(std::uintmax_t sizeBytes) {
+    std::ostringstream out;
+    if (sizeBytes >= 1024ULL * 1024ULL) {
+        out << (sizeBytes / (1024ULL * 1024ULL)) << " MB";
+    } else if (sizeBytes >= 1024ULL) {
+        out << (sizeBytes / 1024ULL) << " KB";
+    } else {
+        out << sizeBytes << " B";
+    }
+    return out.str();
+}
+
+std::string displayNameFromPath(const std::string& path) {
+    const std::string::size_type pos = path.find_last_of("/\\");
+    return pos == std::string::npos ? path : path.substr(pos + 1);
+}
+
+std::string saveMenuStatusText(const SaveFileInfo& info) {
+    if (!info.metadataValid) {
+        return "! Save metadata is missing or invalid. Loading may fail.";
+    }
+    if (info.duplicateGameId && !info.assignedTarget) {
+        return "* Duplicate copy. Future saves will overwrite " + info.assignedFilename + ".";
+    }
+    if (info.duplicateGameId) {
+        return "Canonical save for " + info.gameId + ". Duplicate copies exist.";
+    }
+    if (!info.gameId.empty()) {
+        return "Game " + info.gameId + " | Created " + info.createdText + ".";
+    }
+    return "Legacy save without a persistent game ID.";
+}
 }
 
 Game::Game()
@@ -34,7 +77,11 @@ Game::Game()
       hasColor(has_colors()),
       retiredCount(0),
       currentPlayerIndex(0),
-      turnCounter(0) {
+      turnCounter(0),
+      gameId(),
+      assignedSaveFilename(),
+      createdTime(0),
+      lastSavedTime(0) {
 }
 
 Game::Game(std::uint32_t seed)
@@ -50,7 +97,11 @@ Game::Game(std::uint32_t seed)
       hasColor(has_colors()),
       retiredCount(0),
       currentPlayerIndex(0),
-      turnCounter(0) {
+      turnCounter(0),
+      gameId(),
+      assignedSaveFilename(),
+      createdTime(0),
+      lastSavedTime(0) {
 }
 
 Game::~Game() {
@@ -219,12 +270,17 @@ void Game::flashSpinResult(const std::string& title, int value) const {
 bool Game::promptForFilename(const std::string& action,
                              const std::string& defaultName,
                              std::string& filename) {
+    std::ostringstream prompt;
+    prompt << action << " in saves/ [" << defaultName << "]: ";
+    const std::string promptText = prompt.str();
+
     echo();
     curs_set(1);
     werase(msgWin);
     box(msgWin, 0, 0);
-    mvwprintw(msgWin, 1, 2, "%s file [%s]: ", action.c_str(), defaultName.c_str());
-    mvwprintw(msgWin, 2, 2, "Press ENTER for the default name.");
+    mvwprintw(msgWin, 1, 2, "%s", promptText.c_str());
+    mvwprintw(msgWin, 2, 2, "Press ENTER for the default name or type a new filename.");
+    wmove(msgWin, 1, 2 + static_cast<int>(promptText.size()));
     wrefresh(msgWin);
 
     char buffer[260] = {0};
@@ -240,36 +296,197 @@ bool Game::promptForFilename(const std::string& action,
     return true;
 }
 
-bool Game::saveCurrentGame() {
-    std::string filename;
-    promptForFilename("Save", "goldrush_save.sav", filename);
-
+bool Game::chooseSaveFileToLoad(SaveFileInfo& selected) {
     SaveManager saveManager;
     std::string error;
-    if (!saveManager.saveGame(*this, filename, error)) {
+    const std::vector<SaveFileInfo> saves = saveManager.listSaveFiles(error);
+    if (!error.empty()) {
+        showInfoPopup("Load failed", error);
+        return false;
+    }
+    if (saves.empty()) {
+        showInfoPopup("Load Game", "No save files were found in saves/.");
+        return false;
+    }
+
+    int termH, termW;
+    getmaxyx(stdscr, termH, termW);
+    const int popupH = std::min(20, termH - 4);
+    const int popupW = std::min(108, termW - 4);
+    WINDOW* popup = newwin(popupH, popupW, (termH - popupH) / 2, (termW - popupW) / 2);
+    applyWindowBg(popup);
+    keypad(popup, TRUE);
+
+    const int listTop = 4;
+    const int listBottom = popupH - 4;
+    const int visibleRows = std::max(1, listBottom - listTop + 1);
+    const int availableWidth = popupW - 4;
+    const int modifiedWidth = 19;
+    const int sizeWidth = 9;
+    int fileWidth = availableWidth - modifiedWidth - sizeWidth - 4;
+    if (fileWidth < 20) {
+        fileWidth = 20;
+    }
+
+    int selectedIndex = 0;
+    int topIndex = 0;
+
+    while (true) {
+        if (selectedIndex < topIndex) {
+            topIndex = selectedIndex;
+        }
+        if (selectedIndex >= topIndex + visibleRows) {
+            topIndex = selectedIndex - visibleRows + 1;
+        }
+
+        werase(popup);
+        box(popup, 0, 0);
+        mvwprintw(popup, 1, 2, "Load Game");
+        mvwprintw(popup, 2, 2, "Arrow keys move  Enter load  PgUp/PgDn scroll  Esc/Q cancel");
+        mvwprintw(popup, 3, 2, "%-*s  %-19s  %9s", fileWidth, "File", "Modified", "Size");
+
+        for (int row = 0; row < visibleRows; ++row) {
+            const int index = topIndex + row;
+            if (index >= static_cast<int>(saves.size())) {
+                break;
+            }
+
+            const SaveFileInfo& info = saves[static_cast<std::size_t>(index)];
+            std::string displayFilename = info.filename;
+            if (!info.metadataValid) {
+                displayFilename = "! " + displayFilename;
+            } else if (info.duplicateGameId && !info.assignedTarget) {
+                displayFilename = "* " + displayFilename;
+            }
+            const std::string filename = clipMenuText(displayFilename, static_cast<std::size_t>(fileWidth));
+            const std::string sizeText = clipMenuText(formatSaveSize(info.sizeBytes), static_cast<std::size_t>(sizeWidth));
+
+            if (index == selectedIndex) {
+                wattron(popup, A_REVERSE);
+            }
+            mvwprintw(popup, listTop + row, 2, "%-*s  %-19s  %9s",
+                      fileWidth,
+                      filename.c_str(),
+                      info.modifiedText.c_str(),
+                      sizeText.c_str());
+            if (index == selectedIndex) {
+                wattroff(popup, A_REVERSE);
+            }
+        }
+
+        const int shownFrom = topIndex + 1;
+        const int shownTo = std::min(topIndex + visibleRows, static_cast<int>(saves.size()));
+        mvwprintw(popup, popupH - 3, 2, "%s",
+                  clipMenuText(saveMenuStatusText(saves[static_cast<std::size_t>(selectedIndex)]),
+                               static_cast<std::size_t>(popupW - 4)).c_str());
+        mvwprintw(popup, popupH - 2, 2, "Showing %d-%d of %d",
+                  shownFrom, shownTo, static_cast<int>(saves.size()));
+        mvwprintw(popup, popupH - 2, popupW / 2, "%s",
+                  clipMenuText(saves[static_cast<std::size_t>(selectedIndex)].filename,
+                               static_cast<std::size_t>(popupW / 2 - 4)).c_str());
+        wrefresh(popup);
+
+        const int ch = wgetch(popup);
+        if (ch == KEY_UP) {
+            if (selectedIndex > 0) {
+                --selectedIndex;
+            }
+        } else if (ch == KEY_DOWN) {
+            if (selectedIndex + 1 < static_cast<int>(saves.size())) {
+                ++selectedIndex;
+            }
+        } else if (ch == KEY_PPAGE) {
+            selectedIndex = std::max(0, selectedIndex - visibleRows);
+        } else if (ch == KEY_NPAGE) {
+            selectedIndex = std::min(static_cast<int>(saves.size()) - 1, selectedIndex + visibleRows);
+        } else if (ch == '\n' || ch == '\r' || ch == KEY_ENTER) {
+            selected = saves[static_cast<std::size_t>(selectedIndex)];
+            delwin(popup);
+            return true;
+        } else if (ch == 27 || ch == 'q' || ch == 'Q' || ch == KEY_RESIZE) {
+            delwin(popup);
+            return false;
+        }
+    }
+}
+
+bool Game::saveCurrentGame() {
+    SaveManager saveManager;
+    std::string filename = assignedSaveFilename;
+    if (filename.empty()) {
+        promptForFilename("Save", saveManager.defaultSaveFilename(), filename);
+    }
+
+    const std::string previousAssignedFilename = assignedSaveFilename;
+    const std::time_t previousLastSavedTime = lastSavedTime;
+    if (gameId.empty()) {
+        gameId = saveManager.generateGameId();
+    }
+    if (createdTime == 0) {
+        createdTime = std::time(0);
+    }
+    assignedSaveFilename = saveManager.normalizeFilename(filename);
+    lastSavedTime = std::time(0);
+
+    std::string error;
+    if (!saveManager.saveGame(*this, assignedSaveFilename, error)) {
+        assignedSaveFilename = previousAssignedFilename;
+        lastSavedTime = previousLastSavedTime;
         showInfoPopup("Save failed", error);
         return false;
     }
 
-    addHistory("Saved game to " + filename);
-    showInfoPopup("Game saved", filename);
+    int archivedCount = 0;
+    std::string archiveError;
+    const bool duplicatesArchived =
+        saveManager.archiveDuplicateSaves(gameId, assignedSaveFilename, archivedCount, archiveError);
+
+    const std::string resolvedPath = saveManager.resolvePath(assignedSaveFilename);
+    addHistory("Saved game to " + resolvedPath);
+    if (archivedCount > 0) {
+        addHistory("Archived " + std::to_string(archivedCount) + " duplicate save copies");
+    }
+    if (!duplicatesArchived) {
+        addHistory("Warning: " + archiveError);
+        showInfoPopup("Game saved", archiveError);
+        return true;
+    }
+    if (archivedCount > 0) {
+        showInfoPopup("Game saved", "Archived " + std::to_string(archivedCount) + " duplicate save copies.");
+        return true;
+    }
+
+    showInfoPopup("Game saved", resolvedPath);
     return true;
 }
 
 bool Game::loadSavedGame() {
-    std::string filename;
-    promptForFilename("Load", "goldrush_save.sav", filename);
-
     SaveManager saveManager;
-    std::string error;
-    if (!saveManager.loadGame(*this, filename, error)) {
-        showInfoPopup("Load failed", error);
-        return false;
-    }
+    while (true) {
+        SaveFileInfo selected;
+        if (!chooseSaveFileToLoad(selected)) {
+            return false;
+        }
 
-    addHistory("Loaded game from " + filename);
-    showInfoPopup("Game loaded", filename);
-    return true;
+        std::string error;
+        if (!saveManager.loadGame(*this, selected.path, error)) {
+            showInfoPopup("Load failed", error);
+            continue;
+        }
+
+        addHistory("Loaded game from " + selected.filename);
+        if (!assignedSaveFilename.empty() && selected.filename != assignedSaveFilename) {
+            addHistory("Loaded duplicate copy for " + gameId);
+            showInfoPopup("Game loaded", "Future saves overwrite " + saveManager.resolvePath(assignedSaveFilename));
+            return true;
+        }
+        if (selected.duplicateGameId) {
+            showInfoPopup("Game loaded", "Canonical save slot: " + saveManager.resolvePath(assignedSaveFilename));
+            return true;
+        }
+        showInfoPopup("Game loaded", displayNameFromPath(selected.path));
+        return true;
+    }
 }
 
 Game::StartChoice Game::showStartScreen() {
@@ -518,11 +735,16 @@ void Game::showControlsPopup() const {
 }
 
 void Game::setupRules() {
+    SaveManager saveManager;
     decks.reset(rules);
     bank.configure(rules);
     retiredCount = 0;
     currentPlayerIndex = 0;
     turnCounter = 0;
+    gameId = saveManager.generateGameId();
+    assignedSaveFilename.clear();
+    createdTime = std::time(0);
+    lastSavedTime = 0;
     history.clear();
     addHistory("Mode: " + rules.editionName);
 }
