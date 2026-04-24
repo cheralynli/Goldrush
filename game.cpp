@@ -1,4 +1,5 @@
 #include "game.hpp"
+#include "battleship.hpp"
 #include "pong.hpp"
 #include "save_manager.hpp"
 #include "spins.hpp"
@@ -935,11 +936,54 @@ int Game::showBranchPopup(const std::string& title,
 
 void Game::playBlackTileMinigame(int playerIndex) {
     Player& player = players[playerIndex];
-    addHistory(player.name + " landed on a black tile and entered Pong");
-    showInfoPopup("BLACK TILE: PONG",
-                  "One life. Each paddle return earns $100. Press ENTER to start.");
+    const int minigameChoice = rng.uniformInt(0, 1);
 
-    const PongMinigameResult result = playPongMinigame(player.name, hasColor);
+    if (titleWin) touchwin(titleWin);
+    if (boardWin) touchwin(boardWin);
+    if (infoWin) touchwin(infoWin);
+    if (msgWin) touchwin(msgWin);
+
+    if (minigameChoice == 0) {
+        addHistory(player.name + " landed on a black tile and entered Pong");
+        showInfoPopup("BLACK TILE: PONG",
+                      "One life. Each paddle return earns $100. Press ENTER to start.");
+
+        const PongMinigameResult result = playPongMinigame(player.name, hasColor);
+
+        if (titleWin) touchwin(titleWin);
+        if (boardWin) touchwin(boardWin);
+        if (infoWin) touchwin(infoWin);
+        if (msgWin) touchwin(msgWin);
+
+        if (result.abandoned) {
+            addHistory(player.name + " left Pong before finishing");
+            renderGame(playerIndex, player.name + " left the Pong sidegame", "No payout awarded");
+            showInfoPopup("PONG sidegame", "Exited early. No payout awarded.");
+            return;
+        }
+
+        const int payout = result.playerScore * 100;
+        if (payout > 0) {
+            bank.credit(player, payout);
+        }
+
+        std::ostringstream summary;
+        summary << "Score " << result.playerScore
+                << " | CPU " << result.cpuScore
+                << " | Earned $" << payout;
+
+        addHistory(player.name + " scored " + std::to_string(result.playerScore) +
+                   " in Pong and earned $" + std::to_string(payout));
+        renderGame(playerIndex, player.name + " finished the Pong sidegame", summary.str());
+        showInfoPopup("PONG sidegame", summary.str());
+        return;
+    }
+
+    addHistory(player.name + " landed on a black tile and entered Battleship");
+    showInfoPopup("BLACK TILE: BATTLESHIP",
+                  "Shoot the $ ships. One enemy hit ends the run. Each ship is worth $100.");
+
+    const BattleshipMinigameResult result = playBattleshipMinigame(player.name, hasColor);
 
     if (titleWin) touchwin(titleWin);
     if (boardWin) touchwin(boardWin);
@@ -947,26 +991,27 @@ void Game::playBlackTileMinigame(int playerIndex) {
     if (msgWin) touchwin(msgWin);
 
     if (result.abandoned) {
-        addHistory(player.name + " left Pong before finishing");
-        renderGame(playerIndex, player.name + " left the Pong sidegame", "No payout awarded");
-        showInfoPopup("PONG sidegame", "Exited early. No payout awarded.");
+        addHistory(player.name + " left Battleship before finishing");
+        renderGame(playerIndex, player.name + " left the Battleship sidegame", "No payout awarded");
+        showInfoPopup("BATTLESHIP sidegame", "Exited early. No payout awarded.");
         return;
     }
 
-    const int payout = result.playerScore * 100;
+    const int payout = result.shipsDestroyed * 100;
     if (payout > 0) {
         bank.credit(player, payout);
     }
 
     std::ostringstream summary;
-    summary << "Score " << result.playerScore
-            << " | CPU " << result.cpuScore
+    summary << "Destroyed " << result.shipsDestroyed
+            << " ships"
+            << (result.clearedWave ? " | Wave cleared" : " | Wave failed")
             << " | Earned $" << payout;
 
-    addHistory(player.name + " scored " + std::to_string(result.playerScore) +
-               " in Pong and earned $" + std::to_string(payout));
-    renderGame(playerIndex, player.name + " finished the Pong sidegame", summary.str());
-    showInfoPopup("PONG sidegame", summary.str());
+    addHistory(player.name + " destroyed " + std::to_string(result.shipsDestroyed) +
+               " ships in Battleship and earned $" + std::to_string(payout));
+    renderGame(playerIndex, player.name + " finished the Battleship sidegame", summary.str());
+    showInfoPopup("BATTLESHIP sidegame", summary.str());
 }
 
 int Game::findPreviousTile(const Player& player, int tileId) const {
