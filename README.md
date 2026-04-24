@@ -200,7 +200,7 @@ This means a loaded game resumes from the same state instead of rebuilding an ap
 - Michelle
 - Yin
 - Carla
-- Joy
+- Joylin
 
 ## Notes
 
