@@ -1,6 +1,8 @@
 #include "game.hpp"
 #include "battleship.hpp"
 #include "pong.hpp"
+#include "hangman.hpp"
+#include "memory.hpp"
 #include "save_manager.hpp"
 #include "spins.hpp"
 #include "ui.h"
@@ -936,13 +938,15 @@ int Game::showBranchPopup(const std::string& title,
 
 void Game::playBlackTileMinigame(int playerIndex) {
     Player& player = players[playerIndex];
-    const int minigameChoice = rng.uniformInt(0, 1);
+    // Now 4 minigames: Pong (0), Battleship (1), Hangman (2), Memory (3)
+    const int minigameChoice = rng.uniformInt(0, 3);
 
     if (titleWin) touchwin(titleWin);
     if (boardWin) touchwin(boardWin);
     if (infoWin) touchwin(infoWin);
     if (msgWin) touchwin(msgWin);
 
+    //Player chooses PONG
     if (minigameChoice == 0) {
         addHistory(player.name + " landed on a black tile and entered Pong");
         showInfoPopup("BLACK TILE: PONG",
@@ -979,39 +983,120 @@ void Game::playBlackTileMinigame(int playerIndex) {
         return;
     }
 
-    addHistory(player.name + " landed on a black tile and entered Battleship");
-    showInfoPopup("BLACK TILE: BATTLESHIP",
-                  "Shoot the $ ships. One enemy hit ends the run. Each ship is worth $100.");
+    //Player chooses BATTLESHIP
+    else if (minigameChoice == 1) {
+        addHistory(player.name + " landed on a black tile and entered Battleship");
+        showInfoPopup("BLACK TILE: BATTLESHIP",
+                    "Shoot the $ ships. One enemy hit ends the run. Each ship is worth $100.");
 
-    const BattleshipMinigameResult result = playBattleshipMinigame(player.name, hasColor);
+        const BattleshipMinigameResult result = playBattleshipMinigame(player.name, hasColor);
 
-    if (titleWin) touchwin(titleWin);
-    if (boardWin) touchwin(boardWin);
-    if (infoWin) touchwin(infoWin);
-    if (msgWin) touchwin(msgWin);
+        if (titleWin) touchwin(titleWin);
+        if (boardWin) touchwin(boardWin);
+        if (infoWin) touchwin(infoWin);
+        if (msgWin) touchwin(msgWin);
 
-    if (result.abandoned) {
-        addHistory(player.name + " left Battleship before finishing");
-        renderGame(playerIndex, player.name + " left the Battleship sidegame", "No payout awarded");
-        showInfoPopup("BATTLESHIP sidegame", "Exited early. No payout awarded.");
+        if (result.abandoned) {
+            addHistory(player.name + " left Battleship before finishing");
+            renderGame(playerIndex, player.name + " left the Battleship sidegame", "No payout awarded");
+            showInfoPopup("BATTLESHIP sidegame", "Exited early. No payout awarded.");
+            return;
+        }
+
+        const int payout = result.shipsDestroyed * 100;
+        if (payout > 0) {
+            bank.credit(player, payout);
+        }
+
+        std::ostringstream summary;
+        summary << "Destroyed " << result.shipsDestroyed
+                << " ships"
+                << (result.clearedWave ? " | Wave cleared" : " | Wave failed")
+                << " | Earned $" << payout;
+
+        addHistory(player.name + " destroyed " + std::to_string(result.shipsDestroyed) +
+                " ships in Battleship and earned $" + std::to_string(payout));
+        renderGame(playerIndex, player.name + " finished the Battleship sidegame", summary.str());
+        showInfoPopup("BATTLESHIP sidegame", summary.str());
         return;
     }
 
-    const int payout = result.shipsDestroyed * 100;
-    if (payout > 0) {
-        bank.credit(player, payout);
-    }
-
-    std::ostringstream summary;
-    summary << "Destroyed " << result.shipsDestroyed
-            << " ships"
-            << (result.clearedWave ? " | Wave cleared" : " | Wave failed")
-            << " | Earned $" << payout;
-
-    addHistory(player.name + " destroyed " + std::to_string(result.shipsDestroyed) +
-               " ships in Battleship and earned $" + std::to_string(payout));
-    renderGame(playerIndex, player.name + " finished the Battleship sidegame", summary.str());
-    showInfoPopup("BATTLESHIP sidegame", summary.str());
+    //PLayer chooses HANGMAN
+    else if (minigameChoice == 2) {
+        addHistory(player.name + " landed on a black tile and entered Hangman");
+        showInfoPopup("BLACK TILE: HANGMAN",
+                    "Guess the word before the hangman is completed. Each wrong guess draws part of the hangman.");
+        
+        const HangmanResult result = playHangmanMinigame(player.name, hasColor);
+        
+        if (titleWin) touchwin(titleWin);
+        if (boardWin) touchwin(boardWin);
+        if (infoWin) touchwin(infoWin);
+        if (msgWin) touchwin(msgWin);
+        
+        if (result.abandoned) {
+            addHistory(player.name + " left Hangman before finishing");
+            renderGame(playerIndex, player.name + " left the Hangman sidegame", "No payout awarded");
+            showInfoPopup("HANGMAN sidegame", "Exited early. No payout awarded.");
+            return;
+        }
+        
+        // Payout: $5000 for winning, $0 for losing
+        const int payout = result.won ? 5000 : 0;
+        if (payout > 0) {
+            bank.credit(player, payout);
+        }
+        
+        std::ostringstream summary;
+        if (result.won) {
+            summary << "Word guessed! Attempts left: " << result.attemptsLeft << " | +$5000";
+        } else {
+            summary << "Failed to guess the word | No payout";
+        }
+        
+        addHistory(player.name + (result.won ? " won Hangman and earned $5000" : " lost Hangman"));
+        renderGame(playerIndex, player.name + " finished the Hangman sidegame", summary.str());
+        showInfoPopup("HANGMAN sidegame", summary.str());
+        return;
+    }   
+    
+    //Player chooses MEMORY MATCH
+    if (minigameChoice == 3) {
+        addHistory(player.name + " landed on a black tile and entered Memory Match");
+        showInfoPopup("BLACK TILE: MEMORY MATCH",
+                      "Match all 8 pairs. Each wrong match costs a life. 20 lives total. Help button reveals grid.");
+        
+        const MemoryMatchResult result = playMemoryMatchMinigame(player.name, hasColor);
+        
+        if (titleWin) touchwin(titleWin);
+        if (boardWin) touchwin(boardWin);
+        if (infoWin) touchwin(infoWin);
+        if (msgWin) touchwin(msgWin);
+        
+        if (result.abandoned) {
+            addHistory(player.name + " left Memory Match before finishing");
+            renderGame(playerIndex, player.name + " left the Memory Match sidegame", "No payout awarded");
+            showInfoPopup("MEMORY MATCH sidegame", "Exited early. No payout awarded.");
+            return;
+        }
+        
+        // Payout: $1000 per pair matched, $5000 bonus for winning
+        const int payout = (result.pairsMatched * 1000) + (result.won ? 5000 : 0);
+        if (payout > 0) {
+            bank.credit(player, payout);
+        }
+        
+        std::ostringstream summary;
+        summary << "Pairs matched: " << result.pairsMatched << "/8"
+                << " | Lives left: " << result.livesRemaining
+                << " | Earned $" << payout;
+        
+        addHistory(player.name + " matched " + std::to_string(result.pairsMatched) +
+                   " pairs in Memory Match and earned $" + std::to_string(payout));
+        renderGame(playerIndex, player.name + " finished the Memory Match sidegame", summary.str());
+        showInfoPopup("MEMORY MATCH sidegame", summary.str());
+        return;
+    } 
 }
 
 int Game::findPreviousTile(const Player& player, int tileId) const {
