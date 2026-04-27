@@ -127,7 +127,7 @@ BattleshipMinigameResult playBattleshipMinigame(const std::string& playerName, b
 
     showMinigameTutorial("Battleship",
                          "Destroy the money ships while dodging enemy fire.",
-                         "A/D moves, Space shoots, X starts, Q exits.",
+                         "A/D moves, Space shoots, X starts, ESC exits.",
                          "Clear the wave or survive until the run ends.",
                          "Each ship destroyed pays $100. One enemy hit ends the run.",
                          hasColor);
@@ -191,7 +191,7 @@ BattleshipMinigameResult playBattleshipMinigame(const std::string& playerName, b
             "  |  Wave: 1";
         mvwprintw(overlay, 8, (screenW - static_cast<int>(statusLine.size())) / 2,
                   "%s", statusLine.c_str());
-        if (feedbackFrames > 0) {
+        if (feedbackFrames > 0 && ((feedbackFrames / 2) % 2 == 0)) {
             drawFeedbackBanner(overlay,
                                arenaTop + 2,
                                arenaLeft,
@@ -272,7 +272,7 @@ BattleshipMinigameResult playBattleshipMinigame(const std::string& playerName, b
         wrefresh(overlay);
 
         int ch = wgetch(overlay);
-        if (ch == 'q' || ch == 'Q') {
+        if (ch == 27 || ch == 'q' || ch == 'Q') {
             result.abandoned = true;
             break;
         }
@@ -373,16 +373,7 @@ BattleshipMinigameResult playBattleshipMinigame(const std::string& playerName, b
                     ++result.shipsDestroyed;
                     feedbackText = "DIRECT HIT! +$100";
                     feedbackPositive = true;
-                    blinkIndicator(overlay,
-                                   arenaTop + 2,
-                                   arenaLeft + (arenaWidth - static_cast<int>(feedbackText.size())) / 2,
-                                   feedbackText,
-                                   hasColor,
-                                   GOLDRUSH_BLACK_FOREST,
-                                   2,
-                                   2000,
-                                   static_cast<int>(feedbackText.size()));
-                    feedbackFrames = 0;
+                    feedbackFrames = 18;
                     break;
                 }
             }
@@ -395,16 +386,7 @@ BattleshipMinigameResult playBattleshipMinigame(const std::string& playerName, b
                 gameOver = true;
                 feedbackText = "HIT TAKEN! RUN ENDS";
                 feedbackPositive = false;
-                blinkIndicator(overlay,
-                               arenaTop + 2,
-                               arenaLeft + (arenaWidth - static_cast<int>(feedbackText.size())) / 2,
-                               feedbackText,
-                               hasColor,
-                               GOLDRUSH_GOLD_TERRA,
-                               2,
-                               2000,
-                               static_cast<int>(feedbackText.size()));
-                feedbackFrames = 0;
+                feedbackFrames = 18;
                 break;
             }
         }
@@ -425,16 +407,7 @@ BattleshipMinigameResult playBattleshipMinigame(const std::string& playerName, b
             gameOver = true;
             feedbackText = "WAVE CLEARED!";
             feedbackPositive = true;
-            blinkIndicator(overlay,
-                           arenaTop + 2,
-                           arenaLeft + (arenaWidth - static_cast<int>(feedbackText.size())) / 2,
-                           feedbackText,
-                           hasColor,
-                           GOLDRUSH_BLACK_FOREST,
-                           2,
-                           2000,
-                           static_cast<int>(feedbackText.size()));
-            feedbackFrames = 0;
+            feedbackFrames = 18;
         }
 
         napms(20);

@@ -273,7 +273,7 @@ HangmanResult playHangmanMinigame(const std::string& playerName, bool hasColor) 
 
     showMinigameTutorial("Hangman",
                          "Guess the hidden word one letter at a time.",
-                         "Type A-Z to guess, Q exits.",
+                         "Type A-Z to guess, ESC exits.",
                          "Reveal the full word before 10 wrong guesses.",
                          "Each revealed letter slot pays $100. Exiting early pays nothing.",
                          hasColor);
@@ -469,7 +469,7 @@ HangmanResult playHangmanMinigame(const std::string& playerName, bool hasColor) 
 
         int ch = wgetch(win);
 
-        if (ch == 'q' || ch == 'Q') {
+        if (ch == 27 || ch == 'q' || ch == 'Q') {
             res.abandoned = true;
             break;
         }

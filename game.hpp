@@ -79,6 +79,7 @@ private:
     void addHistory(const std::string& entry);
     void drawSetupTitle() const;
     void flashSpinResult(const std::string& title, int value) const;
+    void showRollResultPopup(int value) const;
     bool promptForFilename(const std::string& action,
                            const std::string& defaultName,
                            std::string& filename);
@@ -129,7 +130,10 @@ private:
     int chooseRandomOpponentIndex(int currentPlayer);
     int simulateDuelMinigameScore(const Player& player);
     int playDuelMinigameScore(int playerIndex, int minigameChoice);
-    std::string resolveDuelMinigameAction(int playerIndex, int& amountDelta);
+    std::string resolveDuelMinigameAction(int playerIndex,
+                                          int& amountDelta,
+                                          int forcedOpponentIndex = -1,
+                                          int pot = 30000);
     int playActionCard(int playerIndex, const Tile& tile);
     void applyTileEffect(int playerIndex, const Tile& tile);
     int findPreviousTile(const Player& player, int tileId) const;

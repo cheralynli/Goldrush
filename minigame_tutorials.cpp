@@ -18,8 +18,5 @@ void showMinigameTutorial(const std::string& title,
     lines.push_back("Controls: " + controls);
     lines.push_back("Win Condition: " + winCondition);
     lines.push_back("Reward/Penalty: " + rewardPenalty);
-    lines.push_back("");
-    lines.push_back("Sabotage note: Forced Duel and trap minigames use this screen before play.");
-    lines.push_back("Investment note: normal spinner investment payouts resume after the minigame.");
     showPopupMessage("QUICK TUTORIAL", lines, hasColor, false);
 }

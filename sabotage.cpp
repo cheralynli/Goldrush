@@ -27,6 +27,24 @@ std::string duelProfileText(const Player& player) {
 }
 }  // namespace
 
+namespace {
+int rollOutcomeFromValue(const SabotageCard& card, int roll, bool& success, bool& critical) {
+    critical = false;
+    if (!card.requiresDiceRoll) {
+        success = roll <= card.successChance;
+        return 0;
+    }
+
+    if (roll <= 3) {
+        success = false;
+        return roll;
+    }
+    success = true;
+    critical = roll >= 8;
+    return roll;
+}
+}
+
 SabotageManager::SabotageManager(Bank& bankRef, RandomService& random)
     : bank(bankRef),
       rng(random) {
@@ -87,10 +105,12 @@ int SabotageManager::applyInsurance(Player& target, int amount, std::string& mes
 }
 
 SabotageResult SabotageManager::resolveLawsuit(Player& attacker, Player& target) {
+    return resolveLawsuit(attacker, target, rng.roll10(), rng.roll10());
+}
+
+SabotageResult SabotageManager::resolveLawsuit(Player& attacker, Player& target, int attackerRoll, int targetRoll) {
     SabotageResult result;
     result.attempted = true;
-    const int attackerRoll = rng.roll10();
-    const int targetRoll = rng.roll10();
     result.roll = attackerRoll;
 
     if (attackerRoll > targetRoll) {
@@ -108,7 +128,7 @@ SabotageResult SabotageManager::resolveLawsuit(Player& attacker, Player& target)
             result.summary += " " + insuranceText;
         }
         if (payment.loansTaken > 0) {
-            result.summary += " Auto-loans: " + std::to_string(payment.loansTaken) + ".";
+            result.summary += " Automatic loans: " + std::to_string(payment.loansTaken) + ".";
         }
         return result;
     }
@@ -122,7 +142,7 @@ SabotageResult SabotageManager::resolveLawsuit(Player& attacker, Player& target)
                      std::to_string(attackerRoll) + "-" + std::to_string(targetRoll) +
                      " and paid $" + std::to_string(amount) + ".";
     if (payment.loansTaken > 0) {
-        result.summary += " Auto-loans: " + std::to_string(payment.loansTaken) + ".";
+        result.summary += " Automatic loans: " + std::to_string(payment.loansTaken) + ".";
     }
     return result;
 }
@@ -145,7 +165,7 @@ SabotageResult SabotageManager::resolveForcedDuel(Player& attacker, Player& targ
                          " and took $" + std::to_string(pot) + ". " +
                          duelProfileText(attacker) + " vs " + duelProfileText(target) + ".";
         if (payment.loansTaken > 0) {
-            result.summary += " Auto-loans: " + std::to_string(payment.loansTaken) + ".";
+            result.summary += " Automatic loans: " + std::to_string(payment.loansTaken) + ".";
         }
     } else {
         PaymentResult payment = bank.charge(attacker, pot / 2);
@@ -157,7 +177,7 @@ SabotageResult SabotageManager::resolveForcedDuel(Player& attacker, Player& targ
                          " and collected $" + std::to_string(pot / 2) + ". " +
                          duelProfileText(attacker) + " vs " + duelProfileText(target) + ".";
         if (payment.loansTaken > 0) {
-            result.summary += " Auto-loans: " + std::to_string(payment.loansTaken) + ".";
+            result.summary += " Automatic loans: " + std::to_string(payment.loansTaken) + ".";
         }
     }
     return result;
@@ -169,6 +189,16 @@ SabotageResult SabotageManager::applyDirectSabotage(const SabotageCard& card,
                                                     std::vector<Player>& players,
                                                     int attackerIndex,
                                                     int targetIndex) {
+    return applyDirectSabotage(card, attacker, target, players, attackerIndex, targetIndex, -1);
+}
+
+SabotageResult SabotageManager::applyDirectSabotage(const SabotageCard& card,
+                                                    Player& attacker,
+                                                    Player& target,
+                                                    std::vector<Player>& players,
+                                                    int attackerIndex,
+                                                    int targetIndex,
+                                                    int forcedRoll) {
     SabotageResult result;
     result.attempted = true;
 
@@ -185,12 +215,17 @@ SabotageResult SabotageManager::applyDirectSabotage(const SabotageCard& card,
     }
 
     if (card.type == SabotageType::MoneyLoss && card.name == "Lawsuit") {
+        if (forcedRoll > 0) {
+            return resolveLawsuit(attacker, target, forcedRoll, rng.roll10());
+        }
         return resolveLawsuit(attacker, target);
     }
 
     bool success = false;
     bool critical = false;
-    result.roll = rollOutcome(card, success, critical);
+    result.roll = forcedRoll > 0
+        ? rollOutcomeFromValue(card, forcedRoll, success, critical)
+        : rollOutcome(card, success, critical);
     result.critical = critical;
     if (!success) {
         result.summary = card.name + " failed";
@@ -214,7 +249,7 @@ SabotageResult SabotageManager::applyDirectSabotage(const SabotageCard& card,
                 result.summary += " " + insuranceText;
             }
             if (payment.loansTaken > 0) {
-                result.summary += " Auto-loans: " + std::to_string(payment.loansTaken) + ".";
+                result.summary += " Automatic loans: " + std::to_string(payment.loansTaken) + ".";
             }
             break;
         }
@@ -265,7 +300,7 @@ SabotageResult SabotageManager::applyDirectSabotage(const SabotageCard& card,
                 result.summary += " " + insuranceText;
             }
             if (payment.loansTaken > 0) {
-                result.summary += " Auto-loans: " + std::to_string(payment.loansTaken) + ".";
+                result.summary += " Automatic loans: " + std::to_string(payment.loansTaken) + ".";
             }
             break;
         }
@@ -301,6 +336,10 @@ SabotageResult SabotageManager::applyDirectSabotage(const SabotageCard& card,
 }
 
 SabotageResult SabotageManager::triggerTrap(const ActiveTrap& trap, Player& target) {
+    return triggerTrap(trap, target, -1);
+}
+
+SabotageResult SabotageManager::triggerTrap(const ActiveTrap& trap, Player& target, int forcedRoll) {
     SabotageResult result;
     result.attempted = true;
 
@@ -311,7 +350,7 @@ SabotageResult SabotageManager::triggerTrap(const ActiveTrap& trap, Player& targ
         return result;
     }
 
-    const int roll = rng.roll10();
+    const int roll = forcedRoll > 0 ? forcedRoll : rng.roll10();
     result.roll = roll;
     result.critical = roll >= 8;
     if (roll <= 3) {
@@ -333,7 +372,7 @@ SabotageResult SabotageManager::triggerTrap(const ActiveTrap& trap, Player& targ
                 result.summary += " " + insuranceText;
             }
             if (payment.loansTaken > 0) {
-                result.summary += " Auto-loans: " + std::to_string(payment.loansTaken) + ".";
+                result.summary += " Automatic loans: " + std::to_string(payment.loansTaken) + ".";
             }
             break;
         }

@@ -311,11 +311,17 @@ void Board::drawTile(WINDOW* boardWin, const Tile& tile, bool hasColor) const {
     if (tile.kind == TILE_EMPTY) {
         label = "  ";
     }
+    if (hasColor) {
+        wattron(boardWin, A_DIM);
+    }
     mvwaddch(boardWin, tile.y, tile.x, '[');
-    if (hasColor) wattron(boardWin, COLOR_PAIR(colorForTile(tile)) | A_BOLD);
+    if (hasColor) wattron(boardWin, COLOR_PAIR(colorForTile(tile)));
     mvwprintw(boardWin, tile.y, tile.x + 1, "%-2s", label.c_str());
-    if (hasColor) wattroff(boardWin, COLOR_PAIR(colorForTile(tile)) | A_BOLD);
+    if (hasColor) wattroff(boardWin, COLOR_PAIR(colorForTile(tile)));
     mvwaddch(boardWin, tile.y, tile.x + 3, ']');
+    if (hasColor) {
+        wattroff(boardWin, A_DIM);
+    }
 }
 
 void Board::drawTokens(WINDOW* boardWin, const std::vector<Player>& players, int tileIndex, bool hasColor) const {

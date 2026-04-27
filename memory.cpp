@@ -19,12 +19,12 @@ const int TOTAL_CELLS = GRID_SIZE * GRID_SIZE;
 const int STARTING_LIVES = 20;
 const int MAX_HELP_USES = 5;
 const int HELP_REVEAL_SECONDS = 2;
-const int CELL_WIDTH = 5;
+const int CELL_WIDTH = 7;
 const int CELL_HEIGHT = 3;
 const int TOTAL_GRID_WIDTH = GRID_SIZE * CELL_WIDTH;
 
-const std::vector<char> SYMBOLS = {
-    '~', '@', '#', '$', '%', '&', '+', '*'
+const std::vector<std::string> SYMBOLS = {
+    "★", "▶", "𒊹", "■", "⬟", "✚", "❤", "ⵌ"
 };
 
 const std::vector<std::string> MEMORY_TITLE = {
@@ -37,13 +37,13 @@ const std::vector<std::string> MEMORY_TITLE = {
 };
 
 struct Cell {
-    char symbol;
+    std::string symbol;
     bool revealed;
     bool matched;
 };
 
 void shuffleGrid(std::vector<Cell>& grid) {
-    std::vector<char> symbols;
+    std::vector<std::string> symbols;
     for (int i = 0; i < TOTAL_PAIRS; ++i) {
         symbols.push_back(SYMBOLS[i]);
         symbols.push_back(SYMBOLS[i]);
@@ -58,7 +58,7 @@ void shuffleGrid(std::vector<Cell>& grid) {
     }
 }
 
-void drawCell(WINDOW* win, int y, int x, char symbol, bool isRevealed, bool isMatched, 
+void drawCell(WINDOW* win, int y, int x, const std::string& symbol, bool isRevealed, bool isMatched,
               bool isSelected, bool revealAll) {
     if (isSelected) {
         wattron(win, A_REVERSE);
@@ -79,12 +79,12 @@ void drawCell(WINDOW* win, int y, int x, char symbol, bool isRevealed, bool isMa
 
     if (isMatched || revealAll) {
         wattron(win, A_BOLD);
-        mvwprintw(win, y + 1, x + 2, "%c", symbol);
+        mvwprintw(win, y + 1, x + 2, "%s", symbol.c_str());
         wattroff(win, A_BOLD);
     } else if (isRevealed) {
-        mvwprintw(win, y + 1, x + 2, "%c", symbol);
+        mvwprintw(win, y + 1, x + 2, "%s", symbol.c_str());
     } else {
-        mvwprintw(win, y + 1, x + 2, "?");
+        mvwprintw(win, y + 1, x + 3, "?");
     }
 
     if (isSelected) {
@@ -128,7 +128,7 @@ MemoryMatchResult playMemoryMatchMinigame(const std::string& playerName, bool ha
 
     showMinigameTutorial("Memory Match",
                          "Memorize the grid, then find all matching pairs.",
-                         "Arrow keys move, Enter/Space selects, H reveals help, Q exits.",
+                         "WASD moves, Enter/Space selects, H reveals help, ESC exits.",
                          "Match all 8 pairs before running out of lives.",
                          "Each pair pays $100. Clearing the board adds a $200 bonus.",
                          hasColor);
@@ -204,7 +204,7 @@ MemoryMatchResult playMemoryMatchMinigame(const std::string& playerName, bool ha
         int helpLen = strlen(helpText);
         mvwprintw(overlay, arenaTop + 1, (screenW - helpLen) / 2, "%s", helpText);
 
-        const char* instructions = "Arrow Keys: Move  |  ENTER/Space: Select  |  H: Help  |  Q: Quit";
+        const char* instructions = "W/A/S/D: Move  |  ENTER/Space: Select  |  H: Help  |  ESC: Quit";
         int instrLen = strlen(instructions);
         mvwprintw(overlay, arenaBottom - 2, (screenW - instrLen) / 2, "%s", instructions);
         mvwprintw(overlay, arenaBottom - 1, (screenW - 46) / 2,
@@ -261,7 +261,7 @@ MemoryMatchResult playMemoryMatchMinigame(const std::string& playerName, bool ha
         
         int ch = wgetch(overlay);
         
-        if (ch == 'q' || ch == 'Q') {
+        if (ch == 27 || ch == 'q' || ch == 'Q') {
             result.abandoned = true;
             break;
         }
@@ -283,13 +283,13 @@ MemoryMatchResult playMemoryMatchMinigame(const std::string& playerName, bool ha
             }
         }
         
-        if (ch == KEY_UP) {
+        if (ch == 'w' || ch == 'W') {
             currentRow = (currentRow - 1 + GRID_SIZE) % GRID_SIZE;
-        } else if (ch == KEY_DOWN) {
+        } else if (ch == 's' || ch == 'S') {
             currentRow = (currentRow + 1) % GRID_SIZE;
-        } else if (ch == KEY_LEFT) {
+        } else if (ch == 'a' || ch == 'A') {
             currentCol = (currentCol - 1 + GRID_SIZE) % GRID_SIZE;
-        } else if (ch == KEY_RIGHT) {
+        } else if (ch == 'd' || ch == 'D') {
             currentCol = (currentCol + 1) % GRID_SIZE;
         }
         else if (ch == '\n' || ch == '\r' || ch == KEY_ENTER || ch == ' ') {

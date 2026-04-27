@@ -36,8 +36,17 @@ public:
                                        std::vector<Player>& players,
                                        int attackerIndex,
                                        int targetIndex);
+    SabotageResult applyDirectSabotage(const SabotageCard& card,
+                                       Player& attacker,
+                                       Player& target,
+                                       std::vector<Player>& players,
+                                       int attackerIndex,
+                                       int targetIndex,
+                                       int forcedRoll);
     SabotageResult triggerTrap(const ActiveTrap& trap, Player& target);
+    SabotageResult triggerTrap(const ActiveTrap& trap, Player& target, int forcedRoll);
     SabotageResult resolveLawsuit(Player& attacker, Player& target);
+    SabotageResult resolveLawsuit(Player& attacker, Player& target, int attackerRoll, int targetRoll);
     SabotageResult resolveForcedDuel(Player& attacker, Player& target);
     bool consumeShield(Player& target, std::string& message);
     int applyInsurance(Player& target, int amount, std::string& message);

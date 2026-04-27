@@ -294,7 +294,7 @@ MinesweeperResult playMinesweeperMinigame(const std::string& playerName, bool ha
 
     showMinigameTutorial("Minesweeper",
                          "Reveal safe tiles while avoiding bombs.",
-                         "Arrow keys move, Enter/Space reveals, Q exits.",
+                         "WASD moves, Enter/Space reveals, ESC exits.",
                          "Reveal all safe tiles or survive until time runs out.",
                          "Each safe tile pays $100. One bomb ends the run.",
                          hasColor);
@@ -375,7 +375,7 @@ MinesweeperResult playMinesweeperMinigame(const std::string& playerName, bool ha
                   "One bomb ends the game. Each safe tile is worth $100.");
         mvwprintw(overlay, arenaTop + 3, arenaLeft + 3,
                   "First reveal opens with a safe 3x3 zone.");
-        if (feedbackFrames > 0) {
+        if (feedbackFrames > 0 && ((feedbackFrames / 2) % 2 == 0)) {
             drawFeedbackBanner(overlay,
                                arenaTop + 4,
                                arenaLeft,
@@ -405,7 +405,7 @@ MinesweeperResult playMinesweeperMinigame(const std::string& playerName, bool ha
         }
 
         mvwprintw(overlay, arenaBottom - 2, arenaLeft + 3,
-                  "Arrow Keys: Move  |  ENTER/Space: Reveal  |  Q: Quit");
+                  "W/A/S/D: Move  |  ENTER/Space: Reveal  |  ESC: Quit");
 
         if (gameOver) {
             std::string endLine;
@@ -430,15 +430,8 @@ MinesweeperResult playMinesweeperMinigame(const std::string& playerName, bool ha
             result.timedOut = true;
             gameOver = true;
             feedbackText = "TIME UP!";
-            blinkIndicator(overlay,
-                           arenaTop + 4,
-                           arenaLeft + (arenaWidth - static_cast<int>(feedbackText.size())) / 2,
-                           feedbackText,
-                           hasColor,
-                           GOLDRUSH_GOLD_TERRA,
-                           2,
-                           2000,
-                           static_cast<int>(feedbackText.size()));
+            feedbackPositive = false;
+            feedbackFrames = 18;
             continue;
         }
 
@@ -448,7 +441,7 @@ MinesweeperResult playMinesweeperMinigame(const std::string& playerName, bool ha
             continue;
         }
 
-        if (ch == 'q' || ch == 'Q') {
+        if (ch == 27 || ch == 'q' || ch == 'Q') {
             result.abandoned = true;
             break;
         }
@@ -460,13 +453,13 @@ MinesweeperResult playMinesweeperMinigame(const std::string& playerName, bool ha
             continue;
         }
 
-        if (ch == KEY_UP) {
+        if (ch == 'w' || ch == 'W') {
             currentRow = clampInt(currentRow - 1, 0, GRID_ROWS - 1);
-        } else if (ch == KEY_DOWN) {
+        } else if (ch == 's' || ch == 'S') {
             currentRow = clampInt(currentRow + 1, 0, GRID_ROWS - 1);
-        } else if (ch == KEY_LEFT) {
+        } else if (ch == 'a' || ch == 'A') {
             currentCol = clampInt(currentCol - 1, 0, GRID_COLS - 1);
-        } else if (ch == KEY_RIGHT) {
+        } else if (ch == 'd' || ch == 'D') {
             currentCol = clampInt(currentCol + 1, 0, GRID_COLS - 1);
         } else if (ch == '\n' || ch == '\r' || ch == KEY_ENTER || ch == ' ') {
             const int idx = indexFor(currentRow, currentCol);
@@ -484,16 +477,7 @@ MinesweeperResult playMinesweeperMinigame(const std::string& playerName, bool ha
                 gameOver = true;
                 feedbackText = "BOMB! RUN ENDS";
                 feedbackPositive = false;
-                blinkIndicator(overlay,
-                               arenaTop + 4,
-                               arenaLeft + (arenaWidth - static_cast<int>(feedbackText.size())) / 2,
-                               feedbackText,
-                               hasColor,
-                               GOLDRUSH_GOLD_TERRA,
-                               2,
-                               2000,
-                               static_cast<int>(feedbackText.size()));
-                feedbackFrames = 0;
+                feedbackFrames = 18;
             } else {
                 const int revealedNow = revealSafeTiles(grid, currentRow, currentCol);
                 result.safeTilesRevealed += revealedNow;
@@ -503,31 +487,13 @@ MinesweeperResult playMinesweeperMinigame(const std::string& playerName, bool ha
                         feedbackText += "s";
                     }
                     feedbackPositive = true;
-                    blinkIndicator(overlay,
-                                   arenaTop + 4,
-                                   arenaLeft + (arenaWidth - static_cast<int>(feedbackText.size())) / 2,
-                                   feedbackText,
-                                   hasColor,
-                                   GOLDRUSH_BLACK_FOREST,
-                                   2,
-                                   2000,
-                                   static_cast<int>(feedbackText.size()));
-                    feedbackFrames = 0;
+                    feedbackFrames = 18;
                 }
                 if (result.safeTilesRevealed >= TOTAL_SAFE_TILES) {
                     gameOver = true;
                     feedbackText = "BOARD CLEARED!";
                     feedbackPositive = true;
-                    blinkIndicator(overlay,
-                                   arenaTop + 4,
-                                   arenaLeft + (arenaWidth - static_cast<int>(feedbackText.size())) / 2,
-                                   feedbackText,
-                                   hasColor,
-                                   GOLDRUSH_BLACK_FOREST,
-                                   2,
-                                   2000,
-                                   static_cast<int>(feedbackText.size()));
-                    feedbackFrames = 0;
+                    feedbackFrames = 18;
                 }
             }
         }

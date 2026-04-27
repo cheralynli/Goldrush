@@ -1,6 +1,7 @@
 #include "ui.h"
 
 #include <algorithm>
+#include <clocale>
 #include <vector>
 
 namespace {
@@ -72,6 +73,7 @@ void draw_menu_border(bool is_active, int x, int y, int width, int height) {
 }  // namespace
 
 void initialize_game_ui() {
+    std::setlocale(LC_ALL, "");
     initscr();
     cbreak();
     noecho();

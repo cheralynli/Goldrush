@@ -24,8 +24,40 @@ std::string appendLoanText(const std::string& base, const PaymentResult& payment
     }
 
     std::ostringstream out;
-    out << base << " Auto-loan +" << payment.loansTaken << ".";
+    out << base << " The bank covered it with " << payment.loansTaken
+        << " automatic loan" << (payment.loansTaken == 1 ? "" : "s") << ".";
     return out.str();
+}
+
+std::string turnPromptText() {
+    return "ENTER begin turn | B sabotage | TAB scores | G guide | K keys | S save | ESC menu";
+}
+
+std::vector<std::string> bigRollNumberArt(int value) {
+    switch (value) {
+        case 1:
+            return {"   __  ", "  /_ | ", "   | | ", "   | | ", "   |_| "};
+        case 2:
+            return {"  ___  ", " |__ \\ ", "    ) |", "   / / ", "  /_/  "};
+        case 3:
+            return {"  ____  ", " |___ \\ ", "   __) |", "  |__ < ", "  ___) |"};
+        case 4:
+            return {"  _  _   ", " | || |  ", " | || |_ ", " |__   _|", "    |_|  "};
+        case 5:
+            return {"  _____ ", " | ____|", " | |__  ", " |___ \\ ", "  ___) |"};
+        case 6:
+            return {"   __   ", "  / /   ", " / /_   ", "| '_ \\  ", "| (_) | "};
+        case 7:
+            return {"  ______ ", " |____  |", "     / / ", "    / /  ", "   /_/   "};
+        case 8:
+            return {"   ___   ", "  / _ \\  ", " | (_) | ", "  > _ <  ", " | (_) | "};
+        case 9:
+            return {"   ___   ", "  / _ \\  ", " | (_) | ", "  \\__, | ", "    /_/  "};
+        case 10:
+            return {"  _   ___   ", " / | / _ \\  ", " | || | | | ", " | || |_| | ", " |_| \\___/  "};
+        default:
+            return {std::to_string(value)};
+    }
 }
 
 std::string clipMenuText(const std::string& text, std::size_t width) {
@@ -177,7 +209,7 @@ bool Game::ensureMinSize() const {
         clear();
         const char* line1 = "Terminal too small - please resize";
         const char* line2 = "Minimum size: 122x40";
-        const char* line3 = "Press Q to quit";
+        const char* line3 = "Press ESC to quit";
         int x1 = (w - static_cast<int>(std::strlen(line1))) / 2;
         int x2 = (w - static_cast<int>(std::strlen(line2))) / 2;
         int x3 = (w - static_cast<int>(std::strlen(line3))) / 2;
@@ -191,7 +223,7 @@ bool Game::ensureMinSize() const {
         refresh();
 
         int ch = getch();
-        if (ch == 'q' || ch == 'Q') {
+        if (ch == 27 || ch == 'q' || ch == 'Q') {
             timeout(-1);
             return false;
         }
@@ -280,18 +312,128 @@ void Game::drawSetupTitle() const {
 }
 
 void Game::flashSpinResult(const std::string& title, int value) const {
-    werase(msgWin);
-    box(msgWin, 0, 0);
-    mvwprintw(msgWin, 1, 2, "%s", title.c_str());
-    blinkIndicator(msgWin,
-                   2,
-                   2,
-                   "Spin result: " + std::to_string(value) + "!",
-                   hasColor,
-                   GOLDRUSH_GOLD_SAND,
-                   2,
-                   2000,
-                   MSG_W - 4);
+    static const int flashPairs[] = {
+        GOLDRUSH_PLAYER_ONE,
+        GOLDRUSH_PLAYER_TWO,
+        GOLDRUSH_PLAYER_THREE,
+        GOLDRUSH_PLAYER_FOUR
+    };
+
+    nodelay(msgWin, TRUE);
+    for (int flash = 0; flash < 8; ++flash) {
+        werase(msgWin);
+        box(msgWin, 0, 0);
+        mvwprintw(msgWin, 1, 2, "%s", title.c_str());
+
+        const int colorPair = flashPairs[flash % 4];
+        if (hasColor) {
+            wattron(msgWin, COLOR_PAIR(colorPair) | A_BOLD | ((flash % 2 == 0) ? A_BLINK : 0));
+        } else {
+            wattron(msgWin, A_REVERSE | A_BOLD);
+        }
+        mvwprintw(msgWin, 2, 2, "Spin result: %d!", value);
+        if (hasColor) {
+            wattroff(msgWin, COLOR_PAIR(colorPair) | A_BOLD | ((flash % 2 == 0) ? A_BLINK : 0));
+        } else {
+            wattroff(msgWin, A_REVERSE | A_BOLD);
+        }
+        wrefresh(msgWin);
+
+        const int ch = wgetch(msgWin);
+        if (ch != ERR) {
+            break;
+        }
+        napms(90);
+    }
+    nodelay(msgWin, FALSE);
+}
+
+void Game::showRollResultPopup(int value) const {
+    int h = 0;
+    int w = 0;
+    getmaxyx(stdscr, h, w);
+
+    if (titleWin) {
+        touchwin(titleWin);
+        wrefresh(titleWin);
+    }
+    if (boardWin) {
+        touchwin(boardWin);
+        wrefresh(boardWin);
+    }
+    if (infoWin) {
+        touchwin(infoWin);
+        wrefresh(infoWin);
+    }
+    if (msgWin) {
+        touchwin(msgWin);
+        wrefresh(msgWin);
+    }
+
+    const std::vector<std::string> banner = bigRollNumberArt(value);
+    const std::string title = "YOU ROLLED A";
+    static const int flashPairs[] = {
+        GOLDRUSH_PLAYER_ONE,
+        GOLDRUSH_PLAYER_TWO,
+        GOLDRUSH_PLAYER_THREE,
+        GOLDRUSH_PLAYER_FOUR
+    };
+    int contentWidth = static_cast<int>(title.size());
+    for (std::size_t i = 0; i < banner.size(); ++i) {
+        contentWidth = std::max(contentWidth, static_cast<int>(banner[i].size()));
+    }
+
+    const int popupW = std::min(std::max(32, contentWidth + 8), w - 2);
+    const int popupH = static_cast<int>(banner.size()) + 6;
+    WINDOW* popup = newwin(popupH,
+                           popupW,
+                           std::max(0, (h - popupH) / 2),
+                           std::max(0, (w - popupW) / 2));
+    applyWindowBg(popup);
+    const int innerWidth = popupW - 4;
+    for (int flash = 0; flash < 10; ++flash) {
+        werase(popup);
+        box(popup, 0, 0);
+        const int colorPair = flashPairs[flash % 4];
+        if (hasColor) {
+            wattron(popup, COLOR_PAIR(colorPair) | A_BOLD | ((flash % 2 == 0) ? A_BLINK : 0));
+        } else {
+            wattron(popup, A_BOLD | ((flash % 2 == 0) ? A_REVERSE : 0));
+        }
+        mvwprintw(popup, 1, 2 + std::max(0, (innerWidth - static_cast<int>(title.size())) / 2), "%s", title.c_str());
+        for (std::size_t i = 0; i < banner.size(); ++i) {
+            mvwprintw(popup,
+                      3 + static_cast<int>(i),
+                      2 + std::max(0, (innerWidth - static_cast<int>(banner[i].size())) / 2),
+                      "%s",
+                      banner[i].c_str());
+        }
+        if (hasColor) {
+            wattroff(popup, COLOR_PAIR(colorPair) | A_BOLD | ((flash % 2 == 0) ? A_BLINK : 0));
+        } else {
+            wattroff(popup, A_BOLD | ((flash % 2 == 0) ? A_REVERSE : 0));
+        }
+        wrefresh(popup);
+        napms(120);
+    }
+    delwin(popup);
+
+    if (titleWin) {
+        touchwin(titleWin);
+        wrefresh(titleWin);
+    }
+    if (boardWin) {
+        touchwin(boardWin);
+        wrefresh(boardWin);
+    }
+    if (infoWin) {
+        touchwin(infoWin);
+        wrefresh(infoWin);
+    }
+    if (msgWin) {
+        touchwin(msgWin);
+        wrefresh(msgWin);
+    }
 }
 
 bool Game::promptForFilename(const std::string& action,
@@ -369,7 +511,7 @@ bool Game::chooseSaveFileToLoad(SaveFileInfo& selected) {
         werase(popup);
         box(popup, 0, 0);
         mvwprintw(popup, 1, 2, "Load Game");
-        mvwprintw(popup, 2, 2, "Arrow keys move  Enter load  PgUp/PgDn scroll  Esc/Q cancel");
+        mvwprintw(popup, 2, 2, "Arrow keys move  Enter load  PgUp/PgDn scroll  ESC cancel");
         mvwprintw(popup, 3, 2, "%-*s  %-19s  %9s", fileWidth, "File", "Modified", "Size");
 
         for (int row = 0; row < visibleRows; ++row) {
@@ -558,9 +700,9 @@ Game::StartChoice Game::showStartScreen() {
         if (hasColor) wattron(stdscr, COLOR_PAIR(GOLDRUSH_BROWN_SAND));
         if (!choosingMode) {
             mvprintw(startY + 11, (w - 34) / 2, "A Hasbro-style Life Journey");
-            mvprintw(startY + 13, (w - 30) / 2, "N  New    L  Load    Q  Quit");
+            mvprintw(startY + 13, (w - 34) / 2, "N  New    L  Load    ESC  Quit");
         } else {
-            mvprintw(startY + 11, (w - 23) / 2, "ENTER select    Q back");
+            mvprintw(startY + 11, (w - 25) / 2, "ENTER select    ESC back");
             const char* normal = "Normal Mode";
             const char* custom = "Custom Mode";
             const char* normalDesc = "Every optional system is enabled for the full game.";
@@ -587,7 +729,7 @@ Game::StartChoice Game::showStartScreen() {
                 continue;
             }
             if (ch == 'l' || ch == 'L') return START_LOAD_GAME;
-            if (ch == 'q' || ch == 'Q') return START_QUIT_GAME;
+            if (ch == 27 || ch == 'q' || ch == 'Q') return START_QUIT_GAME;
         } else {
             if (ch == KEY_LEFT || ch == KEY_UP) {
                 highlightedMode = highlightedMode == 0 ? 1 : 0;
@@ -597,7 +739,7 @@ Game::StartChoice Game::showStartScreen() {
                 highlightedMode = highlightedMode == 1 ? 0 : 1;
                 continue;
             }
-            if (ch == 'q' || ch == 'Q') {
+            if (ch == 27 || ch == 'q' || ch == 'Q') {
                 choosingMode = false;
                 continue;
             }
@@ -662,7 +804,7 @@ bool Game::configureCustomRules() {
         if (highlight == startRowIndex) wattron(popup, A_REVERSE);
         mvwprintw(popup, 15, 2, "Start Game");
         if (highlight == startRowIndex) wattroff(popup, A_REVERSE);
-        mvwprintw(popup, 16, 2, "Up/Down move  Enter/Space toggle  Q close config");
+        mvwprintw(popup, 16, 2, "Up/Down move  Enter/Space toggle  ESC close config");
         wrefresh(popup);
 
         int ch = wgetch(popup);
@@ -670,7 +812,7 @@ bool Game::configureCustomRules() {
             highlight = highlight == 0 ? startRowIndex : highlight - 1;
         } else if (ch == KEY_DOWN) {
             highlight = highlight == startRowIndex ? 0 : highlight + 1;
-        } else if (ch == 'q' || ch == 'Q') {
+        } else if (ch == 27 || ch == 'q' || ch == 'Q') {
             delwin(popup);
             return false;
         } else if (ch == KEY_RESIZE) {
@@ -706,9 +848,11 @@ void Game::showTutorial() {
     pages[0].push_back("Choosing College charges tuition immediately before that route begins.");
     pages[0].push_back("Paydays add salary. Action cards shake up your money.");
     pages[0].push_back("Investment cards pay when any spinner result matches your number.");
-    pages[0].push_back("Sabotage uses B: traps, lawsuits, traffic jams, shields, and insurance.");
+    pages[0].push_back("Press B before your spin to sabotage, defend, or set a trap.");
+    pages[0].push_back("Sabotage can trigger real spins, duels, and sudden setbacks.");
     pages[0].push_back("Marriage, babies, and house sales use special event spins.");
     pages[0].push_back("Retirement lets you choose Millionaire Mansion (MM) or Countryside Acres (CA).");
+    pages[0].push_back("After a turn ends, press ENTER and pass the story to the next player.");
     pages[0].push_back("During turns: B sabotage/defense, TAB scoreboard, G tile guide, K controls.");
 
     std::vector<std::string> legend = board.tutorialLegend();
@@ -763,7 +907,7 @@ void Game::showControlsPopup() const {
     mvwprintw(popup, 8, 2, "B      Open sabotage and defense actions");
     mvwprintw(popup, 9, 2, "S      Save the current game");
     mvwprintw(popup, 10, 2, "K/?    Open this controls popup");
-    mvwprintw(popup, 11, 2, "Q      Quit the game");
+    mvwprintw(popup, 11, 2, "ESC    Open the quit menu / back out");
     mvwprintw(popup, 12, 2, "STOP spaces end movement immediately.");
     mvwprintw(popup, 13, 2, "College tuition is paid as soon as College route is chosen.");
     mvwprintw(popup, 14, 2, "Press ENTER");
@@ -1042,7 +1186,7 @@ int Game::chooseSabotageTarget(int attackerIndex) {
                 wattroff(popup, A_REVERSE);
             }
         }
-        mvwprintw(popup, 12, 2, "Up/Down move  ENTER select  Q cancel");
+        mvwprintw(popup, 12, 2, "Up/Down move  ENTER select  ESC cancel");
         wrefresh(popup);
 
         const int ch = wgetch(popup);
@@ -1110,7 +1254,7 @@ void Game::placeTrap(int attackerIndex, int tileId, SabotageType type) {
                std::to_string(tileId));
     std::string detail = "Trap armed on tile " + std::to_string(tileId) + ".";
     if (payment.loansTaken > 0) {
-        detail += " Auto-loans: " + std::to_string(payment.loansTaken) + ".";
+        detail += " Automatic loans: " + std::to_string(payment.loansTaken) + ".";
     }
     showInfoPopup("Trap Tile", detail);
 }
@@ -1135,12 +1279,54 @@ void Game::executeSabotage(int attackerIndex, int targetIndex, SabotageType type
         ? sabotageCardByName("Lawsuit")
         : sabotageCardForType(type);
     PaymentResult cost = bank.charge(attacker, card.costToUse);
-    SabotageResult result = sabotage.applyDirectSabotage(card,
-                                                         attacker,
-                                                         target,
-                                                         players,
-                                                         attackerIndex,
-                                                         targetIndex);
+    SabotageResult result;
+    const bool humanDrivenSabotage = !isCpuPlayer(attackerIndex);
+    if (type == SabotageType::ForceMinigame && humanDrivenSabotage) {
+        std::string shieldText;
+        if (sabotage.consumeShield(target, shieldText)) {
+            result.blocked = true;
+            result.summary = shieldText;
+        } else {
+            const int duelRoll = rollSpinner(card.name, "Spin to see if the duel challenge lands");
+            result.attempted = true;
+            result.roll = duelRoll;
+            result.critical = duelRoll >= 8;
+            if (duelRoll <= 3) {
+                result.summary = card.name + " failed on roll " + std::to_string(duelRoll) + ".";
+            } else {
+                result.summary = resolveDuelMinigameAction(attackerIndex, result.amount, targetIndex, 40000);
+                result.success = result.amount >= 0;
+            }
+        }
+    } else if (card.name == "Lawsuit" && humanDrivenSabotage) {
+        std::string shieldText;
+        if (sabotage.consumeShield(target, shieldText)) {
+            result.blocked = true;
+            result.summary = shieldText;
+        } else {
+            const int attackerRoll = rollSpinner("Lawsuit", attacker.name + " spins the case");
+            const int targetRoll = isCpuPlayer(targetIndex)
+                ? rng.roll10()
+                : rollSpinner("Lawsuit Defense", target.name + " spins the defense");
+            result = sabotage.resolveLawsuit(attacker, target, attackerRoll, targetRoll);
+        }
+    } else if (card.requiresDiceRoll && humanDrivenSabotage) {
+        const int sabotageRoll = rollSpinner(card.name, "Spin to see whether the sabotage lands");
+        result = sabotage.applyDirectSabotage(card,
+                                              attacker,
+                                              target,
+                                              players,
+                                              attackerIndex,
+                                              targetIndex,
+                                              sabotageRoll);
+    } else {
+        result = sabotage.applyDirectSabotage(card,
+                                              attacker,
+                                              target,
+                                              players,
+                                              attackerIndex,
+                                              targetIndex);
+    }
     if (type == SabotageType::PositionSwap && result.success) {
         const int cooldown = result.critical ? 3 : 4;
         attacker.sabotageCooldown = std::max(attacker.sabotageCooldown, cooldown + 1);
@@ -1150,7 +1336,7 @@ void Game::executeSabotage(int attackerIndex, int targetIndex, SabotageType type
 
     std::string detail = result.summary;
     if (cost.loansTaken > 0) {
-        detail += " Cost auto-loans: " + std::to_string(cost.loansTaken) + ".";
+        detail += " Cost automatic loans: " + std::to_string(cost.loansTaken) + ".";
     }
     addHistory(attacker.name + " used " + card.name + " on " + target.name);
     addHistory(detail);
@@ -1182,7 +1368,7 @@ bool Game::promptSabotageMenu(int attackerIndex) {
         mvwprintw(popup, 12, 2, "9 Buy Shield Card ($15000)");
         mvwprintw(popup, 13, 2, "0 Buy Insurance ($20000, 2 uses)");
         mvwprintw(popup, 14, 2, "D Item Disable ($16000)");
-        mvwprintw(popup, 17, 2, "Choose option or Q cancel");
+        mvwprintw(popup, 17, 2, "Choose option or ESC cancel");
         wrefresh(popup);
 
         const int ch = wgetch(popup);
@@ -1195,7 +1381,7 @@ bool Game::promptSabotageMenu(int attackerIndex) {
             ++attacker.shieldCards;
             std::string detail = "Shield Card added. Blocks one future sabotage.";
             if (payment.loansTaken > 0) {
-                detail += " Auto-loans: " + std::to_string(payment.loansTaken) + ".";
+                detail += " Automatic loans: " + std::to_string(payment.loansTaken) + ".";
             }
             showInfoPopup("Shield Card", detail);
             return true;
@@ -1205,7 +1391,7 @@ bool Game::promptSabotageMenu(int attackerIndex) {
             attacker.insuranceUses += 2;
             std::string detail = "Insurance added. Next 2 money/property hits are halved.";
             if (payment.loansTaken > 0) {
-                detail += " Auto-loans: " + std::to_string(payment.loansTaken) + ".";
+                detail += " Automatic loans: " + std::to_string(payment.loansTaken) + ".";
             }
             showInfoPopup("Insurance", detail);
             return true;
@@ -1279,7 +1465,11 @@ void Game::checkTrapTrigger(int playerIndex) {
         }
 
         trap.armed = false;
-        SabotageResult result = sabotage.triggerTrap(trap, player);
+        SabotageResult result = isCpuPlayer(playerIndex)
+            ? sabotage.triggerTrap(trap, player)
+            : sabotage.triggerTrap(trap,
+                                   player,
+                                   rollSpinner("Trap Trigger", "Spin to see whether the trap catches you"));
         addHistory(player.name + " triggered a trap on tile " + std::to_string(trap.tileId));
         addHistory(result.summary);
         showInfoPopup("Trap triggered", result.summary);
@@ -1450,29 +1640,29 @@ int Game::waitForTurnCommand(int currentPlayer) {
             createWindows();
             renderGame(currentPlayer,
                        players[currentPlayer].name + "'s turn",
-                       "ENTER spin | B sabotage | TAB scores | G guide | K keys | S save | Q quit/save");
+                       turnPromptText());
             continue;
         }
-        if (ch == 'q' || ch == 'Q') return ch;
+        if (ch == 27 || ch == 'q' || ch == 'Q') return 27;
         if (ch == 's' || ch == 'S') return ch;
         if (ch == 'b' || ch == 'B') return ch;
         if (ch == '\t') {
             showScoreboardPopup();
             renderGame(currentPlayer,
                        players[currentPlayer].name + "'s turn",
-                       "ENTER spin | B sabotage | TAB scores | G guide | K keys | S save | Q quit/save");
+                       turnPromptText());
             continue;
         }
         if (ch == 'g' || ch == 'G') {
             showTileGuidePopup();
             renderGame(currentPlayer,
                        players[currentPlayer].name + "'s turn",
-                       "ENTER spin | B sabotage | TAB scores | G guide | K keys | S save | Q quit/save");
+                       turnPromptText());
             continue;
         }
         if (ch == 'k' || ch == 'K' || ch == '?') {
             showControlsPopup();
-            renderGame(currentPlayer, players[currentPlayer].name + "'s turn", "ENTER spin | B sabotage | TAB scores | G guide | K keys | S save | Q quit/save");
+            renderGame(currentPlayer, players[currentPlayer].name + "'s turn", turnPromptText());
             continue;
         }
         if (ch == '\n' || ch == '\r' || ch == KEY_ENTER) {
@@ -1599,6 +1789,7 @@ int Game::rollSpinner(const std::string& title, const std::string& detail) {
             napms(90);
         }
         flashSpinResult(title, value);
+        showRollResultPopup(value);
         addHistory("CPU auto-spin result: " + std::to_string(value));
         return value;
     }
@@ -1606,7 +1797,7 @@ int Game::rollSpinner(const std::string& title, const std::string& detail) {
     int ch;
     do {
         ch = wgetch(msgWin);
-    } while (ch != ' ');
+    } while (ch != ' ' && ch != '\n' && ch != '\r' && ch != KEY_ENTER);
 
     nodelay(msgWin, TRUE);
     auto lastSpace = std::chrono::steady_clock::now();
@@ -1623,6 +1814,8 @@ int Game::rollSpinner(const std::string& title, const std::string& detail) {
         ch = wgetch(msgWin);
         if (ch == ' ') {
             lastSpace = std::chrono::steady_clock::now();
+        } else if (ch != ERR) {
+            break;
         }
         long long elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(
             std::chrono::steady_clock::now() - lastSpace).count();
@@ -1631,10 +1824,11 @@ int Game::rollSpinner(const std::string& title, const std::string& detail) {
     nodelay(msgWin, FALSE);
 
     flashSpinResult(title, value);
+    showRollResultPopup(value);
     werase(msgWin);
     box(msgWin, 0, 0);
     mvwprintw(msgWin, 1, 2, "%s", title.c_str());
-    mvwprintw(msgWin, 2, 2, "Spin result: %d. Press ENTER to confirm", value);
+    mvwprintw(msgWin, 2, 2, "The wheel settles on %d. Press ENTER to continue the story.", value);
     wrefresh(msgWin);
     waitForEnter(msgWin, 2, 2, "");
     return value;
@@ -1962,9 +2156,14 @@ int Game::playDuelMinigameScore(int playerIndex, int minigameChoice) {
     return score;
 }
 
-std::string Game::resolveDuelMinigameAction(int playerIndex, int& amountDelta) {
+std::string Game::resolveDuelMinigameAction(int playerIndex,
+                                            int& amountDelta,
+                                            int forcedOpponentIndex,
+                                            int pot) {
     Player& player = players[static_cast<std::size_t>(playerIndex)];
-    const int opponentIndex = chooseRandomOpponentIndex(playerIndex);
+    const int opponentIndex = forcedOpponentIndex >= 0
+        ? forcedOpponentIndex
+        : chooseRandomOpponentIndex(playerIndex);
     if (opponentIndex < 0) {
         amountDelta = 0;
         return "No valid opponent is available.";
@@ -1993,9 +2192,23 @@ std::string Game::resolveDuelMinigameAction(int playerIndex, int& amountDelta) {
     lines.push_back("Minigame selected: " + std::string(names[minigameChoice]));
     showPopupMessage("Duel Minigame Card", lines, hasColor, autoAdvanceUi);
 
-    const int playerScore = playDuelMinigameScore(playerIndex, minigameChoice);
-    const int opponentScore = playDuelMinigameScore(opponentIndex, minigameChoice);
-    const int pot = 30000;
+    int playerScore = 0;
+    int opponentScore = 0;
+    if (minigameChoice == 0) {
+        const PongDuelResult duelResult = playPongDuelMinigame(player.name,
+                                                               opponent.name,
+                                                               hasColor,
+                                                               isCpuPlayer(opponentIndex));
+        if (duelResult.abandoned) {
+            amountDelta = 0;
+            return "The duel ended early with no payout.";
+        }
+        playerScore = duelResult.winnerSide == 0 ? 100 : 0;
+        opponentScore = duelResult.winnerSide == 1 ? 100 : 0;
+    } else {
+        playerScore = playDuelMinigameScore(playerIndex, minigameChoice);
+        opponentScore = playDuelMinigameScore(opponentIndex, minigameChoice);
+    }
 
     std::ostringstream result;
     result << names[minigameChoice] << " duel score "
@@ -2008,7 +2221,7 @@ std::string Game::resolveDuelMinigameAction(int playerIndex, int& amountDelta) {
         amountDelta = pot;
         result << player.name << " wins $" << pot << ".";
         if (payment.loansTaken > 0) {
-            result << " " << opponent.name << " auto-loans: " << payment.loansTaken << ".";
+            result << " " << opponent.name << " automatic loans: " << payment.loansTaken << ".";
         }
     } else {
         PaymentResult payment = bank.charge(player, pot);
@@ -2016,7 +2229,7 @@ std::string Game::resolveDuelMinigameAction(int playerIndex, int& amountDelta) {
         amountDelta = -pot;
         result << opponent.name << " wins $" << pot << ".";
         if (payment.loansTaken > 0) {
-            result << " Auto-loans: " << payment.loansTaken << ".";
+            result << " Automatic loans: " << payment.loansTaken << ".";
         }
     }
 
@@ -2839,107 +3052,126 @@ int Game::calculateFinalWorth(const Player& player) const {
 bool Game::run() {
     if (!ensureMinSize()) return false;
     while (true) {
-        const StartChoice startChoice = showStartScreen();
-        if (startChoice == START_QUIT_GAME) {
-            return false;
-        }
-
-        createWindows();
-        if (startChoice == START_LOAD_GAME) {
-            if (loadSavedGame()) {
-                break;
+        while (true) {
+            const StartChoice startChoice = showStartScreen();
+            if (startChoice == START_QUIT_GAME) {
+                return false;
             }
-            destroyWindows();
-            continue;
-        }
 
-        setupRules();
-        setupPlayers();
-        setupInvestments();
-        showTutorial();
-        break;
-    }
-
-    while (!allPlayersRetired()) {
-        if (!ensureMinSize()) return false;
-        destroyWindows();
-        createWindows();
-
-        if (players[currentPlayerIndex].retired) {
-            currentPlayerIndex = (currentPlayerIndex + 1) % static_cast<int>(players.size());
-            continue;
-        }
-
-        if (resolveSkipTurn(currentPlayerIndex)) {
-            ++turnCounter;
-            currentPlayerIndex = (currentPlayerIndex + 1) % static_cast<int>(players.size());
-            continue;
-        }
-
-        renderGame(currentPlayerIndex,
-                   players[currentPlayerIndex].name + "'s turn",
-                   "ENTER spin | B sabotage | TAB scores | G guide | K keys | S save | Q quit/save");
-        maybeCpuSabotage(currentPlayerIndex);
-        int command = waitForTurnCommand(currentPlayerIndex);
-        if (command == 'q' || command == 'Q') {
-            const int quitChoice = showBranchPopup(
-                "Do you want to save when pressing Q in game?",
-                std::vector<std::string>{
-                    "- Yes, save and quit",
-                    "- No, quit without saving"
-                },
-                'A',
-                'B');
-            if (quitChoice == 0) {
-                if (saveCurrentGame()) {
-                    return false;
+            createWindows();
+            if (startChoice == START_LOAD_GAME) {
+                if (loadSavedGame()) {
+                    break;
                 }
-                renderGame(currentPlayerIndex,
-                           players[currentPlayerIndex].name + "'s turn",
-                           "ENTER spin | B sabotage | TAB scores | G guide | K keys | S save | Q quit/save");
+                destroyWindows();
                 continue;
             }
-            return false;
+
+            setupRules();
+            setupPlayers();
+            setupInvestments();
+            showTutorial();
+            break;
         }
-        if (command == 's' || command == 'S') {
-            saveCurrentGame();
-            continue;
-        }
-        if (command == 'b' || command == 'B') {
-            const bool sabotageUsed = promptSabotageMenu(currentPlayerIndex);
+
+        while (!allPlayersRetired()) {
+            if (!ensureMinSize()) return false;
+            destroyWindows();
+            createWindows();
+
+            if (players[currentPlayerIndex].retired) {
+                currentPlayerIndex = (currentPlayerIndex + 1) % static_cast<int>(players.size());
+                continue;
+            }
+
+            if (resolveSkipTurn(currentPlayerIndex)) {
+                ++turnCounter;
+                currentPlayerIndex = (currentPlayerIndex + 1) % static_cast<int>(players.size());
+                continue;
+            }
+
             renderGame(currentPlayerIndex,
                        players[currentPlayerIndex].name + "'s turn",
-                       "ENTER spin | B sabotage | TAB scores | G guide | K keys | S save | Q quit/save");
-            if (!sabotageUsed) {
+                       turnPromptText());
+            maybeCpuSabotage(currentPlayerIndex);
+            int command = waitForTurnCommand(currentPlayerIndex);
+            if (command == 27 || command == 'q' || command == 'Q') {
+                const int quitChoice = showBranchPopup(
+                    "Leave the game from the ESC menu?",
+                    std::vector<std::string>{
+                        "- Yes, save and quit",
+                        "- No, quit without saving"
+                    },
+                    'A',
+                    'B');
+                if (quitChoice == 0) {
+                    if (saveCurrentGame()) {
+                        return false;
+                    }
+                    renderGame(currentPlayerIndex,
+                               players[currentPlayerIndex].name + "'s turn",
+                               turnPromptText());
+                    continue;
+                }
+                return false;
+            }
+            if (command == 's' || command == 'S') {
+                saveCurrentGame();
                 continue;
+            }
+            if (command == 'b' || command == 'B') {
+                const bool sabotageUsed = promptSabotageMenu(currentPlayerIndex);
+                renderGame(currentPlayerIndex,
+                           players[currentPlayerIndex].name + "'s turn",
+                           turnPromptText());
+                if (!sabotageUsed) {
+                    continue;
+                }
+            }
+
+            autoAdvanceUi = isCpuPlayer(currentPlayerIndex);
+            takeMovementSpin(currentPlayerIndex, "Movement Spin");
+            autoAdvanceUi = false;
+            decrementTurnStatuses(players[currentPlayerIndex]);
+            ++turnCounter;
+            currentPlayerIndex = (currentPlayerIndex + 1) % static_cast<int>(players.size());
+        }
+
+        finalizeScoring();
+
+        int winner = 0;
+        int best = calculateFinalWorth(players[0]);
+        for (size_t i = 1; i < players.size(); ++i) {
+            int worth = calculateFinalWorth(players[i]);
+            if (worth > best) {
+                best = worth;
+                winner = static_cast<int>(i);
             }
         }
 
-        autoAdvanceUi = isCpuPlayer(currentPlayerIndex);
-        takeMovementSpin(currentPlayerIndex, "Movement Spin");
-        autoAdvanceUi = false;
-        decrementTurnStatuses(players[currentPlayerIndex]);
-        ++turnCounter;
-        currentPlayerIndex = (currentPlayerIndex + 1) % static_cast<int>(players.size());
+        std::ostringstream breakdown;
+        breakdown << "Cash $" << players[winner].cash
+                  << " + house $" << (players[winner].finalHouseSaleValue > 0
+                                          ? players[winner].finalHouseSaleValue
+                                          : players[winner].houseValue)
+                  << " + action cards $" << static_cast<int>(players[winner].actionCards.size()) * 100000
+                  << " + pet cards $" << static_cast<int>(players[winner].petCards.size()) * 100000
+                  << " + family $" << players[winner].kids * 50000
+                  << " + retirement $" << players[winner].retirementBonus
+                  << " - loans $" << bank.totalLoanDebt(players[winner]);
+
+        addHistory("Completed game: " + players[winner].name + " won with $" + std::to_string(best));
+        showPopupMessage("Player " + std::to_string(winner + 1) + " Wins!",
+                         std::vector<std::string>{
+                             players[winner].name + " wins the journey with $" + std::to_string(best) + ".",
+                             breakdown.str(),
+                             "Press ENTER to return to the main menu."
+                         },
+                         hasColor,
+                         false);
+
+        destroyWindows();
+        clear();
+        refresh();
     }
-
-    finalizeScoring();
-
-    int winner = 0;
-    int best = calculateFinalWorth(players[0]);
-    for (size_t i = 1; i < players.size(); ++i) {
-        int worth = calculateFinalWorth(players[i]);
-        if (worth > best) {
-            best = worth;
-            winner = static_cast<int>(i);
-        }
-    }
-
-    werase(msgWin);
-    box(msgWin, 0, 0);
-    mvwprintw(msgWin, 1, 2, "Game Over! %s wins with $%d.", players[winner].name.c_str(), best);
-    mvwprintw(msgWin, 2, 2, "Press ENTER to exit");
-    wrefresh(msgWin);
-    waitForEnter(msgWin, 2, 2, "");
-    return true;
 }
