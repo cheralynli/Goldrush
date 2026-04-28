@@ -3,7 +3,12 @@
 #include <algorithm>
 #include <cctype>
 #include <clocale>
+<<<<<<< HEAD
+#include <utility>
+#include <string>
+=======
 #include <sstream>
+>>>>>>> 31eecd1273a15126e311ba1e9b44f2968283fbe7
 #include <vector>
 
 #include "tile_display.h"
@@ -169,9 +174,9 @@ void initGameColors() {
     init_pair(GOLDRUSH_CHARCOAL_BLACK, COLOR_WHITE, COLOR_BLACK);
     init_pair(GOLDRUSH_GOLD_SAND, gold, COLOR_BLACK);
     init_pair(GOLDRUSH_PLAYER_ONE, gold, COLOR_BLACK);
-    init_pair(GOLDRUSH_PLAYER_TWO, COLOR_CYAN, COLOR_BLACK);
+    init_pair(GOLDRUSH_PLAYER_TWO, forest, COLOR_BLACK);
     init_pair(GOLDRUSH_PLAYER_THREE, terra, COLOR_BLACK);
-    init_pair(GOLDRUSH_PLAYER_FOUR, forest, COLOR_BLACK);
+    init_pair(GOLDRUSH_PLAYER_FOUR, COLOR_CYAN, COLOR_BLACK);
     init_pair(GOLDRUSH_BLACK_FOREST, forest, COLOR_BLACK);
     init_pair(GOLDRUSH_BLACK_CREAM, brown, COLOR_BLACK);
     init_pair(GOLDRUSH_GOLD_TERRA, terra, COLOR_BLACK);
@@ -185,6 +190,81 @@ void initGameColors() {
     init_pair(GOLDRUSH_TILE_ROUTE, gold, COLOR_BLACK);
 }
 
+<<<<<<< HEAD
+void draw_menu_border(bool is_active, int x, int y, int width, int height) {
+    if (!is_active) return;
+    attron(COLOR_PAIR(GOLDRUSH_GOLD_BLACK));
+    mvaddch(y, x, ACS_ULCORNER);
+    mvhline(y, x + 1, ACS_HLINE, width - 2);
+    mvaddch(y, x + width - 1, ACS_URCORNER);
+    for (int row = 1; row < height - 1; ++row) {
+        mvaddch(y + row, x, ACS_VLINE);
+        mvaddch(y + row, x + width - 1, ACS_VLINE);
+    }
+    mvaddch(y + height - 1, x, ACS_LLCORNER);
+    mvhline(y + height - 1, x + 1, ACS_HLINE, width - 2);
+    mvaddch(y + height - 1, x + width - 1, ACS_LRCORNER);
+    attroff(COLOR_PAIR(GOLDRUSH_GOLD_BLACK));
+}
+
+bool isSpecialMinimapTile(const Tile& tile) {
+    switch (tile.kind) {
+        case TILE_BLACK:
+        case TILE_SPLIT_START:
+        case TILE_SPLIT_FAMILY:
+        case TILE_SPLIT_RISK:
+        case TILE_PAYDAY:
+        case TILE_MARRIAGE:
+        case TILE_HOUSE:
+        case TILE_BABY:
+        case TILE_GRADUATION:
+        case TILE_NIGHT_SCHOOL:
+        case TILE_SPIN_AGAIN:
+        case TILE_CAREER_2:
+            return true;
+        default:
+            return false;
+    }
+}
+
+void drawMinimapDot(WINDOW* panelWin, int y, int x, const char* glyph, int colorPair) {
+    wattron(panelWin, COLOR_PAIR(colorPair) | A_BOLD);
+    mvwprintw(panelWin, y, x, "%s", glyph);
+    wattroff(panelWin, COLOR_PAIR(colorPair) | A_BOLD);
+}
+
+std::vector<std::pair<int, int> > minimapConnections(const Board& board) {
+    std::vector<std::pair<int, int> > connections;
+    for (int i = 0; i < TILE_COUNT; ++i) {
+        const Tile& tile = board.tileAt(i);
+        if (tile.next >= 0) {
+            connections.push_back(std::make_pair(i, tile.next));
+        }
+        if (tile.altNext >= 0) {
+            connections.push_back(std::make_pair(i, tile.altNext));
+        }
+    }
+    return connections;
+}
+
+void drawMiniLine(WINDOW* panelWin, int y1, int x1, int y2, int x2) {
+    wattron(panelWin, COLOR_PAIR(GOLDRUSH_BROWN_SAND) | A_DIM);
+    int x = x1;
+    int y = y1;
+    while (x != x2) {
+        x += (x2 > x) ? 1 : -1;
+        mvwaddch(panelWin, y, x, '.');
+    }
+    while (y != y2) {
+        y += (y2 > y) ? 1 : -1;
+        mvwaddch(panelWin, y, x, '.');
+    }
+    wattroff(panelWin, COLOR_PAIR(GOLDRUSH_BROWN_SAND) | A_DIM);
+}
+}  // namespace
+
+=======
+>>>>>>> 31eecd1273a15126e311ba1e9b44f2968283fbe7
 void initialize_game_ui() {
     std::setlocale(LC_ALL, "");
     initscr();
@@ -283,6 +363,14 @@ void draw_title_banner_ui(WINDOW* titleWin) {
     wrefresh(titleWin);
 }
 
+<<<<<<< HEAD
+void draw_board_ui(WINDOW* boardWin,
+                   const Board& board,
+                   const std::vector<Player>& players,
+                   int currentPlayer,
+                   int highlightedTile) {
+    board.render(boardWin, players, currentPlayer, highlightedTile, has_colors());
+=======
 void drawBoardLegend(WINDOW* win) {
     if (!win) {
         return;
@@ -553,6 +641,7 @@ void draw_board_ui(WINDOW* boardWin,
         wattroff(boardWin, COLOR_PAIR(ui_player_color_pair(currentPlayerIndex)) | A_BOLD | A_REVERSE);
         wrefresh(boardWin);
     }
+>>>>>>> 31eecd1273a15126e311ba1e9b44f2968283fbe7
 }
 
 void draw_sidebar_ui(WINDOW* panelWin,
@@ -561,6 +650,100 @@ void draw_sidebar_ui(WINDOW* panelWin,
                      int currentPlayer,
                      const std::vector<std::string>& historyLines,
                      const RuleSet& rules) {
+<<<<<<< HEAD
+    (void)historyLines;
+    werase(panelWin);
+    box(panelWin, 0, 0);
+
+    wattron(panelWin, COLOR_PAIR(GOLDRUSH_GOLD_BLACK) | A_BOLD);
+    mvwprintw(panelWin, 1, 2, "MINI MAP");
+    wattroff(panelWin, COLOR_PAIR(GOLDRUSH_GOLD_BLACK) | A_BOLD);
+
+    const int mapTop = 3;
+    const int mapLeft = 3;
+    const int mapWidth = 32;
+    const int mapHeight = 11;
+    int minTileX = board.tileAt(0).x;
+    int maxTileX = board.tileAt(0).x;
+    int minTileY = board.tileAt(0).y;
+    int maxTileY = board.tileAt(0).y;
+    for (int i = 1; i < TILE_COUNT; ++i) {
+        const Tile& tile = board.tileAt(i);
+        minTileX = std::min(minTileX, tile.x);
+        maxTileX = std::max(maxTileX, tile.x);
+        minTileY = std::min(minTileY, tile.y);
+        maxTileY = std::max(maxTileY, tile.y);
+    }
+
+    wattron(panelWin, COLOR_PAIR(GOLDRUSH_BROWN_SAND));
+    mvwhline(panelWin, 2, 1, ACS_HLINE, 38);
+    mvwhline(panelWin, mapTop + mapHeight + 1, 1, ACS_HLINE, 38);
+    wattroff(panelWin, COLOR_PAIR(GOLDRUSH_BROWN_SAND));
+
+    const std::vector<std::pair<int, int> > connections = minimapConnections(board);
+    for (std::size_t i = 0; i < connections.size(); ++i) {
+        const Tile& from = board.tileAt(connections[i].first);
+        const Tile& to = board.tileAt(connections[i].second);
+        const int fromX = mapLeft + ((from.x - minTileX) * (mapWidth - 1)) / std::max(1, maxTileX - minTileX);
+        const int fromY = mapTop + ((from.y - minTileY) * (mapHeight - 1)) / std::max(1, maxTileY - minTileY);
+        const int toX = mapLeft + ((to.x - minTileX) * (mapWidth - 1)) / std::max(1, maxTileX - minTileX);
+        const int toY = mapTop + ((to.y - minTileY) * (mapHeight - 1)) / std::max(1, maxTileY - minTileY);
+        drawMiniLine(panelWin, fromY, fromX, toY, toX);
+    }
+
+    for (int i = 0; i < TILE_COUNT; ++i) {
+        const Tile& tile = board.tileAt(i);
+        const int drawX = mapLeft + ((tile.x - minTileX) * (mapWidth - 1)) / std::max(1, maxTileX - minTileX);
+        const int drawY = mapTop + ((tile.y - minTileY) * (mapHeight - 1)) / std::max(1, maxTileY - minTileY);
+
+        const bool playerOneHere = players.size() > 0 && players[0].tile == i;
+        const bool playerTwoHere = players.size() > 1 && players[1].tile == i;
+
+        if (playerOneHere && playerTwoHere) {
+            drawMinimapDot(panelWin, drawY, drawX, "◎", GOLDRUSH_GOLD_TERRA);
+        } else if (playerOneHere) {
+            drawMinimapDot(panelWin, drawY, drawX, "●", GOLDRUSH_PLAYER_ONE);
+        } else if (playerTwoHere) {
+            drawMinimapDot(panelWin, drawY, drawX, "●", GOLDRUSH_BLACK_FOREST);
+        } else if (tile.kind == TILE_RETIREMENT) {
+            drawMinimapDot(panelWin, drawY, drawX, "★", GOLDRUSH_GOLD_TERRA);
+        } else if (isSpecialMinimapTile(tile)) {
+            drawMinimapDot(panelWin, drawY, drawX, "◆", GOLDRUSH_BLACK_TERRA);
+        } else {
+            drawMinimapDot(panelWin, drawY, drawX, "·", GOLDRUSH_BROWN_CREAM);
+        }
+    }
+
+    mvwprintw(panelWin, mapTop + mapHeight + 2, 2, "P1");
+    drawMinimapDot(panelWin, mapTop + mapHeight + 2, 6, "●", GOLDRUSH_PLAYER_ONE);
+    mvwprintw(panelWin, mapTop + mapHeight + 2, 9, "Gold");
+    mvwprintw(panelWin, mapTop + mapHeight + 3, 2, "P2");
+    drawMinimapDot(panelWin, mapTop + mapHeight + 3, 6, "●", GOLDRUSH_BLACK_FOREST);
+    mvwprintw(panelWin, mapTop + mapHeight + 3, 9, "Green");
+
+    if (!players.empty() && currentPlayer >= 0 && currentPlayer < static_cast<int>(players.size())) {
+        const Player& player = players[currentPlayer];
+        const std::string home = player.retirementHome.empty() ? "--" : player.retirementHome;
+        const std::string invest = player.investedNumber > 0 ? std::to_string(player.investedNumber) : "-";
+        const int statsY = mapTop + mapHeight + 5;
+
+        wattron(panelWin, COLOR_PAIR(ui_player_color_pair(currentPlayer)) | A_BOLD);
+        mvwprintw(panelWin, statsY, 2, "%-.24s's trail", player.name.c_str());
+        wattroff(panelWin, COLOR_PAIR(ui_player_color_pair(currentPlayer)) | A_BOLD);
+
+        wattron(panelWin, COLOR_PAIR(GOLDRUSH_BROWN_CREAM));
+        mvwprintw(panelWin, statsY + 1, 2, "Cash:%d  Loans:%d", player.cash, player.loans);
+        mvwprintw(panelWin, statsY + 2, 2, "Job:%-.15s  Inv:%s", player.job.c_str(), invest.c_str());
+        mvwprintw(panelWin, statsY + 3, 2, "Married:%s Kids:%d Pets:%d",
+                  player.married ? "Y" : "N",
+                  player.kids,
+                  static_cast<int>(player.petCards.size()));
+        mvwprintw(panelWin, statsY + 4, 2, "Home:%-.24s", home.c_str());
+        mvwprintw(panelWin, statsY + 5, 2, "%-.34s", rules.editionName.c_str());
+        wattroff(panelWin, COLOR_PAIR(GOLDRUSH_BROWN_CREAM));
+    }
+
+=======
     int panelHeight = 0;
     int panelWidth = 0;
     getmaxyx(panelWin, panelHeight, panelWidth);
@@ -602,6 +785,7 @@ void draw_sidebar_ui(WINDOW* panelWin,
         mvwprintw(panelWin, historyStartY + static_cast<int>(i), 2, "%-*s", historyWidth, formatted.c_str());
         wattroff(panelWin, COLOR_PAIR(colorPair));
     }
+>>>>>>> 31eecd1273a15126e311ba1e9b44f2968283fbe7
     wrefresh(panelWin);
 }
 
@@ -709,5 +893,9 @@ void update_position_highlights(WINDOW* boardWin,
                                 int previous_position,
                                 int playerIndex) {
     (void)previous_position;
+<<<<<<< HEAD
+    board.render(boardWin, players, playerIndex, current_position, has_colors());
+=======
     draw_board_ui(boardWin, board, players, current_position, playerIndex);
+>>>>>>> 31eecd1273a15126e311ba1e9b44f2968283fbe7
 }

@@ -44,6 +44,13 @@ void initGameColors();
 void initialize_game_ui();
 void destroy_game_ui();
 void apply_ui_background(WINDOW* window);
+<<<<<<< HEAD
+void draw_board_ui(WINDOW* boardWin,
+                   const Board& board,
+                   const std::vector<Player>& players,
+                   int currentPlayer,
+                   int highlightedTile);
+=======
 int getTileColorPair(const Tile& tile);
 void drawBoardLegend(WINDOW* win);
 void drawCurrentHintBox(WINDOW* win, const Board& board, const Player& player, const RuleSet& rules);
@@ -56,6 +63,7 @@ void draw_board_ui(WINDOW* boardWin,
                    const std::vector<Player>& players,
                    int highlightedTile,
                    int currentPlayerIndex);
+>>>>>>> 31eecd1273a15126e311ba1e9b44f2968283fbe7
 void draw_sidebar_ui(WINDOW* panelWin,
                      const Board& board,
                      const std::vector<Player>& players,
