@@ -1,5 +1,6 @@
 #include "board.hpp"
 #include "tile_display.h"
+#include "ui.h"
 
 #include <algorithm>
 #include <set>
@@ -15,6 +16,7 @@ struct UiPos {
 };
 
 const int PLAYER_PAIR_BASE = 9;
+<<<<<<< HEAD
 const int VIEW_COLS = 5;
 const int VIEW_ROWS = 3;
 const int TILE_W = 12;
@@ -24,6 +26,23 @@ const int TILE_GAP_Y = 1;
 
 int centeredX(int areaLeft, int areaWidth, int textWidth) {
     return areaLeft + std::max(0, (areaWidth - textWidth) / 2);
+=======
+
+struct RegionLabel {
+    const char* name;
+    int y;
+    int x;
+};
+
+const RegionLabel region_labels[] = {
+    {"STARTUP STREET", 2, 28},
+    {"CAREER CITY", 5, 28},
+    {"GOLDRUSH VALLEY", 11, 27},
+    {"FAMILY AVENUE", 17, 24},
+    {"RISKY ROAD", 23, 28},
+    {"RETIREMENT RIDGE", 26, 25}
+};
+>>>>>>> 31eecd1273a15126e311ba1e9b44f2968283fbe7
 }
 
 std::string clipText(const std::string& text, int maxWidth) {
@@ -387,6 +406,7 @@ void drawTileBox(WINDOW* boardWin,
 
 Board::Board() {
     initTiles();
+    initRegions();
 }
 
 const Tile& Board::tileAt(int id) const {
@@ -650,53 +670,184 @@ bool Board::isStopSpace(const Tile& tile) const {
     return tile.stop;
 }
 
+std::string Board::regionNameForTile(int tileIndex) const {
+    for (std::size_t i = 0; i < regions.size(); ++i) {
+        if (tileIndex >= regions[i].startTileIndex && tileIndex <= regions[i].endTileIndex) {
+            return regions[i].name;
+        }
+    }
+    return "Open Road";
+}
+
 std::vector<std::string> Board::tutorialLegend() const {
     std::vector<std::string> lines;
-    lines.push_back(getTileDisplayName(TILE_START));
-    lines.push_back(getTileDisplayName(TILE_SPLIT_START));
-    lines.push_back(getTileDisplayName(TILE_COLLEGE));
-    lines.push_back(getTileDisplayName(TILE_CAREER));
-    lines.push_back(getTileDisplayName(TILE_GRADUATION));
-    lines.push_back(getTileDisplayName(TILE_MARRIAGE));
-    lines.push_back(getTileDisplayName(TILE_SPLIT_FAMILY));
-    lines.push_back(getTileDisplayName(TILE_NIGHT_SCHOOL));
-    lines.push_back(getTileDisplayName(TILE_PAYDAY));
-    lines.push_back(getTileDisplayName(TILE_CAREER_2));
-    lines.push_back(getTileDisplayName(TILE_HOUSE));
-    lines.push_back("Baby Event (3B/2B/1B)");
-    lines.push_back(getTileDisplayName(TILE_SPLIT_RISK));
-    lines.push_back(getTileDisplayName(TILE_SAFE));
-    lines.push_back(getTileDisplayName(TILE_RISKY));
-    lines.push_back(getTileDisplayName(TILE_SPIN_AGAIN));
-    lines.push_back("Millionaire Mansion (MM)");
-    lines.push_back("Countryside Acres (CA)");
-    lines.push_back(getTileDisplayName(TILE_BLACK));
+    lines.push_back("[" + getTileBoardSymbol(tileAt(10)) + "] " + getTileDisplayName(tileAt(10)));
+    lines.push_back("[" + getTileBoardSymbol(tileAt(12)) + "] " + getTileDisplayName(tileAt(12)));
+    lines.push_back("[" + getTileBoardSymbol(tileAt(13)) + "] " + getTileDisplayName(tileAt(13)));
+    lines.push_back("[" + getTileBoardSymbol(tileAt(25)) + "] " + getTileDisplayName(tileAt(25)));
+    lines.push_back("[" + getTileBoardSymbol(tileAt(20)) + "] " + getTileDisplayName(tileAt(20)));
+    lines.push_back("[" + getTileBoardSymbol(tileAt(39)) + "] " + getTileDisplayName(tileAt(39)));
+    lines.push_back("[" + getTileBoardSymbol(tileAt(84)) + "] " + getTileDisplayName(tileAt(84)));
+    lines.push_back("[" + getTileBoardSymbol(tileAt(68)) + "] " + getTileDisplayName(tileAt(68)));
+    lines.push_back("[" + getTileBoardSymbol(tileAt(83)) + "] " + getTileDisplayName(tileAt(83)));
+    lines.push_back("[" + getTileBoardSymbol(tileAt(0)) + "] " + getTileDisplayName(tileAt(0)));
+    lines.push_back("[2P] Multiple players on one tile");
     return lines;
 }
 
-int Board::colorForTile(const Tile& tile) const {
-    switch (tile.kind) {
-        case TILE_BLACK:
-        case TILE_RISKY:
-        case TILE_MARRIAGE:
-        case TILE_SPLIT_START:
-        case TILE_SPLIT_FAMILY:
-        case TILE_SPLIT_RISK:
-        case TILE_HOUSE:
-            return 5;
-        case TILE_START:
-        case TILE_RETIREMENT:
-        case TILE_PAYDAY:
-        case TILE_GRADUATION:
-        case TILE_BABY:
-        case TILE_NIGHT_SCHOOL:
-        case TILE_SPIN_AGAIN:
-            return 4;
-        default:
-            return 3;
+void Board::initRegions() {
+    regions.clear();
+    regions.push_back({"Startup Street", 0, 12});
+    regions.push_back({"Career City", 13, 38});
+    regions.push_back({"Goldrush Valley", 39, 58});
+    regions.push_back({"Family Avenue", 59, 72});
+    regions.push_back({"Risky Road", 73, 86});
+    regions.push_back({"Retirement Ridge", 87, 88});
+}
+
+<<<<<<< HEAD
+=======
+void Board::drawBoardGrid(WINDOW* boardWin) const {
+    wattron(boardWin, COLOR_PAIR(2));
+    for (size_t i = 0; i < sizeof(row_segments) / sizeof(row_segments[0]); ++i) {
+        const RowSegment& row = row_segments[i];
+        const int left = board_ui_positions[row.startIndex].x - 1;
+        const int width = row.count * 4 + 1;
+        mvwhline(boardWin, row.y - 1, left, ACS_HLINE, width);
+        mvwhline(boardWin, row.y + 1, left, ACS_HLINE, width);
+        for (int col = 0; col <= row.count; ++col) {
+            mvwaddch(boardWin, row.y, left + (col * 4), ACS_VLINE);
+        }
+        mvwaddch(boardWin, row.y - 1, left, ACS_ULCORNER);
+        mvwaddch(boardWin, row.y + 1, left, ACS_LLCORNER);
+        for (int col = 1; col < row.count; ++col) {
+            mvwaddch(boardWin, row.y - 1, left + (col * 4), ACS_TTEE);
+            mvwaddch(boardWin, row.y + 1, left + (col * 4), ACS_BTEE);
+        }
+        mvwaddch(boardWin, row.y - 1, left + width - 1, ACS_URCORNER);
+        mvwaddch(boardWin, row.y + 1, left + width - 1, ACS_LRCORNER);
+    }
+    wattroff(boardWin, COLOR_PAIR(2));
+}
+
+void Board::drawTreeGuides(WINDOW* boardWin) const {
+    wattron(boardWin, COLOR_PAIR(2) | A_BOLD);
+    mvwvline(boardWin, 3, 40, ACS_VLINE, 1);
+    mvwvline(boardWin, 5, 16, ACS_VLINE, 2);
+    mvwhline(boardWin, 6, 17, ACS_HLINE, 22);
+    mvwvline(boardWin, 5, 40, ACS_VLINE, 2);
+    mvwvline(boardWin, 8, 40, ACS_VLINE, 1);
+    mvwvline(boardWin, 11, 40, ACS_VLINE, 1);
+    mvwvline(boardWin, 14, 40, ACS_VLINE, 1);
+    mvwhline(boardWin, 15, 40, ACS_HLINE, 2);
+    mvwvline(boardWin, 15, 22, ACS_VLINE, 2);
+    mvwhline(boardWin, 18, 23, ACS_HLINE, 17);
+    mvwvline(boardWin, 18, 58, ACS_VLINE, 4);
+    mvwvline(boardWin, 23, 40, ACS_VLINE, 1);
+    wattroff(boardWin, COLOR_PAIR(2) | A_BOLD);
+}
+
+void Board::drawBoardRegions(WINDOW* boardWin, bool hasColor) const {
+    for (std::size_t i = 0; i < sizeof(region_labels) / sizeof(region_labels[0]); ++i) {
+        if (hasColor) {
+            wattron(boardWin, COLOR_PAIR(GOLDRUSH_BROWN_SAND) | A_BOLD);
+        } else {
+            wattron(boardWin, A_BOLD);
+        }
+        mvwprintw(boardWin, region_labels[i].y, region_labels[i].x, "%s", region_labels[i].name);
+        if (hasColor) {
+            wattroff(boardWin, COLOR_PAIR(GOLDRUSH_BROWN_SAND) | A_BOLD);
+        } else {
+            wattroff(boardWin, A_BOLD);
+        }
     }
 }
 
+void Board::drawBoardLandmarks(WINDOW* boardWin, bool hasColor) const {
+    if (hasColor) {
+        wattron(boardWin, COLOR_PAIR(GOLDRUSH_BLACK_CREAM) | A_BOLD);
+    }
+    mvwprintw(boardWin, 2, 3, "BANK");
+    mvwprintw(boardWin, 3, 2, "/----\\");
+    mvwprintw(boardWin, 4, 2, "| $$ |");
+
+    mvwprintw(boardWin, 8, 67, "UNI");
+    mvwprintw(boardWin, 9, 66, "/---\\");
+    mvwprintw(boardWin, 10, 66, "| U |");
+
+    mvwprintw(boardWin, 14, 63, "[777]");
+    mvwprintw(boardWin, 15, 61, "LUCK HALL");
+
+    mvwprintw(boardWin, 26, 3, "RETIRE");
+    mvwprintw(boardWin, 27, 4, "/\\/\\\\");
+    if (hasColor) {
+        wattroff(boardWin, COLOR_PAIR(GOLDRUSH_BLACK_CREAM) | A_BOLD);
+    }
+}
+
+void Board::drawTile(WINDOW* boardWin, const Tile& tile, bool hasColor) const {
+    const std::string label = getTileBoardSymbol(tile);
+    const int colorPair = getTileColorPair(tile);
+    const bool importantTile = tile.stop ||
+                               tile.kind == TILE_PAYDAY ||
+                               tile.kind == TILE_HOUSE ||
+                               tile.kind == TILE_RETIREMENT ||
+                               tile.kind == TILE_RISKY ||
+                               tile.kind == TILE_CAREER;
+    if (hasColor && tile.kind == TILE_EMPTY) {
+        wattron(boardWin, COLOR_PAIR(colorPair) | A_DIM);
+    } else if (hasColor) {
+        wattron(boardWin, COLOR_PAIR(colorPair) | (importantTile ? A_BOLD : A_NORMAL));
+    }
+    mvwaddch(boardWin, tile.y, tile.x, '[');
+    mvwprintw(boardWin, tile.y, tile.x + 1, "%-2s", label.c_str());
+    mvwaddch(boardWin, tile.y, tile.x + 3, ']');
+    if (hasColor) {
+        wattroff(boardWin, COLOR_PAIR(colorPair) | (importantTile ? A_BOLD : A_NORMAL));
+        wattroff(boardWin, A_DIM);
+    }
+}
+
+void Board::drawTokens(WINDOW* boardWin, const std::vector<Player>& players, int tileIndex, bool hasColor) const {
+    int occupants = 0;
+    int firstPlayer = -1;
+    for (size_t p = 0; p < players.size(); ++p) {
+        if (players[p].tile != tileIndex) {
+            continue;
+        }
+        if (firstPlayer < 0) {
+            firstPlayer = static_cast<int>(p);
+        }
+        ++occupants;
+    }
+
+    if (occupants <= 0) {
+        return;
+    }
+
+    std::string marker;
+    if (occupants == 1 && firstPlayer >= 0) {
+        marker = "[";
+        marker.push_back(players[static_cast<std::size_t>(firstPlayer)].token);
+        marker += " ]";
+    } else {
+        marker = "[" + std::to_string(occupants) + "P]";
+    }
+
+    if (hasColor) {
+        wattron(boardWin, COLOR_PAIR(PLAYER_PAIR_BASE + static_cast<int>(firstPlayer % 4)) | A_BOLD | A_REVERSE);
+    } else {
+        wattron(boardWin, A_BOLD | A_REVERSE);
+    }
+    mvwprintw(boardWin, tiles[tileIndex].y, tiles[tileIndex].x, "%s", marker.c_str());
+    if (hasColor) {
+        wattroff(boardWin, COLOR_PAIR(PLAYER_PAIR_BASE + static_cast<int>(firstPlayer % 4)) | A_BOLD | A_REVERSE);
+    } else {
+        wattroff(boardWin, A_BOLD | A_REVERSE);
+    }
+}
+
+>>>>>>> 31eecd1273a15126e311ba1e9b44f2968283fbe7
 void Board::render(WINDOW* boardWin,
                    const std::vector<Player>& players,
                    int focusPlayerIndex,
@@ -704,6 +855,7 @@ void Board::render(WINDOW* boardWin,
                    bool hasColor) const {
     werase(boardWin);
     box(boardWin, 0, 0);
+<<<<<<< HEAD
 
     if (players.empty()) {
         mvwprintw(boardWin, 1, 2, "Board view unavailable.");
@@ -811,6 +963,12 @@ void Board::render(WINDOW* boardWin,
                         maxY,
                         maxX);
     }
+=======
+    drawBoardGrid(boardWin);
+    drawTreeGuides(boardWin);
+    drawBoardRegions(boardWin, hasColor);
+    drawBoardLandmarks(boardWin, hasColor);
+>>>>>>> 31eecd1273a15126e311ba1e9b44f2968283fbe7
 
     for (int i = 0; i < TILE_COUNT; ++i) {
         if (reachable.count(i) == 0) {
