@@ -1742,15 +1742,34 @@ void Game::setupPlayers() {
     noecho();
     curs_set(0);
     drawSetupTitle();
-    const int numPlayers = choose_branch_with_selector(
-        "How many players?",
-        std::vector<std::string>{
-            "- 2 Players: quick duel",
-            "- 3 Players: balanced table",
-            "- 4 Players: full table"
-        },
-        std::vector<int>{2, 3, 4},
-        2);
+    int numPlayers = 0;
+    while (numPlayers < 2 || numPlayers > 4) {
+        werase(msgWin);
+        box(msgWin, 0, 0);
+        mvwprintw(msgWin, 1, std::max(2, (getmaxx(msgWin) - 16) / 2), "Players (2-4):");
+        mvwprintw(msgWin, 3, 2, "Enter number of players: ");
+        wrefresh(msgWin);
+
+        echo();
+        curs_set(1);
+        char inputBuf[8] = {0};
+        wgetnstr(msgWin, inputBuf, 7);
+        noecho();
+        curs_set(0);
+
+        if (inputBuf[0] >= '2' && inputBuf[0] <= '4' && inputBuf[1] == '\0') {
+            numPlayers = inputBuf[0] - '0';
+            break;
+        }
+
+        werase(msgWin);
+        box(msgWin, 0, 0);
+        mvwprintw(msgWin, 1, 2, "Invalid input. Please enter 2, 3, or 4.");
+        mvwprintw(msgWin, 2, 2, "Press any key to try again.");
+        wrefresh(msgWin);
+        wgetch(msgWin);
+        drawSetupTitle();
+    }
     showInfoPopup("Game setup",
                   "You chose " + std::to_string(numPlayers) +
                   " players. Next, choose each player's type and name.");

@@ -975,11 +975,26 @@ int selector_component(char* prompt_text,
                        int y_offset,
                        int width,
                        int height) {
+    auto clipToWidth = [](const char* text, int maxWidth) -> std::string {
+        if (!text || maxWidth <= 0) {
+            return "";
+        }
+        std::string value(text);
+        if (static_cast<int>(value.size()) <= maxWidth) {
+            return value;
+        }
+        return value.substr(0, static_cast<std::size_t>(maxWidth));
+    };
+
     int termHeight = 0;
     int termWidth = 0;
     getmaxyx(stdscr, termHeight, termWidth);
-    const int x = std::max(1, (termWidth - width) / 2);
-    const int y = std::max(1, termHeight - height - 4 + y_offset);
+    const int maxBoxWidth = std::max(8, termWidth - 4);
+    const int boxWidth = std::max(8, std::min(width, maxBoxWidth));
+    const int maxBoxHeight = std::max(3, termHeight - 6);
+    const int boxHeight = std::max(3, std::min(height, maxBoxHeight));
+    const int x = std::max(1, (termWidth - boxWidth) / 2);
+    const int y = std::max(1, termHeight - boxHeight - 4 + y_offset);
 
     int chosen_option_value = default_value;
     int highlighted_option = 0;
@@ -994,24 +1009,29 @@ int selector_component(char* prompt_text,
     while (true) {
         attron(COLOR_PAIR(GOLDRUSH_GOLD_BLACK));
         mvaddch(y - 1, x - 2, ACS_ULCORNER);
-        mvhline(y - 1, x - 1, ACS_HLINE, width + 2);
-        mvaddch(y - 1, x + width + 1, ACS_URCORNER);
-        for (int row = 0; row < height; ++row) {
+        mvhline(y - 1, x - 1, ACS_HLINE, boxWidth + 2);
+        mvaddch(y - 1, x + boxWidth + 1, ACS_URCORNER);
+        for (int row = 0; row < boxHeight; ++row) {
             mvaddch(y + row, x - 2, ACS_VLINE);
-            mvaddch(y + row, x + width + 1, ACS_VLINE);
+            mvaddch(y + row, x + boxWidth + 1, ACS_VLINE);
         }
-        mvaddch(y + height, x - 2, ACS_LLCORNER);
-        mvhline(y + height, x - 1, ACS_HLINE, width + 2);
-        mvaddch(y + height, x + width + 1, ACS_LRCORNER);
-        mvprintw(y, x + std::max(0, (width - static_cast<int>(std::strlen(prompt_text))) / 2), "%s", prompt_text);
+        mvaddch(y + boxHeight, x - 2, ACS_LLCORNER);
+        mvhline(y + boxHeight, x - 1, ACS_HLINE, boxWidth + 2);
+        mvaddch(y + boxHeight, x + boxWidth + 1, ACS_LRCORNER);
+        const std::string clippedPrompt = clipToWidth(prompt_text, boxWidth);
+        mvprintw(y, x + std::max(0, (boxWidth - static_cast<int>(clippedPrompt.size())) / 2), "%s", clippedPrompt.c_str());
         attroff(COLOR_PAIR(GOLDRUSH_GOLD_BLACK));
 
         for (int i = 0; i < number_of_options; ++i) {
             const int optionY = y + 1 + i;
+            if (optionY >= y + boxHeight) {
+                break;
+            }
             if (i == highlighted_option) {
                 attron(A_REVERSE | A_BOLD);
             }
-            mvprintw(optionY, x, "%-*s", width, option_texts[i]);
+            const std::string clippedOption = clipToWidth(option_texts[i], boxWidth);
+            mvprintw(optionY, x, "%-*s", boxWidth, clippedOption.c_str());
             if (i == highlighted_option) {
                 attroff(A_REVERSE | A_BOLD);
             }
