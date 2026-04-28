@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <cctype>
 #include <clocale>
+#include <cstring>
 #include <set>
 #include <utility>
 #include <string>
@@ -98,6 +99,34 @@ std::string historyCategory(const std::string& eventText) {
         return "MONEY";
     }
     return "INFO";
+}
+
+std::string playerLifePhase(const Board& board, const Player& player) {
+    if (player.retired || board.tileAt(player.tile).kind == TILE_RETIREMENT) {
+        return "Retired";
+    }
+    if (player.tile == 0) {
+        return "Starting Out";
+    }
+    if (player.tile >= 13 && player.tile <= 37) {
+        return player.startChoice == 0 ? "College Years" : "Career Launch";
+    }
+    if (player.tile >= 1 && player.tile <= 58) {
+        if (board.tileAt(player.tile).kind == TILE_MARRIAGE) {
+            return "Marriage Stop";
+        }
+        return "Early Adult Life";
+    }
+    if (player.tile >= 59 && player.tile <= 68) {
+        return "Family Years";
+    }
+    if (player.tile >= 69 && player.tile <= 78) {
+        return "Work Years";
+    }
+    if (player.tile >= 79 && player.tile <= 86) {
+        return player.riskChoice == 1 ? "Risk Route" : "Safe Route";
+    }
+    return board.regionNameForTile(player.tile);
 }
 
 int previewNextTile(const Board& board, const Player& player, int tileIndex) {
@@ -285,6 +314,16 @@ std::string minimapPathGlyph(int tileId, const Tile& tile) {
         return "c";
     }
     return minimapTileLabel(tile);
+}
+
+const char* minimapDotGlyph(const Tile& tile) {
+    if (tile.kind == TILE_RETIREMENT) {
+        return "*";
+    }
+    if (isSpecialMinimapTile(tile)) {
+        return "+";
+    }
+    return ".";
 }
 
 void drawMinimapDot(WINDOW* panelWin, int y, int x, const char* glyph, int colorPair) {
@@ -694,14 +733,16 @@ void drawEventMessage(WINDOW* messageWin, const std::string& title, const std::s
     box(messageWin, 0, 0);
 
     wattron(messageWin, COLOR_PAIR(GOLDRUSH_GOLD_SAND) | A_BOLD);
-    mvwprintw(messageWin, 1, 2, "%s", clipPanelText(title, static_cast<std::size_t>(std::max(0, width - 4))).c_str());
+    const std::string clippedTitle = clipPanelText(title, static_cast<std::size_t>(std::max(0, width - 4)));
+    mvwprintw(messageWin, 1, std::max(2, (width - static_cast<int>(clippedTitle.size())) / 2), "%s", clippedTitle.c_str());
     wattroff(messageWin, COLOR_PAIR(GOLDRUSH_GOLD_SAND) | A_BOLD);
 
     const std::vector<std::string> lines = wrapUiText(message, static_cast<std::size_t>(std::max(10, width - 4)));
     const int maxLines = std::min(std::max(0, height - 4), static_cast<int>(lines.size()));
     wattron(messageWin, COLOR_PAIR(GOLDRUSH_BROWN_CREAM));
     for (int i = 0; i < maxLines; ++i) {
-        mvwprintw(messageWin, 2 + i, 2, "%s", lines[static_cast<std::size_t>(i)].c_str());
+        const std::string& line = lines[static_cast<std::size_t>(i)];
+        mvwprintw(messageWin, 2 + i, std::max(2, (width - static_cast<int>(line.size())) / 2), "%s", line.c_str());
     }
     wattroff(messageWin, COLOR_PAIR(GOLDRUSH_BROWN_CREAM));
     wrefresh(messageWin);
@@ -774,7 +815,6 @@ void drawMinimapPanel(WINDOW* panelWin,
 
         int occupants = 0;
         int firstPlayer = -1;
-        bool currentHere = false;
         for (std::size_t p = 0; p < players.size(); ++p) {
             if (players[p].tile != i) {
                 continue;
@@ -782,38 +822,29 @@ void drawMinimapPanel(WINDOW* panelWin,
             if (firstPlayer < 0) {
                 firstPlayer = static_cast<int>(p);
             }
-            if (static_cast<int>(p) == currentPlayer) {
-                currentHere = true;
-            }
             ++occupants;
         }
 
-        const std::string baseGlyph = minimapPathGlyph(i, tile);
         if (occupants > 1) {
-            drawMinimapDot(panelWin, drawY, drawX, currentHere ? "P+" : "2P", GOLDRUSH_GOLD_TERRA);
-        } else if (occupants == 1 && !baseGlyph.empty() && baseGlyph != "c") {
-            drawMinimapDot(panelWin, drawY, drawX, baseGlyph.c_str(), ui_player_color_pair(firstPlayer));
+            drawMinimapDot(panelWin, drawY, drawX, "@", GOLDRUSH_GOLD_TERRA);
         } else if (occupants == 1) {
-            const std::string marker = "P" + std::to_string(firstPlayer + 1);
-            drawMinimapDot(panelWin, drawY, drawX, marker.c_str(), ui_player_color_pair(firstPlayer));
-        } else if (!baseGlyph.empty()) {
+            drawMinimapDot(panelWin, drawY, drawX, "o", ui_player_color_pair(firstPlayer));
+        } else {
             drawMinimapDot(panelWin,
                            drawY,
                            drawX,
-                           baseGlyph.c_str(),
-                           tile.kind == TILE_RETIREMENT ? GOLDRUSH_GOLD_TERRA : GOLDRUSH_BLACK_TERRA);
-        } else if (isSpecialMinimapTile(tile)) {
-            drawMinimapDot(panelWin, drawY, drawX, "!", GOLDRUSH_BLACK_TERRA);
-        } else if (minimapNeedsVertex(board, i)) {
-            drawMinimapDot(panelWin, drawY, drawX, ".", GOLDRUSH_BROWN_CREAM);
+                           minimapDotGlyph(tile),
+                           tile.kind == TILE_RETIREMENT ? GOLDRUSH_GOLD_TERRA
+                                                        : (isSpecialMinimapTile(tile) ? GOLDRUSH_BLACK_TERRA
+                                                                                      : GOLDRUSH_BROWN_CREAM));
         }
     }
 
     if (mapBottom + 2 < panelHeight - 1) {
-        mvwprintw(panelWin, mapBottom + 2, 2, "P1/P2 mark players. P+ means stacked.");
+        mvwprintw(panelWin, mapBottom + 2, 2, "%-.34s", "o player  @ stacked  + stop/event");
     }
     if (mapBottom + 3 < panelHeight - 1) {
-        mvwprintw(panelWin, mapBottom + 3, 2, "! special stop/event    . route bend");
+        mvwprintw(panelWin, mapBottom + 3, 2, "%-.34s", ". route  * retirement");
     }
 
     if (!players.empty() && currentPlayer >= 0 && currentPlayer < static_cast<int>(players.size())) {
@@ -863,10 +894,10 @@ void draw_sidebar_ui(WINDOW* panelWin,
     int panelWidth = 0;
     getmaxyx(panelWin, panelHeight, panelWidth);
     const bool compact = panelHeight < 31 || panelWidth < 42;
-    const int historyHeaderY = compact ? 21 : 23;
-    const int historyStartY = compact ? 22 : 24;
-    const int historyMaxLines = 5;
-    const int historyWidth = std::max(12, panelWidth - 5);
+    const int phaseHeaderY = compact ? 21 : 23;
+    const int phaseStartY = phaseHeaderY + 1;
+    const int footerY = panelHeight - 3;
+    const int textWidth = std::max(12, panelWidth - 5);
 
     werase(panelWin);
     box(panelWin, 0, 0);
@@ -875,22 +906,34 @@ void draw_sidebar_ui(WINDOW* panelWin,
         drawPlayerPanel(panelWin, board, players, currentPlayer);
     }
 
-    drawPanelHeader(panelWin, historyHeaderY, "HISTORY");
-    for (std::size_t i = 0; i < historyLines.size() && i < static_cast<std::size_t>(historyMaxLines); ++i) {
-        const int colorPair = getHistoryEventColor(historyLines[i]);
-        const std::string formatted = clipPanelText(formatHistoryEvent(historyLines[i]), static_cast<std::size_t>(historyWidth));
-        wattron(panelWin, COLOR_PAIR(colorPair));
-        mvwprintw(panelWin, historyStartY + static_cast<int>(i), 2, "%-*s", historyWidth, formatted.c_str());
-        wattroff(panelWin, COLOR_PAIR(colorPair));
+    drawPanelHeader(panelWin, phaseHeaderY, "LIFE PHASES");
+    for (std::size_t i = 0; i < players.size() && (phaseStartY + static_cast<int>(i)) < footerY - 1; ++i) {
+        const int row = phaseStartY + static_cast<int>(i);
+        const std::string phase = playerLifePhase(board, players[i]);
+        wattron(panelWin, COLOR_PAIR(ui_player_color_pair(static_cast<int>(i))) | A_BOLD);
+        mvwprintw(panelWin, row, 2, "P%d", static_cast<int>(i + 1));
+        wattroff(panelWin, COLOR_PAIR(ui_player_color_pair(static_cast<int>(i))) | A_BOLD);
+        mvwprintw(panelWin,
+                  row,
+                  6,
+                  "%-*s",
+                  textWidth - 4,
+                  clipPanelText(players[i].name + ": " + phase, static_cast<std::size_t>(textWidth - 4)).c_str());
     }
 
-    const int hintY = panelHeight - 3;
-    if (hintY > historyStartY + historyMaxLines) {
+    if (!historyLines.empty() && footerY > phaseStartY + static_cast<int>(players.size())) {
         wattron(panelWin, COLOR_PAIR(GOLDRUSH_BROWN_SAND));
-        mvwhline(panelWin, hintY - 1, 1, ACS_HLINE, std::max(4, panelWidth - 2));
+        mvwhline(panelWin, footerY - 1, 1, ACS_HLINE, std::max(4, panelWidth - 2));
         wattroff(panelWin, COLOR_PAIR(GOLDRUSH_BROWN_SAND));
-        mvwprintw(panelWin, hintY, 2, "TAB: scores + minimap");
-        mvwprintw(panelWin, hintY + 1, 2, "%-.34s", rules.editionName.c_str());
+        drawPanelHeader(panelWin, footerY, "LATEST");
+        const std::string latest = clipPanelText(historyLines.front(), static_cast<std::size_t>(std::max(8, panelWidth - 5)));
+        mvwprintw(panelWin, footerY + 1, 2, "%s", latest.c_str());
+    } else if (footerY > phaseStartY + static_cast<int>(players.size())) {
+        wattron(panelWin, COLOR_PAIR(GOLDRUSH_BROWN_SAND));
+        mvwhline(panelWin, footerY - 1, 1, ACS_HLINE, std::max(4, panelWidth - 2));
+        wattroff(panelWin, COLOR_PAIR(GOLDRUSH_BROWN_SAND));
+        mvwprintw(panelWin, footerY, 2, "%-.34s", rules.editionName.c_str());
+        mvwprintw(panelWin, footerY + 1, 2, "TAB: scores  G: guide  K: controls");
     }
 
     wrefresh(panelWin);
@@ -898,7 +941,30 @@ void draw_sidebar_ui(WINDOW* panelWin,
 }
 
 void draw_message_ui(WINDOW* msgWin, const std::string& line1, const std::string& line2) {
-    drawEventMessage(msgWin, line1, line2);
+    if (!msgWin) {
+        return;
+    }
+
+    int height = 0;
+    int width = 0;
+    getmaxyx(msgWin, height, width);
+    werase(msgWin);
+    box(msgWin, 0, 0);
+
+    wattron(msgWin, COLOR_PAIR(GOLDRUSH_GOLD_SAND) | A_BOLD);
+    mvwprintw(msgWin, 1, 2, "%s",
+              clipPanelText(line1, static_cast<std::size_t>(std::max(8, width - 4))).c_str());
+    wattroff(msgWin, COLOR_PAIR(GOLDRUSH_GOLD_SAND) | A_BOLD);
+
+    const std::vector<std::string> lines =
+        wrapUiText(line2, static_cast<std::size_t>(std::max(10, width - 4)));
+    const int maxLines = std::min(std::max(0, height - 4), static_cast<int>(lines.size()));
+    wattron(msgWin, COLOR_PAIR(GOLDRUSH_BROWN_CREAM));
+    for (int i = 0; i < maxLines; ++i) {
+        mvwprintw(msgWin, 2 + i, 2, "%s", lines[static_cast<std::size_t>(i)].c_str());
+    }
+    wattroff(msgWin, COLOR_PAIR(GOLDRUSH_BROWN_CREAM));
+    wrefresh(msgWin);
 }
 
 int selector_component(char* prompt_text,
@@ -909,14 +975,11 @@ int selector_component(char* prompt_text,
                        int y_offset,
                        int width,
                        int height) {
-    const UILayout layout = calculateUILayout();
     int termHeight = 0;
     int termWidth = 0;
     getmaxyx(stdscr, termHeight, termWidth);
-    const int preferredX = layout.originX + layout.boardWidth + 2;
-    const int preferredY = layout.originY + layout.headerHeight + 1 + y_offset;
-    const int x = std::max(0, std::min(preferredX, termWidth - width - 3));
-    const int y = std::max(1, std::min(preferredY, termHeight - height - 2));
+    const int x = std::max(1, (termWidth - width) / 2);
+    const int y = std::max(1, termHeight - height - 4 + y_offset);
 
     int chosen_option_value = default_value;
     int highlighted_option = 0;
@@ -940,7 +1003,7 @@ int selector_component(char* prompt_text,
         mvaddch(y + height, x - 2, ACS_LLCORNER);
         mvhline(y + height, x - 1, ACS_HLINE, width + 2);
         mvaddch(y + height, x + width + 1, ACS_LRCORNER);
-        mvprintw(y, x, "%s", prompt_text);
+        mvprintw(y, x + std::max(0, (width - static_cast<int>(std::strlen(prompt_text))) / 2), "%s", prompt_text);
         attroff(COLOR_PAIR(GOLDRUSH_GOLD_BLACK));
 
         for (int i = 0; i < number_of_options; ++i) {
