@@ -271,7 +271,7 @@ bool Game::ensureMinSize() const {
             bkgd(COLOR_PAIR(GOLDRUSH_GOLD_BLACK));
         }
         clear();
-        const char* line1 = "Terminal too small - please resize";
+        const char* line1 = "Terminal too small - please resize"; //change to please fullscreen
         std::ostringstream line2;
         line2 << "Minimum size: " << minWidth << "x" << minHeight;
         std::ostringstream line3;
@@ -835,14 +835,9 @@ Game::StartChoice Game::showStartScreen() {
 
         int ch = getch();
         if (!choosingMode) {
-            if (ch == 'n' || ch == 'N' || ch == 's' || ch == 'S') {
-                GameSettings selectedSettings = settings;
-                if (!showGameModeMenu(selectedSettings, hasColor)) {
-                    continue;
-                }
-                settings = selectedSettings;
+            if (ch == 'n' || ch == 'N' || ch == 's' || ch == 'S') { //look here
                 rules = makeNormalRules();
-                applyGameSettingsToRules(settings, rules);
+
                 if (!chooseBoardViewMode()) {
                     continue;
                 }
