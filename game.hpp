@@ -103,6 +103,7 @@ private:
     void showGuidePopup() const;
     void resetTutorialFlags();
     void maybeShowFirstTimeTutorial(TutorialTopic topic);
+    void maybeShowLoanTutorial(int playerIndex, const PaymentResult& payment);
     bool isSabotageUnlockedForPlayer(int playerIndex) const;
     void maybeShowSabotageUnlock(int playerIndex);
     void showControlsPopup() const;
@@ -125,7 +126,7 @@ private:
     void placeTrap(int attackerIndex, int tileId, SabotageType type);
     void checkTrapTrigger(int playerIndex);
     void setupRules();
-    void setupPlayers();
+    bool setupPlayers();
     void setupInvestments();
     int waitForTurnCommand(int currentPlayer);
     void renderGame(int currentPlayer, const std::string& msg, const std::string& detail) const;
@@ -144,6 +145,10 @@ private:
                         const std::vector<std::string>& lines,
                         char a,
                         char b);
+    int showRequiredBranchPopup(const std::string& title,
+                                const std::vector<std::string>& lines,
+                                char a,
+                                char b);
     void playBlackTileMinigame(int playerIndex);
     int chooseRandomOpponentIndex(int currentPlayer);
     int simulateDuelMinigameScore(const Player& player);
@@ -178,6 +183,7 @@ private:
     void takeMovementSpin(int currentPlayer, const std::string& reason);
     bool allPlayersRetired() const;
     void finalizeScoring();
+    void appendCompletedGameHistoryEntry(int winnerIndex, int winnerScore);
     int calculateFinalWorth(const Player& player) const;
 
     int minRewardForTier(int tier) const;

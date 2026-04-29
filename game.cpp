@@ -8,6 +8,7 @@
 #include "timer_display.h"
 #include "save_manager.hpp"
 #include "spins.hpp"
+#include "input_helpers.h"
 #include "ui.h"
 #include "ui_helpers.h"
 #include "completed_history.h"
@@ -120,6 +121,45 @@ std::string turnPromptText() {
     return "ENTER begin turn | B sabotage | TAB scores+map | G guide | K keys | S save | ESC menu";
 }
 
+std::string formatCompletedTime(std::time_t timestamp) {
+    std::tm localTime;
+#if defined(_WIN32)
+    if (localtime_s(&localTime, &timestamp) != 0) {
+        return "unknown";
+    }
+#else
+    if (localtime_r(&timestamp, &localTime) == nullptr) {
+        return "unknown";
+    }
+#endif
+
+    char buffer[64] = {0};
+    if (std::strftime(buffer, sizeof(buffer), "%Y-%m-%d %H:%M:%S", &localTime) == 0) {
+        return "unknown";
+    }
+    return buffer;
+}
+
+std::string playerCompletionSummary(const Player& player, int finalWorth, const Bank& bank) {
+    std::ostringstream out;
+    out << player.name << " " << playerTypeLabel(player.type);
+    if (player.type == PlayerType::CPU) {
+        out << "(" << cpuDifficultyLabel(player.cpuDifficulty) << ")";
+    }
+    out << " net $" << finalWorth
+        << " cash $" << player.cash
+        << " loans $" << bank.totalLoanDebt(player)
+        << " turns " << player.turnsTaken;
+    if (!player.job.empty() && player.job != "Unemployed") {
+        out << " job " << player.job;
+    }
+    if (player.hasHouse || !player.houseName.empty()) {
+        out << " house " << player.houseName << " $" <<
+            (player.finalHouseSaleValue > 0 ? player.finalHouseSaleValue : player.houseValue);
+    }
+    return out.str();
+}
+
 //shiny number
 std::vector<std::string> bigRollNumberArt(int value) {
     switch (value) {
@@ -166,21 +206,12 @@ std::vector<std::string> bigRollNumberArt(int value) {
                     "| (_) | ",
                     "\\___/  "};
         case 7:
-<<<<<<< HEAD
-            return {"  ______  ",
-                    " |____  | ",
-                    "     / /  ",
-                    "    / /   ",
-                    "   / /    ",
-                    "  /_/     "};
-=======
             return {"  ______ ", 
                     " |____  |", 
                     "     / / ", 
                     "    / /  ", 
                     "   / /   ",
                     "  /_/    "};
->>>>>>> 2c8e877ecacbdc52d144f56988230094781a3683
         case 8:
             return {"   ___   ", 
                     "  / _ \\  ", 
@@ -386,7 +417,7 @@ bool Game::ensureMinSize() const {
         refresh();
 
         int ch = getch();
-        if (ch == 27) {
+        if (isCancelKey(ch)) {
             timeout(-1);
             return false;
         }
@@ -446,19 +477,13 @@ void Game::createWindows() {
 void Game::waitForEnter(WINDOW* w, int y, int x, const std::string& text) const {
     mvwprintw(w, y, x, "%s", text.c_str());
     wrefresh(w);
-    int ch;
-    do {
-        ch = wgetch(w);
-    } while (ch != '\n' && ch != KEY_ENTER && ch != '\r');
+    waitForConfirmOrCancel(w);
 }
 
 void Game::drawSetupTitle() const {
     if (!msgWin) {
         return;
     }
-<<<<<<< HEAD
-    drawGoldrushTitleArt(hasColor);
-=======
 
     const char* lines[] = {
         "  ________         .__       .___                       .__      ",
@@ -492,7 +517,6 @@ void Game::drawSetupTitle() const {
         attroff(COLOR_PAIR(GOLDRUSH_GOLD_SAND) | A_BOLD);
     }
     refresh();
->>>>>>> 2c8e877ecacbdc52d144f56988230094781a3683
 }
 
 void Game::flashSpinResult(const std::string& title, int value) const {
@@ -634,7 +658,7 @@ bool Game::promptForFilename(const std::string& action,
     prompt << action << " in saves/ [" << defaultName << "]: ";
     const std::string promptText = prompt.str();
 
-    echo();
+    noecho();
     curs_set(1);
     werase(msgWin);
     drawBoxSafe(msgWin);
@@ -651,10 +675,13 @@ bool Game::promptForFilename(const std::string& action,
     wrefresh(msgWin);
 
     char buffer[260] = {0};
-    wgetnstr(msgWin, buffer, 259);
+    const bool confirmed = readLineOrCancel(msgWin, buffer, 259);
 
     noecho();
     curs_set(0);
+    if (!confirmed) {
+        return false;
+    }
 
     filename = buffer;
     if (filename.empty()) {
@@ -775,11 +802,11 @@ bool Game::chooseSaveFileToLoad(SaveFileInfo& selected) {
             selectedIndex = std::max(0, selectedIndex - visibleRows);
         } else if (ch == KEY_NPAGE) {
             selectedIndex = std::min(static_cast<int>(saves.size()) - 1, selectedIndex + visibleRows);
-        } else if (ch == '\n' || ch == '\r' || ch == KEY_ENTER) {
+        } else if (isConfirmKey(ch)) {
             selected = saves[static_cast<std::size_t>(selectedIndex)];
             delwin(popup);
             return true;
-        } else if (ch == 27 || ch == KEY_RESIZE) {
+        } else if (isCancelKey(ch) || ch == KEY_RESIZE) {
             delwin(popup);
             return false;
         }
@@ -790,7 +817,9 @@ bool Game::saveCurrentGame() {
     SaveManager saveManager;
     std::string filename = assignedSaveFilename;
     if (filename.empty()) {
-        promptForFilename("Save", saveManager.defaultSaveFilename(), filename);
+        if (!promptForFilename("Save", saveManager.defaultSaveFilename(), filename)) {
+            return false;
+        }
     }
 
     const std::string previousAssignedFilename = assignedSaveFilename;
@@ -868,8 +897,6 @@ bool Game::loadSavedGame() {
 }
 
 Game::StartChoice Game::showStartScreen() {
-<<<<<<< HEAD
-=======
     const char* lines[] = {
         "  ________         .__       .___                       .__      ",
         " /  _____/    ____ |  |    __| _/______ __ __     _____ |  |__   ",
@@ -880,7 +907,6 @@ Game::StartChoice Game::showStartScreen() {
     };
     const int artLines = static_cast<int>(sizeof(lines) / sizeof(lines[0]));
     const int artW = 60;
->>>>>>> 2c8e877ecacbdc52d144f56988230094781a3683
     // The title screen is a two-step state machine: first choose new/load/quit,
     // then choose the ruleset for a new game.
     bool choosingMode = false;
@@ -939,7 +965,7 @@ Game::StartChoice Game::showStartScreen() {
                 showCompletedGameHistoryScreen(hasColor);
                 continue;
             }
-            if (ch == 27) {
+            if (isCancelKey(ch)) {
                 if (confirmTitleQuit(hasColor)) {
                     return START_QUIT_GAME;
                 }
@@ -954,11 +980,11 @@ Game::StartChoice Game::showStartScreen() {
                 highlightedMode = highlightedMode == 1 ? 0 : 1;
                 continue;
             }
-            if (ch == 27) {
+            if (isCancelKey(ch)) {
                 choosingMode = false;
                 continue;
             }
-            if (ch == '\n' || ch == '\r' || ch == KEY_ENTER) {
+            if (isConfirmKey(ch)) {
                 if (highlightedMode == 0) {
                     rules = makeNormalRules();
                     return START_NEW_GAME;
@@ -1204,10 +1230,10 @@ bool Game::chooseBoardViewMode() {
                 selected = selected == 0 ? 1 : 0;
             } else if (ch == '1' || ch == '2') {
                 selected = ch - '1';
-            } else if (ch == 27) {
+            } else if (isCancelKey(ch)) {
                 delwin(popup);
                 return false;
-            } else if (ch == '\n' || ch == '\r' || ch == KEY_ENTER) {
+            } else if (isConfirmKey(ch)) {
                 boardViewMode = selected == 0
                     ? BoardViewMode::FollowCamera
                     : BoardViewMode::ClassicFull;
@@ -1279,13 +1305,13 @@ bool Game::configureCustomRules() {
             highlight = highlight == 0 ? startRowIndex : highlight - 1;
         } else if (ch == KEY_DOWN) {
             highlight = highlight == startRowIndex ? 0 : highlight + 1;
-        } else if (ch == 27) {
+        } else if (isCancelKey(ch)) {
             delwin(popup);
             return false;
         } else if (ch == KEY_RESIZE) {
             delwin(popup);
             return false;
-        } else if (ch == ' ' || ch == '\n' || ch == '\r' || ch == KEY_ENTER) {
+        } else if (isConfirmKey(ch, true)) {
             if (highlight == startRowIndex) {
                 break;
             }
@@ -1331,6 +1357,13 @@ void Game::maybeShowFirstTimeTutorial(TutorialTopic topic) {
     }
     showFirstTimeTutorial(topic, hasColor);
     seen = true;
+}
+
+void Game::maybeShowLoanTutorial(int playerIndex, const PaymentResult& payment) {
+    if (payment.loansTaken <= 0 || isCpuPlayer(playerIndex)) {
+        return;
+    }
+    maybeShowFirstTimeTutorial(TutorialTopic::AutomaticLoan);
 }
 
 bool Game::isSabotageUnlockedForPlayer(int playerIndex) const {
@@ -1485,7 +1518,7 @@ void Game::showScoreboardPopup() const {
 
     while (true) {
         const int ch = wgetch(popup);
-        if (ch == '\t' || ch == '\n' || ch == '\r' || ch == KEY_ENTER || ch == 27) {
+        if (ch == '\t' || isConfirmKey(ch) || isCancelKey(ch)) {
             break;
         }
     }
@@ -1737,11 +1770,11 @@ int Game::chooseSabotageTarget(int attackerIndex) {
             selected = selected == 0 ? static_cast<int>(candidates.size()) - 1 : selected - 1;
         } else if (ch == KEY_DOWN) {
             selected = selected + 1 >= static_cast<int>(candidates.size()) ? 0 : selected + 1;
-        } else if (ch == '\n' || ch == '\r' || ch == KEY_ENTER) {
+        } else if (isConfirmKey(ch)) {
             const int chosen = candidates[static_cast<std::size_t>(selected)];
             delwin(popup);
             return chosen;
-        } else if (ch == 27) {
+        } else if (isCancelKey(ch)) {
             delwin(popup);
             return -1;
         }
@@ -1752,7 +1785,7 @@ int Game::chooseTrapTile(int attackerIndex) {
     Player& player = players[static_cast<std::size_t>(attackerIndex)];
     std::string errorText;
     while (true) {
-        echo();
+        noecho();
         curs_set(1);
         werase(msgWin);
         drawBoxSafe(msgWin);
@@ -1764,9 +1797,13 @@ int Game::chooseTrapTile(int attackerIndex) {
         wrefresh(msgWin);
 
         char buffer[16] = {0};
-        wgetnstr(msgWin, buffer, 15);
+        const bool confirmed = readLineOrCancel(msgWin, buffer, 15);
         noecho();
         curs_set(0);
+
+        if (!confirmed) {
+            return -1;
+        }
 
         if (std::strlen(buffer) == 0) {
             return player.tile;
@@ -1791,6 +1828,7 @@ void Game::placeTrap(int attackerIndex, int tileId, SabotageType type) {
     Player& attacker = players[static_cast<std::size_t>(attackerIndex)];
     const SabotageCard card = sabotageCardByName("Trap Tile");
     PaymentResult payment = bank.charge(attacker, card.costToUse);
+    maybeShowLoanTutorial(attackerIndex, payment);
 
     ActiveTrap trap;
     trap.tileId = tileId;
@@ -1829,6 +1867,7 @@ void Game::executeSabotage(int attackerIndex, int targetIndex, SabotageType type
         ? sabotageCardByName("Lawsuit")
         : sabotageCardForType(type);
     PaymentResult cost = bank.charge(attacker, card.costToUse);
+    maybeShowLoanTutorial(attackerIndex, cost);
     SabotageResult result;
     const bool humanDrivenSabotage = !isCpuPlayer(attackerIndex);
     if (type == SabotageType::ForceMinigame && humanDrivenSabotage) {
@@ -1877,6 +1916,15 @@ void Game::executeSabotage(int attackerIndex, int targetIndex, SabotageType type
                                               attackerIndex,
                                               targetIndex);
     }
+    if (result.success && type == SabotageType::DebtIncrease && !isCpuPlayer(targetIndex)) {
+        maybeShowFirstTimeTutorial(TutorialTopic::ManualLoan);
+    }
+    if (result.blocked && !isCpuPlayer(targetIndex)) {
+        maybeShowFirstTimeTutorial(TutorialTopic::Shield);
+    }
+    if (result.summary.find("Insurance reduced") != std::string::npos && !isCpuPlayer(targetIndex)) {
+        maybeShowFirstTimeTutorial(TutorialTopic::Insurance);
+    }
     if (type == SabotageType::PositionSwap && result.success) {
         const int cooldown = result.critical ? 3 : 4;
         attacker.sabotageCooldown = std::max(attacker.sabotageCooldown, cooldown + 1);
@@ -1895,6 +1943,9 @@ void Game::executeSabotage(int attackerIndex, int targetIndex, SabotageType type
 
 bool Game::promptSabotageMenu(int attackerIndex) {
     Player& attacker = players[static_cast<std::size_t>(attackerIndex)];
+    if (!isCpuPlayer(attackerIndex)) {
+        maybeShowFirstTimeTutorial(TutorialTopic::Sabotage);
+    }
     if (!isSabotageUnlockedForPlayer(attackerIndex)) {
         showInfoPopup("Sabotage locked",
                       "Sabotage unlocks on Turn " + std::to_string(std::max(1, settings.sabotageUnlockTurn)) + ".");
@@ -1950,14 +2001,16 @@ bool Game::promptSabotageMenu(int attackerIndex) {
         wrefresh(popup);
 
         const int ch = wgetch(popup);
-        if (ch == 27) {
+        if (isCancelKey(ch)) {
             delwin(popup);
             return false;
         }
         if (ch == '9') {
             delwin(popup);
             PaymentResult payment = bank.charge(attacker, 15000);
+            maybeShowLoanTutorial(attackerIndex, payment);
             ++attacker.shieldCards;
+            maybeShowFirstTimeTutorial(TutorialTopic::Shield);
             std::string detail = "Shield Card added. Blocks one future sabotage.";
             if (payment.loansTaken > 0) {
                 detail += " Automatic loans: " + std::to_string(payment.loansTaken) + ".";
@@ -1968,7 +2021,9 @@ bool Game::promptSabotageMenu(int attackerIndex) {
         if (ch == '0') {
             delwin(popup);
             PaymentResult payment = bank.charge(attacker, 20000);
+            maybeShowLoanTutorial(attackerIndex, payment);
             attacker.insuranceUses += 2;
+            maybeShowFirstTimeTutorial(TutorialTopic::Insurance);
             std::string detail = "Insurance added. Next 2 money/property hits are halved.";
             if (payment.loansTaken > 0) {
                 detail += " Automatic loans: " + std::to_string(payment.loansTaken) + ".";
@@ -1991,6 +2046,9 @@ bool Game::promptSabotageMenu(int attackerIndex) {
                 },
                 'A',
                 'B');
+            if (trapChoice == MENU_CANCELLED) {
+                return false;
+            }
             SabotageType trapType = SabotageType::MoneyLoss;
             if (trapChoice == 1) trapType = SabotageType::MovementPenalty;
             else if (trapChoice == 2) trapType = SabotageType::SkipTurn;
@@ -2101,7 +2159,7 @@ void Game::setupRules() {
     addHistory("Mode: " + rules.editionName);
 }
 
-void Game::setupPlayers() {
+bool Game::setupPlayers() {
     noecho();
     curs_set(0);
     setupInProgress = true;
@@ -2121,17 +2179,16 @@ void Game::setupPlayers() {
         refresh();
         wrefresh(msgWin);
 
-        echo();
+        noecho();
         curs_set(1);
         char inputBuf[8] = {0};
-        int cursorRow = 0;
-        int cursorX = 0;
-        getyx(msgWin, cursorRow, cursorX);
-        (void)cursorRow;
-        const int maxInputChars = 1;
-        wgetnstr(msgWin, inputBuf, maxInputChars);
+        const bool confirmed = readLineOrCancel(msgWin, inputBuf, 7);
         noecho();
         curs_set(0);
+
+        if (!confirmed) {
+            return false;
+        }
 
         if (inputBuf[0] >= '2' && inputBuf[0] <= '4' && inputBuf[1] == '\0') {
             numPlayers = inputBuf[0] - '0';
@@ -2161,6 +2218,10 @@ void Game::setupPlayers() {
             },
             'A',
             'B');
+        if (typeChoice == MENU_CANCELLED) {
+            players.clear();
+            return false;
+        }
         PlayerType playerType = typeChoice == 0 ? PlayerType::Human : PlayerType::CPU;
         CpuDifficulty difficulty = CpuDifficulty::Normal;
         if (playerType == PlayerType::CPU) {
@@ -2173,6 +2234,10 @@ void Game::setupPlayers() {
                 },
                 'A',
                 'B');
+            if (difficultyChoice == MENU_CANCELLED) {
+                players.clear();
+                return false;
+            }
             if (difficultyChoice == 0) {
                 difficulty = CpuDifficulty::Easy;
             } else if (difficultyChoice == 2) {
@@ -2182,7 +2247,8 @@ void Game::setupPlayers() {
             }
         }
 
-        echo();
+        drawSetupTitle();
+        noecho();
         curs_set(1);
         werase(msgWin);
         drawBoxSafe(msgWin);
@@ -2204,14 +2270,14 @@ void Game::setupPlayers() {
         refresh();
         wrefresh(msgWin);
         char nameBuf[32] = {0};
-        int cursorRow = 0;
-        int cursorX = 0;
-        getyx(msgWin, cursorRow, cursorX);
-        (void)cursorRow;
-        const int maxNameChars = std::max(1, std::min(31, msgW - 1 - cursorX));
-        wgetnstr(msgWin, nameBuf, maxNameChars);
+        const bool nameConfirmed = readLineOrCancel(msgWin, nameBuf, 31);
         noecho();
         curs_set(0);
+
+        if (!nameConfirmed) {
+            players.clear();
+            return false;
+        }
 
         Player p;
         p.name = nameBuf;
@@ -2268,7 +2334,7 @@ void Game::setupPlayers() {
 
     noecho();
     curs_set(0);
-    setupInProgress = false;
+    return true;
 }
 
 void Game::setupInvestments() {
@@ -2300,7 +2366,7 @@ int Game::waitForTurnCommand(int currentPlayer) {
                        turnPromptText());
             continue;
         }
-        if (ch == 27) return 27;
+        if (isCancelKey(ch)) return 27;
         if (ch == 's' || ch == 'S') return ch;
         if (ch == 'b' || ch == 'B') return ch;
         if (ch == '\t') {
@@ -2322,7 +2388,7 @@ int Game::waitForTurnCommand(int currentPlayer) {
             renderGame(currentPlayer, players[currentPlayer].name + "'s turn", turnPromptText());
             continue;
         }
-        if (ch == '\n' || ch == '\r' || ch == KEY_ENTER) {
+        if (isConfirmKey(ch)) {
             return ch;
         }
     }
@@ -2484,7 +2550,7 @@ int Game::rollSpinner(const std::string& title, const std::string& detail) {
     int ch;
     do {
         ch = wgetch(msgWin);
-    } while (ch != ' ' && ch != '\n' && ch != '\r' && ch != KEY_ENTER);
+    } while (!isConfirmKey(ch, true));
 
     nodelay(msgWin, TRUE);
     auto lastSpace = std::chrono::steady_clock::now();
@@ -2668,10 +2734,27 @@ int Game::showBranchPopup(const std::string& title,
     return choose_branch_with_selector(title, lines, values, 0, 4);
 }
 
+int Game::showRequiredBranchPopup(const std::string& title,
+                                  const std::vector<std::string>& lines,
+                                  char a,
+                                  char b) {
+    while (true) {
+        const int choice = showBranchPopup(title, lines, a, b);
+        if (choice != MENU_CANCELLED) {
+            return choice;
+        }
+        showInfoPopup("Choice required", "Choose an option to continue, or use the previous menu to go back.");
+    }
+}
+
 void Game::playBlackTileMinigame(int playerIndex) {
     Player& player = players[playerIndex];
     // Now 5 minigames: Pong (0), Battleship (1), Hangman (2), Memory (3), Minesweeper (4)
     const int minigameChoice = rng.uniformInt(0, 4);
+
+    if (!isCpuPlayer(playerIndex)) {
+        maybeShowFirstTimeTutorial(TutorialTopic::Minigame);
+    }
 
     if (titleWin) touchwin(titleWin);
     if (boardWin) touchwin(boardWin);
@@ -3039,6 +3122,7 @@ std::string Game::resolveDuelMinigameAction(int playerIndex,
 
     if (playerScore >= opponentScore) {
         PaymentResult payment = bank.charge(opponent, pot);
+        maybeShowLoanTutorial(opponentIndex, payment);
         bank.credit(player, pot);
         amountDelta = pot;
         result << player.name << " wins $" << pot << ".";
@@ -3047,6 +3131,7 @@ std::string Game::resolveDuelMinigameAction(int playerIndex,
         }
     } else {
         PaymentResult payment = bank.charge(player, pot);
+        maybeShowLoanTutorial(playerIndex, payment);
         bank.credit(opponent, pot);
         amountDelta = -pot;
         result << opponent.name << " wins $" << pot << ".";
@@ -3166,6 +3251,7 @@ std::string Game::applyActionEffect(int playerIndex,
             return "Collected $" + std::to_string(amount) + ".";
         case ACTION_PAY_CASH:
             payment = bank.charge(player, amount);
+            maybeShowLoanTutorial(playerIndex, payment);
             amountDelta = -amount;
             return appendLoanText("Paid $" + std::to_string(amount) + ".", payment);
         case ACTION_GAIN_PER_KID:
@@ -3176,6 +3262,7 @@ std::string Game::applyActionEffect(int playerIndex,
         case ACTION_PAY_PER_KID:
             amount = player.kids * effect.amount;
             payment = bank.charge(player, amount);
+            maybeShowLoanTutorial(playerIndex, payment);
             amountDelta = -amount;
             return appendLoanText("Paid $" + std::to_string(amount) + " for family costs.", payment);
         case ACTION_GAIN_SALARY_BONUS:
@@ -3201,6 +3288,9 @@ std::string Game::applyActionEffect(int playerIndex,
 
 int Game::playActionCard(int playerIndex, const Tile& tile) {
     Player& player = players[playerIndex];
+    if (!isCpuPlayer(playerIndex)) {
+        maybeShowFirstTimeTutorial(TutorialTopic::ActionCard);
+    }
     ActionCard card;
     if (!decks.drawActionCard(card)) {
         showInfoPopup("Action Card", "No action cards are available.");
@@ -3280,7 +3370,7 @@ int Game::playActionCard(int playerIndex, const Tile& tile) {
               clipUiText("Cash now: $" + std::to_string(player.cash) +
                              "  Loans: " + std::to_string(player.loans),
                          static_cast<std::size_t>(contentW)).c_str());
-    mvwprintw(popup, popupH - 2, 2, "Press ENTER");
+    mvwprintw(popup, popupH - 2, 2, "Press ENTER or ESC");
     wrefresh(popup);
 
     if (autoAdvanceUi) {
@@ -3289,7 +3379,7 @@ int Game::playActionCard(int playerIndex, const Tile& tile) {
         int ch;
         do {
             ch = wgetch(popup);
-        } while (ch != '\n' && ch != '\r' && ch != KEY_ENTER);
+        } while (!isConfirmKey(ch) && !isCancelKey(ch));
     }
 
     delwin(popup);
@@ -3304,6 +3394,10 @@ void Game::chooseCareer(Player& player, bool requiresDegree) {
         showInfoPopup("Career Deck", "No career cards are available.");
         return;
     }
+    const int playerIndex = findPlayerIndex(player);
+    if (!isCpuPlayer(playerIndex)) {
+        maybeShowFirstTimeTutorial(TutorialTopic::Job);
+    }
 
     std::vector<std::string> lines;
     for (size_t i = 0; i < choices.size(); ++i) {
@@ -3315,14 +3409,13 @@ void Game::chooseCareer(Player& player, bool requiresDegree) {
 
     int choice = 0;
     if (choices.size() > 1) {
-        const int playerIndex = findPlayerIndex(player);
         if (isCpuPlayer(playerIndex)) {
             choice = cpu.chooseCareer(player, choices);
             showCpuThinking(playerIndex,
                             "Career choice: " + choices[static_cast<std::size_t>(choice)].title +
                             " ($" + std::to_string(choices[static_cast<std::size_t>(choice)].salary) + ")");
         } else {
-            choice = showBranchPopup(requiresDegree ? "Choose a college career" : "Choose a career", lines, 'A', 'B');
+            choice = showRequiredBranchPopup(requiresDegree ? "Choose a college career" : "Choose a career", lines, 'A', 'B');
         }
     }
 
@@ -3358,7 +3451,7 @@ void Game::resolveFamilyStop(Player& player) {
         showCpuThinking(playerIndex,
                         choice == 0 ? "CPU chose Family path." : "CPU chose Life path.");
     } else {
-        choice = showBranchPopup(
+        choice = showRequiredBranchPopup(
             "Family or Life path?",
             std::vector<std::string>{
                 "- Family path: babies and houses",
@@ -3390,7 +3483,7 @@ void Game::resolveNightSchool(Player& player) {
         showCpuThinking(playerIndex,
                         choice == 0 ? "CPU chose Night School." : "CPU kept current career.");
     } else {
-        choice = showBranchPopup(
+        choice = showRequiredBranchPopup(
             "Night School?",
             std::vector<std::string>{
                 "- Pay $100000 to draw a new college career",
@@ -3401,6 +3494,7 @@ void Game::resolveNightSchool(Player& player) {
     }
     if (choice == 0) {
         PaymentResult payment = bank.charge(player, 100000);
+        maybeShowLoanTutorial(playerIndex, payment);
         player.usedNightSchool = true;
         addHistory(appendLoanText(player.name + " paid $100000 for Night School", payment));
         chooseCareer(player, true);
@@ -3414,6 +3508,10 @@ void Game::resolveMarriageStop(Player& player) {
     if (!player.married) {
         player.married = true;
     }
+    const int playerIndex = findPlayerIndex(player);
+    if (!isCpuPlayer(playerIndex)) {
+        maybeShowFirstTimeTutorial(TutorialTopic::Marriage);
+    }
     int spin = rollSpinner("Marriage Gifts", "Hold SPACE to spin wedding gifts");
     int gift = marriageGiftFromSpin(spin);
     bank.credit(player, gift);
@@ -3423,6 +3521,10 @@ void Game::resolveMarriageStop(Player& player) {
 }
 
 void Game::resolveBabyStop(Player& player, const Tile& tile) {
+    const int playerIndex = findPlayerIndex(player);
+    if (!isCpuPlayer(playerIndex)) {
+        maybeShowFirstTimeTutorial(TutorialTopic::Baby);
+    }
     int spin = rollSpinner("Baby Spin", "Hold SPACE to spin for 0 / 1 / 2 / 3 babies");
     int babies = babiesFromSpin(spin);
     player.kids += babies;
@@ -3449,6 +3551,7 @@ void Game::resolveRiskyRoute(Player& player) {
     }
 
     PaymentResult payment = bank.charge(player, -payout);
+    maybeShowLoanTutorial(findPlayerIndex(player), payment);
     addHistory(appendLoanText(player.name + " lost $" + std::to_string(-payout) + " on Risky route", payment));
     showInfoPopup("Risky Route", appendLoanText("You lost $" + std::to_string(-payout) + ".", payment));
 }
@@ -3465,7 +3568,7 @@ void Game::resolveRetirement(int playerIndex) {
         showCpuThinking(playerIndex,
                         choice == 0 ? "CPU chose Millionaire Mansion." : "CPU chose Countryside Acres.");
     } else {
-        choice = showBranchPopup(
+        choice = showRequiredBranchPopup(
             "Choose retirement destination",
             std::vector<std::string>{
                 "- Millionaire Mansion",
@@ -3503,6 +3606,11 @@ void Game::buyHouse(Player& player) {
         return;
     }
     PaymentResult payment = bank.charge(player, house.cost);
+    const int playerIndex = findPlayerIndex(player);
+    if (!isCpuPlayer(playerIndex)) {
+        maybeShowFirstTimeTutorial(TutorialTopic::House);
+    }
+    maybeShowLoanTutorial(playerIndex, payment);
     player.hasHouse = true;
     player.houseName = house.title;
     player.houseValue = house.saleValue;
@@ -3522,6 +3630,10 @@ void Game::assignInvestment(Player& player) {
 
     player.investedNumber = card.number;
     player.investPayout = card.payout;
+    const int playerIndex = findPlayerIndex(player);
+    if (!isCpuPlayer(playerIndex)) {
+        maybeShowFirstTimeTutorial(TutorialTopic::Investment);
+    }
     addHistory(player.name + " invested on spinner " + std::to_string(card.number));
 }
 
@@ -3573,6 +3685,10 @@ void Game::maybeAwardPetCard(Player& player, const std::string& reason) {
     }
 
     player.petCards.push_back(pet.title);
+    const int playerIndex = findPlayerIndex(player);
+    if (!isCpuPlayer(playerIndex)) {
+        maybeShowFirstTimeTutorial(TutorialTopic::Pet);
+    }
     addHistory(player.name + " adopted a " + pet.title);
     showInfoPopup(player.name + " adopted a " + pet.title, reason);
 }
@@ -3596,6 +3712,7 @@ void Game::applyTileEffect(int playerIndex, const Tile& tile) {
                 addHistory(player.name + " entered college");
             } else {
                 PaymentResult payment = bank.charge(player, 100000);
+                maybeShowLoanTutorial(playerIndex, payment);
                 line = appendLoanText("College opens a late door, but tuition costs $100000.", payment);
                 addHistory(appendLoanText(player.name + " entered college", payment));
             }
@@ -3633,7 +3750,7 @@ void Game::applyTileEffect(int playerIndex, const Tile& tile) {
                     showCpuThinking(playerIndex,
                                     riskChoice == 0 ? "CPU chose Safe route." : "CPU chose Risky route.");
                 } else {
-                    riskChoice = showBranchPopup(
+                    riskChoice = showRequiredBranchPopup(
                         "Safe or Risky route?",
                         std::vector<std::string>{
                             "- Safe route: smaller payout, no huge swings",
@@ -3703,7 +3820,7 @@ int Game::chooseNextTile(Player& player, const Tile& tile) {
                                 ? "CPU weighs early debt against stronger future jobs, then chooses College."
                                 : "CPU chooses Career to start earning sooner.");
         } else {
-            c = showBranchPopup(
+            c = showRequiredBranchPopup(
                 "College or Career?",
                 std::vector<std::string>{
                     "- College: pay $100000 now, stronger jobs later",
@@ -3715,6 +3832,7 @@ int Game::chooseNextTile(Player& player, const Tile& tile) {
         player.startChoice = c;
         if (c == 0) {
             PaymentResult payment = bank.charge(player, 100000);
+            maybeShowLoanTutorial(playerIndex, payment);
             player.collegeGraduate = false;
             addHistory(appendLoanText(player.name + " chose College and paid $100000", payment));
             showDecisionPopup(player.name,
@@ -3883,6 +4001,130 @@ void Game::finalizeScoring() {
     }
 }
 
+void Game::appendCompletedGameHistoryEntry(int winnerIndex, int winnerScore) {
+    if (winnerIndex < 0 || winnerIndex >= static_cast<int>(players.size())) {
+        return;
+    }
+
+    CompletedGameEntry entry;
+    entry.date = formatCompletedTime(std::time(nullptr));
+    entry.gameId = gameId.empty() ? "UNSAVED_GAME" : gameId;
+    entry.winner = players[static_cast<std::size_t>(winnerIndex)].name;
+    entry.winnerScore = winnerScore;
+    entry.winnerCash = players[static_cast<std::size_t>(winnerIndex)].cash;
+    entry.winnerNetWorth = winnerScore;
+    entry.rounds = turnCounter;
+    entry.mode = rules.editionName;
+    entry.settings = gameSettingsSummary(settings);
+
+    std::ostringstream compactPlayers;
+    std::ostringstream detailedPlayers;
+    std::vector<int> ranking;
+    ranking.reserve(players.size());
+    for (std::size_t i = 0; i < players.size(); ++i) {
+        ranking.push_back(static_cast<int>(i));
+        const int finalWorth = calculateFinalWorth(players[i]);
+        if (i > 0) {
+            compactPlayers << ",";
+            detailedPlayers << " | ";
+        }
+        compactPlayers << players[i].name << ":" << finalWorth;
+        detailedPlayers << playerCompletionSummary(players[i], finalWorth, bank);
+    }
+    entry.players = compactPlayers.str();
+    entry.playerDetails = detailedPlayers.str();
+
+    std::sort(ranking.begin(), ranking.end(), [this](int left, int right) {
+        const int leftWorth = calculateFinalWorth(players[static_cast<std::size_t>(left)]);
+        const int rightWorth = calculateFinalWorth(players[static_cast<std::size_t>(right)]);
+        if (leftWorth != rightWorth) {
+            return leftWorth > rightWorth;
+        }
+        return players[static_cast<std::size_t>(left)].cash >
+               players[static_cast<std::size_t>(right)].cash;
+    });
+
+    entry.detailLines.push_back("Winner: " + entry.winner +
+                                " with final net worth $" + std::to_string(winnerScore));
+    if (ranking.size() > 1) {
+        const int runnerUpWorth = calculateFinalWorth(players[static_cast<std::size_t>(ranking[1])]);
+        entry.detailLines.push_back("Winning margin: $" + std::to_string(winnerScore - runnerUpWorth));
+    }
+    entry.detailLines.push_back("Game: " + entry.gameId + " | Completed: " + entry.date);
+    entry.detailLines.push_back("Mode: " + entry.mode);
+    entry.detailLines.push_back("Settings: " + entry.settings);
+    entry.detailLines.push_back("Turns: " + std::to_string(entry.rounds));
+    entry.detailLines.push_back("");
+    entry.detailLines.push_back("FINAL RANKING");
+    for (std::size_t rank = 0; rank < ranking.size(); ++rank) {
+        const Player& player = players[static_cast<std::size_t>(ranking[rank])];
+        entry.detailLines.push_back("#" + std::to_string(rank + 1) + " " +
+                                    player.name + " - $" +
+                                    std::to_string(calculateFinalWorth(player)));
+    }
+    entry.detailLines.push_back("");
+    entry.detailLines.push_back("PLAYER BREAKDOWNS");
+    for (std::size_t rank = 0; rank < ranking.size(); ++rank) {
+        const Player& player = players[static_cast<std::size_t>(ranking[rank])];
+        const int finalWorth = calculateFinalWorth(player);
+        const int debt = bank.totalLoanDebt(player);
+        const int houseValue = player.finalHouseSaleValue > 0
+            ? player.finalHouseSaleValue
+            : player.houseValue;
+        const int actionBonus = static_cast<int>(player.actionCards.size()) * 100000;
+        const int petBonus = static_cast<int>(player.petCards.size()) * 100000;
+        const int kidBonus = player.kids * 50000;
+
+        entry.detailLines.push_back("#" + std::to_string(rank + 1) + " " +
+                                    player.name + " net $" + std::to_string(finalWorth));
+        entry.detailLines.push_back("  Cash $" + std::to_string(player.cash) +
+                                    " | Debt/loans -$" + std::to_string(debt) +
+                                    " (" + std::to_string(player.loans) + " loans)");
+        entry.detailLines.push_back("  Job " +
+                                    (player.job.empty() ? "Unemployed" : player.job) +
+                                    " | Salary $" + std::to_string(player.salary));
+        entry.detailLines.push_back("  House " +
+                                    (player.houseName.empty() ? "none" : player.houseName) +
+                                    " | Value $" + std::to_string(houseValue));
+        if (player.investedNumber > 0 && player.investPayout > 0) {
+            entry.detailLines.push_back("  Investment spinner " +
+                                        std::to_string(player.investedNumber) +
+                                        " | Match payout $" +
+                                        std::to_string(player.investPayout));
+        } else {
+            entry.detailLines.push_back("  Investments none recorded");
+        }
+        entry.detailLines.push_back("  Kids " + std::to_string(player.kids) +
+                                    " bonus $" + std::to_string(kidBonus) +
+                                    " | Pets " + std::to_string(player.petCards.size()) +
+                                    " bonus $" + std::to_string(petBonus));
+        entry.detailLines.push_back("  Action cards " +
+                                    std::to_string(player.actionCards.size()) +
+                                    " bonus $" + std::to_string(actionBonus) +
+                                    " | Retirement bonus $" +
+                                    std::to_string(player.retirementBonus));
+        entry.detailLines.push_back("  Married " +
+                                    std::string(player.married ? "yes" : "no") +
+                                    " | Retirement " +
+                                    (player.retirementHome.empty() ? "not recorded" : player.retirementHome));
+        if (player.sabotageDebt > 0 ||
+            player.shieldCards > 0 ||
+            player.insuranceUses > 0 ||
+            player.spinToWinTokens > 0) {
+            entry.detailLines.push_back("  Other tracked: sabotage debt $" +
+                                        std::to_string(player.sabotageDebt) +
+                                        ", shields " + std::to_string(player.shieldCards) +
+                                        ", insurance " + std::to_string(player.insuranceUses) +
+                                        ", spin tokens " + std::to_string(player.spinToWinTokens));
+        }
+    }
+
+    std::string error;
+    if (!appendCompletedGameHistory(entry, error) && !error.empty()) {
+        addHistory("Could not write completed history: " + error);
+    }
+}
+
 int Game::calculateFinalWorth(const Player& player) const {
     int worth = player.cash;
     worth += player.finalHouseSaleValue > 0 ? player.finalHouseSaleValue : player.houseValue;
@@ -3919,7 +4161,10 @@ bool Game::run() {
             createWindows();
 
             setupRules();
-            setupPlayers();
+            if (!setupPlayers()) {
+                destroyWindows();
+                continue;
+            }
             setupInvestments();
             showTutorial();
             break;
@@ -3948,16 +4193,23 @@ bool Game::run() {
             maybeShowSabotageUnlock(currentPlayerIndex);
             maybeCpuSabotage(currentPlayerIndex);
             int command = waitForTurnCommand(currentPlayerIndex);
-            if (command == 27) {
+            if (isCancelKey(command)) {
                 const int quitChoice = showBranchPopup(
-                    "Leave the game from the ESC menu?",
+                    "Paused",
                     std::vector<std::string>{
-                        "- Yes, save and quit",
-                        "- No, quit without saving"
+                        "- Back to game",
+                        "- Save and quit",
+                        "- Quit without saving"
                     },
                     'A',
                     'B');
-                if (quitChoice == 0) {
+                if (quitChoice == MENU_CANCELLED || quitChoice == 0) {
+                    renderGame(currentPlayerIndex,
+                               players[currentPlayerIndex].name + "'s turn",
+                               turnPromptText());
+                    continue;
+                }
+                if (quitChoice == 1) {
                     if (saveCurrentGame()) {
                         return false;
                     }
@@ -3966,7 +4218,10 @@ bool Game::run() {
                                turnPromptText());
                     continue;
                 }
-                return false;
+                if (quitChoice == 2) {
+                    return false;
+                }
+                continue;
             }
             if (command == 's' || command == 'S') {
                 saveCurrentGame();
@@ -3991,6 +4246,7 @@ bool Game::run() {
             currentPlayerIndex = (currentPlayerIndex + 1) % static_cast<int>(players.size());
         }
 
+        maybeShowFirstTimeTutorial(TutorialTopic::EndgameScoring);
         finalizeScoring();
 
         int winner = 0;
@@ -4030,6 +4286,7 @@ bool Game::run() {
         endgameLines.push_back("Loan penalty: -$" + std::to_string(winnerLoanPenalty));
         endgameLines.push_back("Press ENTER to return to the main menu.");
 
+        appendCompletedGameHistoryEntry(winner, best);
         addHistory("Completed game: " + players[winner].name + " won with $" + std::to_string(best));
         showPopupMessage("Player " + std::to_string(winner + 1) + " Wins!",
                          endgameLines,

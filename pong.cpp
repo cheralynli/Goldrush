@@ -242,7 +242,7 @@ PongMinigameResult playPongMinigame(const std::string& playerName, bool hasColor
                       "Press X to serve. Press ESC to leave early.");
         } else if (gameOver) {
             mvwprintw(overlay, arenaBottom + 4, arenaLeft,
-                      "Game over. Final score %d, payout $%d. Press ENTER.",
+                      "Game over. Final score %d, payout $%d. Press ENTER or ESC.",
                       result.playerScore,
                       result.playerScore * 100);
         }
@@ -251,12 +251,12 @@ PongMinigameResult playPongMinigame(const std::string& playerName, bool hasColor
 
         int ch = wgetch(overlay);
         const InputAction action = getInputAction(ch, ControlScheme::SinglePlayer);
-        if (action == InputAction::Cancel) {
-            result.abandoned = true;
-            break;
-        }
 
         if (waitingForServe) {
+            if (action == InputAction::Cancel) {
+                result.abandoned = true;
+                break;
+            }
             if (action == InputAction::Start) {
                 waitingForServe = false;
             } else {
@@ -266,11 +266,16 @@ PongMinigameResult playPongMinigame(const std::string& playerName, bool hasColor
         }
 
         if (gameOver) {
-            if (ch == '\n' || ch == '\r' || ch == KEY_ENTER) {
+            if (isConfirmKey(ch) || action == InputAction::Cancel) {
                 break;
             }
             napms(16);
             continue;
+        }
+
+        if (action == InputAction::Cancel) {
+            result.abandoned = true;
+            break;
         }
 
         if (action == InputAction::Up) {
@@ -474,7 +479,7 @@ PongDuelResult playPongDuelMinigame(const std::string& leftPlayerName,
         } else if (gameOver) {
             const std::string endLine = std::string("Winner: ") +
                 (result.winnerSide == 0 ? leftPlayerName : rightPlayerName) +
-                ". Press ENTER.";
+                ". Press ENTER or ESC.";
             mvwprintw(overlay, arenaBottom + 4, arenaLeft, "%s", endLine.c_str());
         }
 
@@ -483,12 +488,12 @@ PongDuelResult playPongDuelMinigame(const std::string& leftPlayerName,
         int ch = wgetch(overlay);
         const InputAction leftAction = getInputAction(ch, ControlScheme::DuelLeftPlayer);
         const InputAction rightAction = getInputAction(ch, ControlScheme::DuelRightPlayer);
-        if (leftAction == InputAction::Cancel) {
-            result.abandoned = true;
-            break;
-        }
 
         if (waitingForServe) {
+            if (leftAction == InputAction::Cancel) {
+                result.abandoned = true;
+                break;
+            }
             if (leftAction == InputAction::Start) {
                 waitingForServe = false;
             } else {
@@ -498,11 +503,16 @@ PongDuelResult playPongDuelMinigame(const std::string& leftPlayerName,
         }
 
         if (gameOver) {
-            if (ch == '\n' || ch == '\r' || ch == KEY_ENTER) {
+            if (isConfirmKey(ch) || leftAction == InputAction::Cancel) {
                 break;
             }
             napms(16);
             continue;
+        }
+
+        if (leftAction == InputAction::Cancel) {
+            result.abandoned = true;
+            break;
         }
 
         if (leftAction == InputAction::Up) {

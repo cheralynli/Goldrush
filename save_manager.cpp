@@ -172,6 +172,34 @@ bool parseInt(const std::string& text, int& value) {
     return !in.fail() && in.eof();
 }
 
+bool parseSupportedSaveVersion(const std::string& text, int& version) {
+    int parsed = 0;
+    if (!parseInt(text, parsed) || parsed < 1 || parsed > SaveManager::SAVE_VERSION) {
+        return false;
+    }
+    version = parsed;
+    return true;
+}
+
+bool parseSaveHeaderLine(const std::string& line, int& version, bool& lineIsSaveRecord) {
+    version = 1;
+    lineIsSaveRecord = false;
+
+    const std::vector<std::string> headerParts = splitTabbed(line);
+    if (headerParts.empty() || headerParts[0] != "GOLDRUSH_SAVE") {
+        lineIsSaveRecord = true;
+        return true;
+    }
+
+    if (headerParts.size() == 1) {
+        return true;
+    }
+    if (headerParts.size() == 2) {
+        return parseSupportedSaveVersion(headerParts[1], version);
+    }
+    return false;
+}
+
 bool parseUInt(const std::string& text, std::uint32_t& value) {
     std::istringstream in(text);
     unsigned long parsed = 0;
@@ -241,19 +269,19 @@ bool readSaveFileMetadata(const fs::path& path, SaveFileInfo& info) {
         return false;
     }
 
-    std::vector<std::string> headerParts = splitTabbed(line);
-    if (headerParts.size() != 2 || headerParts[0] != "GOLDRUSH_SAVE") {
-        return false;
-    }
-
-    int version = 0;
-    if (!parseInt(headerParts[1], version) || version < 1 || version > SaveManager::SAVE_VERSION) {
+    int version = 1;
+    bool firstLineIsSaveRecord = false;
+    if (!parseSaveHeaderLine(line, version, firstLineIsSaveRecord)) {
         return false;
     }
 
     info.saveVersion = version;
 
-    while (std::getline(in, line)) {
+    bool hasPendingLine = firstLineIsSaveRecord;
+    while (hasPendingLine || std::getline(in, line)) {
+        if (hasPendingLine) {
+            hasPendingLine = false;
+        }
         if (line.empty()) {
             continue;
         }
@@ -275,7 +303,11 @@ bool readSaveFileMetadata(const fs::path& path, SaveFileInfo& info) {
         }
 
         if (parts[0] == "GAME" && parts.size() >= 3) {
-            if (parts[1] == "ID") {
+            if (parts[1] == "SAVE_VERSION" || parts[1] == "saveVersion") {
+                if (!parseSupportedSaveVersion(parts[2], info.saveVersion)) {
+                    return false;
+                }
+            } else if (parts[1] == "ID") {
                 info.gameId = parts[2];
             } else if (parts[1] == "CREATED_AT") {
                 if (!parseTimeValue(parts[2], info.createdTime)) {
@@ -407,8 +439,12 @@ bool deckStateContainsCard(const SerializedDeckState& state, const std::string& 
            std::find(state.discardIds.begin(), state.discardIds.end(), id) != state.discardIds.end();
 }
 
+bool deckStateHasSavedCards(const SerializedDeckState& state) {
+    return !state.drawIds.empty() || !state.discardIds.empty();
+}
+
 void migrateLoadedDeckState(LoadedGameState& data, int saveVersion) {
-    if (saveVersion >= 5) {
+    if (saveVersion >= 5 || !deckStateHasSavedCards(data.actionDeck)) {
         return;
     }
 
@@ -493,14 +529,17 @@ void writeTutorialFlags(std::ofstream& out, const TutorialFlags& flags) {
     writeTutorialFlag(out, "AUTOMATIC_LOAN", flags.automaticLoan);
     writeTutorialFlag(out, "MANUAL_LOAN", flags.manualLoan);
     writeTutorialFlag(out, "INVESTMENT", flags.investment);
+    writeTutorialFlag(out, "JOB", flags.job);
     writeTutorialFlag(out, "BABY", flags.baby);
     writeTutorialFlag(out, "PET", flags.pet);
     writeTutorialFlag(out, "MARRIAGE", flags.marriage);
+    writeTutorialFlag(out, "HOUSE", flags.house);
     writeTutorialFlag(out, "INSURANCE", flags.insurance);
     writeTutorialFlag(out, "SHIELD", flags.shield);
     writeTutorialFlag(out, "ACTION_CARD", flags.actionCard);
     writeTutorialFlag(out, "MINIGAME", flags.minigame);
     writeTutorialFlag(out, "SABOTAGE", flags.sabotage);
+    writeTutorialFlag(out, "ENDGAME_SCORING", flags.endgameScoring);
 }
 
 void writeSetting(std::ofstream& out, const std::string& name, const std::string& value) {
@@ -599,14 +638,17 @@ bool parseTutorialFlag(TutorialFlags& flags,
     if (name == "AUTOMATIC_LOAN") flags.automaticLoan = parsed;
     else if (name == "MANUAL_LOAN") flags.manualLoan = parsed;
     else if (name == "INVESTMENT") flags.investment = parsed;
+    else if (name == "JOB") flags.job = parsed;
     else if (name == "BABY") flags.baby = parsed;
     else if (name == "PET") flags.pet = parsed;
     else if (name == "MARRIAGE") flags.marriage = parsed;
+    else if (name == "HOUSE") flags.house = parsed;
     else if (name == "INSURANCE") flags.insurance = parsed;
     else if (name == "SHIELD") flags.shield = parsed;
     else if (name == "ACTION_CARD") flags.actionCard = parsed;
     else if (name == "MINIGAME") flags.minigame = parsed;
     else if (name == "SABOTAGE") flags.sabotage = parsed;
+    else if (name == "ENDGAME_SCORING") flags.endgameScoring = parsed;
     else {
         error = "Unknown tutorial flag: " + name;
         return false;
@@ -1029,6 +1071,7 @@ bool SaveManager::saveGame(const Game& game,
     }
 
     out << "GOLDRUSH_SAVE\t" << SAVE_VERSION << "\n";
+    out << "GAME\tSAVE_VERSION\t" << SAVE_VERSION << "\n";
     out << "GAME\tID\t" << escapeField(game.gameId) << "\n";
     out << "GAME\tCREATED_AT\t" << static_cast<long long>(game.createdTime) << "\n";
     out << "GAME\tLAST_SAVED_AT\t" << static_cast<long long>(game.lastSavedTime) << "\n";
@@ -1095,18 +1138,9 @@ bool SaveManager::loadGame(Game& game,
         return false;
     }
 
-    std::vector<std::string> headerParts = splitTabbed(line);
-    if (headerParts.size() != 2 || headerParts[0] != "GOLDRUSH_SAVE") {
-        error = "Invalid save header.";
-        return false;
-    }
-
-    int version = 0;
-    if (!parseInt(headerParts[1], version)) {
-        error = "Invalid save version.";
-        return false;
-    }
-    if (version < 1 || version > SAVE_VERSION) {
+    int version = 1;
+    bool firstLineIsSaveRecord = false;
+    if (!parseSaveHeaderLine(line, version, firstLineIsSaveRecord)) {
         error = "Unsupported save version.";
         return false;
     }
@@ -1134,7 +1168,11 @@ bool SaveManager::loadGame(Game& game,
         fileModifiedTime = fileTimeToTimeT(fileWriteTime);
     }
 
-    while (std::getline(in, line)) {
+    bool hasPendingLine = firstLineIsSaveRecord;
+    while (hasPendingLine || std::getline(in, line)) {
+        if (hasPendingLine) {
+            hasPendingLine = false;
+        }
         if (line.empty()) {
             continue;
         }
@@ -1166,7 +1204,12 @@ bool SaveManager::loadGame(Game& game,
                 return false;
             }
 
-            if (parts[1] == "ID") {
+            if (parts[1] == "SAVE_VERSION" || parts[1] == "saveVersion") {
+                if (!parseSupportedSaveVersion(parts[2], version)) {
+                    error = "Unsupported save version.";
+                    return false;
+                }
+            } else if (parts[1] == "ID") {
                 data.gameId = parts[2];
             } else if (parts[1] == "CREATED_AT") {
                 if (!parseTimeValue(parts[2], data.createdTime)) {
@@ -1388,7 +1431,9 @@ bool SaveManager::loadGame(Game& game,
     if (data.lastSavedTime <= 0) {
         data.lastSavedTime = fileModifiedTime;
     }
-    if (!game.rng.restoreState(data.rngState, data.rngFixedSeed, data.rngSeedValue)) {
+    if (data.rngState.empty()) {
+        game.rng = data.rngFixedSeed ? RandomService(data.rngSeedValue) : RandomService();
+    } else if (!game.rng.restoreState(data.rngState, data.rngFixedSeed, data.rngSeedValue)) {
         error = "Could not restore RNG state.";
         return false;
     }
@@ -1415,12 +1460,18 @@ bool SaveManager::loadGame(Game& game,
 
     // The deck order and RNG state are restored after the high-level game data
     // so future draws and rolls continue from the exact same timeline.
-    if (!game.decks.restoreDeckState(DECK_ACTION, data.actionDeck, error)) return false;
-    if (!game.decks.restoreDeckState(DECK_COLLEGE_CAREER, data.collegeCareerDeck, error)) return false;
-    if (!game.decks.restoreDeckState(DECK_CAREER, data.careerDeck, error)) return false;
-    if (!game.decks.restoreDeckState(DECK_HOUSE, data.houseDeck, error)) return false;
-    if (!game.decks.restoreDeckState(DECK_INVEST, data.investDeck, error)) return false;
-    if (!game.decks.restoreDeckState(DECK_PET, data.petDeck, error)) return false;
+    if ((version > 1 || deckStateHasSavedCards(data.actionDeck)) &&
+        !game.decks.restoreDeckState(DECK_ACTION, data.actionDeck, error)) return false;
+    if ((version > 1 || deckStateHasSavedCards(data.collegeCareerDeck)) &&
+        !game.decks.restoreDeckState(DECK_COLLEGE_CAREER, data.collegeCareerDeck, error)) return false;
+    if ((version > 1 || deckStateHasSavedCards(data.careerDeck)) &&
+        !game.decks.restoreDeckState(DECK_CAREER, data.careerDeck, error)) return false;
+    if ((version > 1 || deckStateHasSavedCards(data.houseDeck)) &&
+        !game.decks.restoreDeckState(DECK_HOUSE, data.houseDeck, error)) return false;
+    if ((version > 1 || deckStateHasSavedCards(data.investDeck)) &&
+        !game.decks.restoreDeckState(DECK_INVEST, data.investDeck, error)) return false;
+    if ((version > 1 || deckStateHasSavedCards(data.petDeck)) &&
+        !game.decks.restoreDeckState(DECK_PET, data.petDeck, error)) return false;
 
     game.history.restore(data.historyEntries);
     return true;

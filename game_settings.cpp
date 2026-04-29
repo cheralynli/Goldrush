@@ -66,7 +66,7 @@ bool editNumericSetting(const std::string& label, int& value, int minValue, int 
     keypad(popup, TRUE);
     getmaxyx(popup, popupH, popupW);
     const int contentW = std::max(1, popupW - 4);
-    echo();
+    noecho();
     curs_set(1);
 
     char buffer[32] = {0};
@@ -82,11 +82,13 @@ bool editNumericSetting(const std::string& label, int& value, int minValue, int 
     mvwprintw(popup, popupH - 2, 2, "%s",
               clipUiText("New value: ", static_cast<std::size_t>(contentW)).c_str());
     wrefresh(popup);
-    wgetnstr(popup, buffer, 31);
-
-    noecho();
+    const bool confirmed = readLineOrCancel(popup, buffer, 31);
     curs_set(0);
     delwin(popup);
+
+    if (!confirmed) {
+        return false;
+    }
 
     int parsed = value;
     if (!parseStrictIntSetting(buffer, parsed)) {
@@ -314,7 +316,7 @@ bool showCustomSettingsMenu(GameSettings& settings, bool hasColor) {
             } else if (isCancelKey(ch)) {
                 delwin(popup);
                 return false;
-            } else if (ch == '\n' || ch == '\r' || ch == KEY_ENTER || ch == ' ') {
+            } else if (isConfirmKey(ch, true)) {
                 bool toggled = false;
                 if (selected == 13) { settings.allowAutomaticLoans = !settings.allowAutomaticLoans; toggled = true; }
                 else if (selected == 14) { settings.allowSabotage = !settings.allowSabotage; toggled = true; }

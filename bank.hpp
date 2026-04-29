@@ -49,4 +49,4 @@ public:
 
 private:
     RuleSet ruleset;
-}
+};
