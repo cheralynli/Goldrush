@@ -73,6 +73,7 @@ private:
     std::time_t createdTime;
     std::time_t lastSavedTime;
     bool autoAdvanceUi;
+    bool setupInProgress;
     bool sabotageUnlockAnnounced;
     TutorialFlags tutorialFlags;
     std::vector<ActiveTrap> activeTraps;

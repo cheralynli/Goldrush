@@ -1,6 +1,11 @@
 CXX = g++
 CXXFLAGS = -std=c++17 -Wall -Wextra
-LIBS = -lncursesw
+UNAME_S := $(shell uname -s)
+ifeq ($(UNAME_S),Darwin)
+LIBS ?= -lncurses
+else
+LIBS ?= -lncursesw
+endif
 FS_LIBS ?=
 
 CORE_OBJS = game.o board.o player.o ui.o rules.o \

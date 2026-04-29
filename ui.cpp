@@ -590,12 +590,12 @@ void draw_title_banner_ui(WINDOW* titleWin) {
                       clipPanelText(subtitle, static_cast<std::size_t>(std::max(8, width - 4))).c_str());
         }
     } else {
-        mvwprintw(titleWin, 1, 2, "  ________       .__       .___                   .__     ");
-        mvwprintw(titleWin, 2, 2, " /  _____/  ____ |  |    __| _/______ __ __  _____|  |__  ");
-        mvwprintw(titleWin, 3, 2, "/   \\  ___ /  _ \\|  |   / __ |\\_  __ \\  |  \\/  ___/  |  \\ ");
-        mvwprintw(titleWin, 4, 2, "\\    \\_\\  (  <_> )  |__/ /_/ | |  | \\/  |  /\\___ \\|   Y  \\");
-        mvwprintw(titleWin, 5, 2, " \\______  /\\____/|____/\\____ | |__|  |____//____  >___|  /");
-        mvwprintw(titleWin, 6, 2, "        \\/                  \\/                  \\/     \\/ ");
+        mvwprintw(titleWin, 1, 2, "   ________        .__       .___                    .__     ");
+        mvwprintw(titleWin, 2, 2, "  /  _____/  ____  |  |    __| _/______ __ __  _____|  |__  ");
+        mvwprintw(titleWin, 3, 2, " /   \\  ___ /  _ \\ |  |   / __ |\\_  __ \\  |  \\/  ___/  |  \\ ");
+        mvwprintw(titleWin, 4, 2, " \\    \\_\\  (  <_> )|  |__/ /_/ | |  | \\/  |  /\\___ \\|   Y  \\");
+        mvwprintw(titleWin, 5, 2, "  \\______  /\\____/ |____/\\____ | |__|  |____//____  >___|  /");
+        mvwprintw(titleWin, 6, 2, "         \\/                   \\/                  \\/     \\/ ");
     }
     wattroff(titleWin, COLOR_PAIR(GOLDRUSH_GOLD_BLACK) | A_BOLD);
     wrefresh(titleWin);
@@ -817,7 +817,7 @@ void drawEventMessage(WINDOW* messageWin, const std::string& title, const std::s
 
     wattron(messageWin, COLOR_PAIR(GOLDRUSH_GOLD_SAND) | A_BOLD);
     const std::string clippedTitle = clipPanelText(title, static_cast<std::size_t>(std::max(0, width - 4)));
-    mvwprintw(messageWin, 1, std::max(2, (width - static_cast<int>(clippedTitle.size())) / 2), "%s", clippedTitle.c_str());
+    mvwprintw(messageWin, 1, 2, "%s", clippedTitle.c_str());
     wattroff(messageWin, COLOR_PAIR(GOLDRUSH_GOLD_SAND) | A_BOLD);
 
     const std::vector<std::string> lines = wrapUiText(message, static_cast<std::size_t>(std::max(10, width - 4)));
@@ -825,7 +825,7 @@ void drawEventMessage(WINDOW* messageWin, const std::string& title, const std::s
     wattron(messageWin, COLOR_PAIR(GOLDRUSH_BROWN_CREAM));
     for (int i = 0; i < maxLines; ++i) {
         const std::string& line = lines[static_cast<std::size_t>(i)];
-        mvwprintw(messageWin, 2 + i, std::max(2, (width - static_cast<int>(line.size())) / 2), "%s", line.c_str());
+        mvwprintw(messageWin, 2 + i, 2, "%s", line.c_str());
     }
     wattroff(messageWin, COLOR_PAIR(GOLDRUSH_BROWN_CREAM));
     wrefresh(messageWin);
@@ -1058,7 +1058,6 @@ int selector_component(char* prompt_text,
                        int y_offset,
                        int width,
                        int height) {
-    (void)y_offset;
     auto clipToWidth = [](const char* text, int maxWidth) -> std::string {
         if (!text || maxWidth <= 0) {
             return "";
@@ -1084,12 +1083,17 @@ int selector_component(char* prompt_text,
     desiredWidth = std::max(12, desiredWidth);
     const int frameWidth = std::min(std::max(20, desiredWidth + 4), std::max(20, termWidth - 2));
     const int frameHeight = std::min(std::max(5, height + 4), std::max(5, termHeight - 2));
-
-    WINDOW* popup = createCenteredWindow(frameHeight, frameWidth, 5, 20);
-    if (!popup) {
+    UiWindowBounds bounds{0, 0, 0, 0};
+    if (!calculateCenteredWindowBounds(frameHeight, frameWidth, 5, 20, bounds)) {
         showTerminalSizeWarning(5, 20, has_colors());
         return default_value;
     }
+    bounds.y = std::max(0, std::min(bounds.y + y_offset, std::max(0, termHeight - bounds.height)));
+    WINDOW* popup = newwin(bounds.height, bounds.width, bounds.y, bounds.x);
+    if (!popup) {
+        return default_value;
+    }
+    apply_ui_background(popup);
     keypad(popup, TRUE);
 
     int chosen_option_value = default_value;
@@ -1119,11 +1123,7 @@ int selector_component(char* prompt_text,
         drawBoxSafe(popup);
         wattron(popup, COLOR_PAIR(GOLDRUSH_GOLD_BLACK));
         const std::string clippedPrompt = clipToWidth(prompt_text, contentWidth);
-        mvwprintw(popup,
-                  1,
-                  2 + std::max(0, (contentWidth - static_cast<int>(clippedPrompt.size())) / 2),
-                  "%s",
-                  clippedPrompt.c_str());
+        mvwprintw(popup, 1, 2, "%s", clippedPrompt.c_str());
         wattroff(popup, COLOR_PAIR(GOLDRUSH_GOLD_BLACK));
 
         for (int row = 0; row < visibleOptions; ++row) {
@@ -1169,7 +1169,8 @@ int selector_component(char* prompt_text,
 int choose_branch_with_selector(const std::string& prompt_title,
                                 const std::vector<std::string>& option_lines,
                                 const std::vector<int>& option_values,
-                                int default_value) {
+                                int default_value,
+                                int y_offset) {
     std::vector<char*> mutable_options;
     mutable_options.reserve(option_lines.size());
     for (size_t i = 0; i < option_lines.size(); ++i) {
@@ -1186,7 +1187,7 @@ int choose_branch_with_selector(const std::string& prompt_title,
                               mutable_values.data(),
                               static_cast<int>(option_lines.size()),
                               default_value,
-                              0,
+                              y_offset,
                               width,
                               static_cast<int>(option_lines.size()) + 1);
 }

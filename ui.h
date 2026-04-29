@@ -75,6 +75,10 @@ void draw_sidebar_ui(WINDOW* panelWin,
 void draw_message_ui(WINDOW* msgWin, const std::string& line1, const std::string& line2);
 void draw_title_banner_ui(WINDOW* titleWin);
 int selector_component(char* prompt_text, char** option_texts, int* option_values, int number_of_options, int default_value, int y_offset, int width, int height);
-int choose_branch_with_selector(const std::string& prompt_title, const std::vector<std::string>& option_lines, const std::vector<int>& option_values, int default_value);
+int choose_branch_with_selector(const std::string& prompt_title,
+                                const std::vector<std::string>& option_lines,
+                                const std::vector<int>& option_values,
+                                int default_value,
+                                int y_offset = 0);
 void update_position_highlights(WINDOW* boardWin, const Board& board, const std::vector<Player>& players, int current_position, int previous_position, int playerIndex);
 int ui_player_color_pair(int playerIndex);
