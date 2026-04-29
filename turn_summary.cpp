@@ -157,7 +157,8 @@ void showTurnSummaryReport(const TurnSummary& summary, bool hasColor) {
     }
 
     mvwprintw(popup, popupH - 2, 3, "%s",
-              clipUiText("Press ENTER to continue...", static_cast<std::size_t>(std::max(1, popupW - 5))).c_str());
+              clipUiText("Press ENTER or ESC to continue...",
+                         static_cast<std::size_t>(std::max(1, popupW - 5))).c_str());
     wrefresh(popup);
     waitForEnterPrompt(popup, popupH - 2, 3, "");
     delwin(popup);

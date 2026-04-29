@@ -417,13 +417,9 @@ MemoryMatchResult playMemoryMatchMinigame(const std::string& playerName, bool ha
         if (hasColor) wattroff(overlay, COLOR_PAIR(GOLDRUSH_GOLD_TERRA) | A_BOLD);
     }
     
-    mvwprintw(overlay, screenH/2 + 2, (screenW - 30) / 2, "Press ENTER to continue.");
+    mvwprintw(overlay, screenH/2 + 2, (screenW - 34) / 2, "Press ENTER or ESC to continue.");
     wrefresh(overlay);
-    
-    int ch;
-    do {
-        ch = wgetch(overlay);
-    } while (ch != '\n' && ch != '\r' && ch != KEY_ENTER);
+    waitForConfirmOrCancel(overlay);
     
     delwin(overlay);
     touchwin(stdscr);

@@ -1,5 +1,6 @@
 #include "ui_helpers.h"
 
+#include "input_helpers.h"
 #include "ui.h"
 
 #include <algorithm>
@@ -155,10 +156,7 @@ void waitForEnterPrompt(WINDOW* win, int y, int x, const std::string& message) {
     }
 
     nodelay(win, FALSE);
-    int ch = 0;
-    do {
-        ch = wgetch(win);
-    } while (ch != '\n' && ch != '\r' && ch != KEY_ENTER);
+    waitForConfirmOrCancel(win);
 }
 
 void blinkIndicator(WINDOW* win,
@@ -328,7 +326,7 @@ void showPopupMessage(const std::string& title,
         waitForEnterPrompt(popup,
                            popupH - 2,
                            2,
-                           clipUiText("Press ENTER to continue...",
+                           clipUiText("Press ENTER or ESC to continue...",
                                       static_cast<std::size_t>(actualContentW)));
     }
 

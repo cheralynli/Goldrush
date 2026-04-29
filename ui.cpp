@@ -10,6 +10,7 @@
 #include <sstream>
 #include <vector>
 
+#include "input_helpers.h"
 #include "tile_display.h"
 #include "ui_helpers.h"
 
@@ -1140,20 +1141,21 @@ int selector_component(char* prompt_text,
             }
         }
 
-        if (number_of_options > visibleOptions) {
-            mvwprintw(popup, popupH - 2, 2, "Up/Down scroll  Enter select");
-        }
+        mvwprintw(popup, popupH - 2, 2, "%s",
+                  number_of_options > visibleOptions
+                      ? "Up/Down scroll  Enter select  ESC cancel"
+                      : "Enter select  ESC cancel");
 
         wrefresh(popup);
         const int input_character = wgetch(popup);
-        if (input_character == KEY_UP) {
-            highlighted_option = highlighted_option == 0 ? number_of_options - 1 : highlighted_option - 1;
-        } else if (input_character == KEY_DOWN) {
-            highlighted_option = highlighted_option == number_of_options - 1 ? 0 : highlighted_option + 1;
-        } else if (input_character == '\n' || input_character == '\r' || input_character == KEY_ENTER) {
+        MenuInputResult menuResult =
+            menuSelectOrCancel(input_character, highlighted_option, number_of_options, false, false);
+        if (menuResult == MenuInputResult::Selected) {
             chosen_option_value = option_values[highlighted_option];
             break;
-        } else if (input_character == 27) {
+        }
+        if (menuResult == MenuInputResult::Cancelled) {
+            chosen_option_value = MENU_CANCELLED;
             break;
         }
     }

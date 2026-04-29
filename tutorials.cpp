@@ -43,14 +43,17 @@ bool& tutorialFlagForTopic(TutorialFlags& flags, TutorialTopic topic) {
         case TutorialTopic::AutomaticLoan: return flags.automaticLoan;
         case TutorialTopic::ManualLoan: return flags.manualLoan;
         case TutorialTopic::Investment: return flags.investment;
+        case TutorialTopic::Job: return flags.job;
         case TutorialTopic::Baby: return flags.baby;
         case TutorialTopic::Pet: return flags.pet;
         case TutorialTopic::Marriage: return flags.marriage;
+        case TutorialTopic::House: return flags.house;
         case TutorialTopic::Insurance: return flags.insurance;
         case TutorialTopic::Shield: return flags.shield;
         case TutorialTopic::ActionCard: return flags.actionCard;
         case TutorialTopic::Minigame: return flags.minigame;
         case TutorialTopic::Sabotage: return flags.sabotage;
+        case TutorialTopic::EndgameScoring: return flags.endgameScoring;
     }
     return flags.automaticLoan;
 }
@@ -60,14 +63,17 @@ std::string tutorialTitle(TutorialTopic topic) {
         case TutorialTopic::AutomaticLoan: return "Automatic Loans";
         case TutorialTopic::ManualLoan: return "Manual Loans";
         case TutorialTopic::Investment: return "Investments";
+        case TutorialTopic::Job: return "Jobs";
         case TutorialTopic::Baby: return "Babies and Kids";
         case TutorialTopic::Pet: return "Pets";
         case TutorialTopic::Marriage: return "Marriage";
+        case TutorialTopic::House: return "Houses";
         case TutorialTopic::Insurance: return "Insurance";
         case TutorialTopic::Shield: return "Shields";
         case TutorialTopic::ActionCard: return "Action Cards";
         case TutorialTopic::Minigame: return "Minigames";
         case TutorialTopic::Sabotage: return "Sabotage";
+        case TutorialTopic::EndgameScoring: return "Endgame Scoring";
     }
     return "Guide";
 }
@@ -89,6 +95,11 @@ std::vector<std::string> tutorialLines(TutorialTopic topic) {
                 "Investments can grow your wealth when the spinner matches your number.",
                 "Market and money events can still change your position, so watch your cash."
             };
+        case TutorialTopic::Job:
+            return {
+                "Jobs set your salary for paydays and career events.",
+                "College careers usually pay more, but career route starts earning sooner."
+            };
         case TutorialTopic::Baby:
             return {
                 "You had a baby! Kids can affect life events and final scoring.",
@@ -103,6 +114,11 @@ std::vector<std::string> tutorialLines(TutorialTopic topic) {
             return {
                 "A major life moment arrives.",
                 "Marriage can trigger gift money and opens up some family-related events."
+            };
+        case TutorialTopic::House:
+            return {
+                "A house is bought now and scored near retirement.",
+                "House sale value can become a major part of final net worth."
             };
         case TutorialTopic::Insurance:
             return {
@@ -128,6 +144,11 @@ std::vector<std::string> tutorialLines(TutorialTopic topic) {
             return {
                 "Sabotage lets players interfere with opponents after Turn 3.",
                 "Use it strategically: CPU players can sabotage too, and shields or insurance may answer back."
+            };
+        case TutorialTopic::EndgameScoring:
+            return {
+                "Final net worth decides the winner after everyone retires.",
+                "Cash, houses, pets, kids, cards, retirement bonuses, and loan debt all matter."
             };
     }
     return std::vector<std::string>();
@@ -174,7 +195,7 @@ void showPagedGuide(const std::string& title,
         if (isCancelKey(ch)) {
             break;
         }
-        if (ch == '\n' || ch == '\r' || ch == KEY_ENTER || ch == ' ') {
+        if (isConfirmKey(ch, true)) {
             ++page;
         }
     }
@@ -319,7 +340,7 @@ bool showQuitConfirmation(bool hasColor) {
             delwin(popup);
             return false;
         }
-        if (ch == '\n' || ch == '\r' || ch == KEY_ENTER) {
+        if (isConfirmKey(ch)) {
             delwin(popup);
             return true;
         }
@@ -359,7 +380,7 @@ void showSabotageUnlockAnimation(bool hasColor) {
     int width = 0;
     getmaxyx(popup, height, width);
     mvwprintw(popup, height - 2, 2, "%s",
-              clipUiText("Press ENTER to continue...",
+              clipUiText("Press ENTER or ESC to continue...",
                          static_cast<std::size_t>(std::max(1, width - 4))).c_str());
     wrefresh(popup);
     waitForEnterPrompt(popup, height - 2, 2, "");

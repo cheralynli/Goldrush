@@ -431,7 +431,7 @@ HangmanResult playHangmanMinigame(const std::string& playerName, bool hasColor) 
             const std::string winLine2 = "You guessed the word: " + word;
             const std::string winLine3 = "Letters revealed: " + std::to_string(res.lettersGuessed) +
                                          "  |  Earned $" + std::to_string(res.lettersGuessed * 100);
-            const std::string winLine4 = "Press ENTER to continue.";
+            const std::string winLine4 = "Press ENTER or ESC to continue.";
             mvwprintw(win, arenaCenterY - 1, arenaLeft + (arenaWidth - static_cast<int>(winLine2.size())) / 2,
                       "%s", winLine2.c_str());
             mvwprintw(win, arenaCenterY, arenaLeft + (arenaWidth - static_cast<int>(winLine3.size())) / 2,
@@ -452,10 +452,7 @@ HangmanResult playHangmanMinigame(const std::string& playerName, bool hasColor) 
             }
             wrefresh(win);
 
-            int ch;
-            do {
-                ch = wgetch(win);
-            } while (ch != '\n' && ch != '\r' && ch != KEY_ENTER);
+            waitForConfirmOrCancel(win);
             break;
         }
 
@@ -477,7 +474,7 @@ HangmanResult playHangmanMinigame(const std::string& playerName, bool hasColor) 
             const std::string loseLine2 = "The word was: " + word;
             const std::string loseLine3 = "Letters revealed: " + std::to_string(res.lettersGuessed) +
                                           "  |  Earned $" + std::to_string(res.lettersGuessed * 100);
-            const std::string loseLine4 = "Press ENTER to continue.";
+            const std::string loseLine4 = "Press ENTER or ESC to continue.";
             mvwprintw(win, arenaCenterY - 1, arenaLeft + (arenaWidth - static_cast<int>(loseLine2.size())) / 2,
                       "%s", loseLine2.c_str());
             mvwprintw(win, arenaCenterY, arenaLeft + (arenaWidth - static_cast<int>(loseLine3.size())) / 2,
@@ -498,10 +495,7 @@ HangmanResult playHangmanMinigame(const std::string& playerName, bool hasColor) 
             }
             wrefresh(win);
 
-            int ch;
-            do {
-                ch = wgetch(win);
-            } while (ch != '\n' && ch != '\r' && ch != KEY_ENTER);
+            waitForConfirmOrCancel(win);
             break;
         }
 

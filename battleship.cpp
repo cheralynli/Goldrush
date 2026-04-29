@@ -229,7 +229,7 @@ BattleshipMinigameResult playBattleshipMinigame(const std::string& playerName, b
     std::string feedbackText;
     int feedbackFrames = 0;
     bool feedbackPositive = true;
-    const int maxAmmo = 3;
+    const int maxAmmo = 10;
     int ammo = maxAmmo;
 
     std::vector<Shot> playerShots;
@@ -308,7 +308,7 @@ BattleshipMinigameResult playBattleshipMinigame(const std::string& playerName, b
                       "Each ship destroyed earns $100. Max payout: $1000. Press X to start.");
         } else if (gameOver) {
             mvwprintw(overlay, arenaBottom + 4, arenaLeft,
-                      "Wave over. Destroyed %d/%d ships, payout $%d. Press ENTER.",
+                      "Wave over. Destroyed %d/%d ships, payout $%d. Press ENTER or ESC.",
                       result.shipsDestroyed,
                       maxShips,
                       result.shipsDestroyed * 100);
@@ -321,12 +321,12 @@ BattleshipMinigameResult playBattleshipMinigame(const std::string& playerName, b
 
         int ch = wgetch(overlay);
         const InputAction action = getInputAction(ch, ControlScheme::SinglePlayer);
-        if (action == InputAction::Cancel) {
-            result.abandoned = true;
-            break;
-        }
 
         if (waitingForStart) {
+            if (action == InputAction::Cancel) {
+                result.abandoned = true;
+                break;
+            }
             if (action == InputAction::Start) {
                 waitingForStart = false;
             } else {
@@ -336,11 +336,16 @@ BattleshipMinigameResult playBattleshipMinigame(const std::string& playerName, b
         }
 
         if (gameOver) {
-            if (ch == '\n' || ch == '\r' || ch == KEY_ENTER) {
+            if (isConfirmKey(ch) || action == InputAction::Cancel) {
                 break;
             }
             napms(20);
             continue;
+        }
+
+        if (action == InputAction::Cancel) {
+            result.abandoned = true;
+            break;
         }
 
         if (action == InputAction::Left) {
