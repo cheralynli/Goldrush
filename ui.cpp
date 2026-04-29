@@ -589,12 +589,12 @@ void draw_title_banner_ui(WINDOW* titleWin) {
                       clipPanelText(subtitle, static_cast<std::size_t>(std::max(8, width - 4))).c_str());
         }
     } else {
-        mvwprintw(titleWin, 1, 2, "  ________       .__       .___                   .__     ");
-        mvwprintw(titleWin, 2, 2, " /  _____/  ____ |  |    __| _/______ __ __  _____|  |__  ");
-        mvwprintw(titleWin, 3, 2, "/   \\  ___ /  _ \\|  |   / __ |\\_  __ \\  |  \\/  ___/  |  \\ ");
-        mvwprintw(titleWin, 4, 2, "\\    \\_\\  (  <_> )  |__/ /_/ | |  | \\/  |  /\\___ \\|   Y  \\");
-        mvwprintw(titleWin, 5, 2, " \\______  /\\____/|____/\\____ | |__|  |____//____  >___|  /");
-        mvwprintw(titleWin, 6, 2, "        \\/                  \\/                  \\/     \\/ ");
+        mvwprintw(titleWin, 1, 2, "   ________        .__       .___                    .__     ");
+        mvwprintw(titleWin, 2, 2, "  /  _____/  ____  |  |    __| _/______ __ __  _____|  |__  ");
+        mvwprintw(titleWin, 3, 2, " /   \\  ___ /  _ \\ |  |   / __ |\\_  __ \\  |  \\/  ___/  |  \\ ");
+        mvwprintw(titleWin, 4, 2, " \\    \\_\\  (  <_> )|  |__/ /_/ | |  | \\/  |  /\\___ \\|   Y  \\");
+        mvwprintw(titleWin, 5, 2, "  \\______  /\\____/ |____/\\____ | |__|  |____//____  >___|  /");
+        mvwprintw(titleWin, 6, 2, "         \\/                   \\/                  \\/     \\/ ");
     }
     wattroff(titleWin, COLOR_PAIR(GOLDRUSH_GOLD_BLACK) | A_BOLD);
     wrefresh(titleWin);
@@ -816,7 +816,7 @@ void drawEventMessage(WINDOW* messageWin, const std::string& title, const std::s
 
     wattron(messageWin, COLOR_PAIR(GOLDRUSH_GOLD_SAND) | A_BOLD);
     const std::string clippedTitle = clipPanelText(title, static_cast<std::size_t>(std::max(0, width - 4)));
-    mvwprintw(messageWin, 1, std::max(2, (width - static_cast<int>(clippedTitle.size())) / 2), "%s", clippedTitle.c_str());
+    mvwprintw(messageWin, 1, 2, "%s", clippedTitle.c_str());
     wattroff(messageWin, COLOR_PAIR(GOLDRUSH_GOLD_SAND) | A_BOLD);
 
     const std::vector<std::string> lines = wrapUiText(message, static_cast<std::size_t>(std::max(10, width - 4)));
@@ -824,7 +824,7 @@ void drawEventMessage(WINDOW* messageWin, const std::string& title, const std::s
     wattron(messageWin, COLOR_PAIR(GOLDRUSH_BROWN_CREAM));
     for (int i = 0; i < maxLines; ++i) {
         const std::string& line = lines[static_cast<std::size_t>(i)];
-        mvwprintw(messageWin, 2 + i, std::max(2, (width - static_cast<int>(line.size())) / 2), "%s", line.c_str());
+        mvwprintw(messageWin, 2 + i, 2, "%s", line.c_str());
     }
     wattroff(messageWin, COLOR_PAIR(GOLDRUSH_BROWN_CREAM));
     wrefresh(messageWin);

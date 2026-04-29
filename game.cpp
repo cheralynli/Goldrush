@@ -21,6 +21,37 @@
 #include <sstream>
 
 namespace {
+const char* const GOLDRUSH_TITLE_ART[] = {
+    "   ________        .__       .___                    .__     ",
+    "  /  _____/  ____  |  |    __| _/______ __ __  _____|  |__  ",
+    " /   \\  ___ /  _ \\ |  |   / __ |\\_  __ \\  |  \\/  ___/  |  \\ ",
+    " \\    \\_\\  (  <_> )|  |__/ /_/ | |  | \\/  |  /\\___ \\|   Y  \\",
+    "  \\______  /\\____/ |____/\\____ | |__|  |____//____  >___|  /",
+    "         \\/                   \\/                  \\/     \\/ "
+};
+const int GOLDRUSH_TITLE_ART_LINES = static_cast<int>(sizeof(GOLDRUSH_TITLE_ART) / sizeof(GOLDRUSH_TITLE_ART[0]));
+const int GOLDRUSH_TITLE_ART_WIDTH = 62;
+
+void drawGoldrushTitleArt(bool hasColor) {
+    int h = 0;
+    int w = 0;
+    getmaxyx(stdscr, h, w);
+    int startY = (h / 2) - 6;
+    int startX = (w - GOLDRUSH_TITLE_ART_WIDTH) / 2;
+    if (startY < 1) startY = 1;
+    if (startX < 0) startX = 0;
+
+    if (hasColor) {
+        attron(COLOR_PAIR(GOLDRUSH_GOLD_BLACK) | A_BOLD);
+    }
+    for (int i = 0; i < GOLDRUSH_TITLE_ART_LINES; ++i) {
+        mvprintw(startY + i, startX, "%s", GOLDRUSH_TITLE_ART[i]);
+    }
+    if (hasColor) {
+        attroff(COLOR_PAIR(GOLDRUSH_GOLD_BLACK) | A_BOLD);
+    }
+}
+
 std::string appendLoanText(const std::string& base, const PaymentResult& payment) {
     if (payment.loansTaken <= 0) {
         return base;
@@ -135,12 +166,12 @@ std::vector<std::string> bigRollNumberArt(int value) {
                     "| (_) | ",
                     "\\___/  "};
         case 7:
-            return {"  ______ ", 
-                    " |____  |", 
-                    "     / / ", 
-                    "    / /  ", 
-                    "   / /   ",
-                    "  /_/"};
+            return {"  ______  ",
+                    " |____  | ",
+                    "     / /  ",
+                    "    / /   ",
+                    "   / /    ",
+                    "  /_/     "};
         case 8:
             return {"   ___   ", 
                     "  / _ \\  ", 
@@ -416,39 +447,7 @@ void Game::drawSetupTitle() const {
     if (!msgWin) {
         return;
     }
-
-    const char* lines[] = {
-        "  ________         .__       .___                       .__      ",
-        " /  _____/    ____ |  |    __| _/______ __ __     _____ |  |__   ",
-        "/   \\  ___  /  _ \\|  |   / __ |\\_  __ \\  |  \\/  ___/|     \\ ",
-        "\\   \\_\\  (  <_> )  |__/ /_/ |  |  | \\/  |  /\\___ \\|   Y  \\",
-        " \\______  /\\____/|____/\\____|  |__|   |____/  /____  >___|  / ",
-        "        \\/                  \\/                     \\/    \\/  "
-    };
-    const int artW = 60;
-
-    int h, w;
-    getmaxyx(stdscr, h, w);
-    int startY = (h / 2) - 6;
-    int startX = (w - artW) / 2;
-    if (startY < 1) startY = 1;
-    if (startX < 0) startX = 0;
-
-    if (hasColor) {
-        attron(COLOR_PAIR(GOLDRUSH_GOLD_BLACK) | A_BOLD);
-    }
-    for (int i = 0; i < 6; ++i) {
-        mvprintw(startY + i, startX, "%s", lines[i]);
-    }
-    if (hasColor) {
-        attroff(COLOR_PAIR(GOLDRUSH_GOLD_BLACK) | A_BOLD);
-        attron(COLOR_PAIR(GOLDRUSH_GOLD_SAND) | A_BOLD);
-    }
-    mvprintw(startY + 9, (w - 8) / 2, "GOLDRUSH");
-    if (hasColor) {
-        attroff(COLOR_PAIR(GOLDRUSH_GOLD_SAND) | A_BOLD);
-    }
-    refresh();
+    drawGoldrushTitleArt(hasColor);
 }
 
 void Game::flashSpinResult(const std::string& title, int value) const {
@@ -824,16 +823,6 @@ bool Game::loadSavedGame() {
 }
 
 Game::StartChoice Game::showStartScreen() {
-    const char* lines[] = {
-        "  ________         .__       .___                       .__      ",
-        " /  _____/    ____ |  |    __| _/______ __ __     _____ |  |__   ",
-        "/   \\  ___  /  _ \\|  |   / __ |\\_  __ \\  |  \\/  ___/|     \\ ",
-        "\\   \\_\\  (  <_> )  |__/ /_/ |  |  | \\/  |  /\\___ \\|   Y  \\",
-        " \\______  /\\____/|____/\\____|  |__|   |____/  /____  >___|  / ",
-        "        \\/                  \\/                     \\/    \\/  "
-    };
-    const int artLines = static_cast<int>(sizeof(lines) / sizeof(lines[0]));
-    const int artW = 60;
     // The title screen is a two-step state machine: first choose new/load/quit,
     // then choose the ruleset for a new game.
     bool choosingMode = false;
@@ -844,21 +833,10 @@ Game::StartChoice Game::showStartScreen() {
         getmaxyx(stdscr, h, w);
         clear();
         if (hasColor) bkgd(COLOR_PAIR(GOLDRUSH_GOLD_BLACK));
+        drawGoldrushTitleArt(hasColor);
 
         int startY = (h / 2) - 6;
-        int startX = (w - artW) / 2;
         if (startY < 1) startY = 1;
-        if (startX < 0) startX = 0;
-
-        if (hasColor) wattron(stdscr, COLOR_PAIR(GOLDRUSH_GOLD_BLACK) | A_BOLD);
-        for (int i = 0; i < artLines; ++i) {
-            mvprintw(startY + i, startX, "%s", lines[i]);
-        }
-        if (hasColor) wattroff(stdscr, COLOR_PAIR(GOLDRUSH_GOLD_BLACK) | A_BOLD);
-
-        if (hasColor) wattron(stdscr, COLOR_PAIR(GOLDRUSH_GOLD_SAND) | A_BOLD);
-        mvprintw(startY + 9, (w - 8) / 2, "GOLDRUSH");
-        if (hasColor) wattroff(stdscr, COLOR_PAIR(GOLDRUSH_GOLD_SAND) | A_BOLD);
 
         if (hasColor) wattron(stdscr, COLOR_PAIR(GOLDRUSH_BROWN_SAND));
         if (!choosingMode) {
@@ -890,15 +868,8 @@ Game::StartChoice Game::showStartScreen() {
         int ch = getch();
         if (!choosingMode) {
             if (ch == 'n' || ch == 'N' || ch == 's' || ch == 'S') {
-<<<<<<< HEAD
                 settings = createLifeModeSettings();
-=======
->>>>>>> origin
                 rules = makeNormalRules();
-
-                if (!chooseBoardViewMode()) {
-                    continue;
-                }
                 return START_NEW_GAME;
             }
             if (ch == 'l' || ch == 'L') return START_LOAD_GAME;
@@ -949,6 +920,159 @@ Game::StartChoice Game::showStartScreen() {
 
 bool Game::chooseBoardViewMode() {
     int selected = boardViewMode == BoardViewMode::ClassicFull ? 1 : 0;
+
+    if (!msgWin || !titleWin) {
+        const char* names[] = {
+            "Follow Camera Mode",
+            "Classic / Full Board Mode"
+        };
+        const char* descriptions[] = {
+            "Zoomed route view centered on the current player.",
+            "Shows the whole route with the classic board layout."
+        };
+
+        while (true) {
+            int h = 0;
+            int w = 0;
+            getmaxyx(stdscr, h, w);
+            const UILayout layout = calculateUILayout(h, w);
+            clear();
+            if (hasColor) {
+                bkgd(COLOR_PAIR(GOLDRUSH_GOLD_BLACK));
+            }
+            drawGoldrushTitleArt(hasColor);
+
+            const int boxH = layout.messageHeight;
+            const int boxW = layout.totalWidth;
+            const int boxY = layout.originY + layout.headerHeight + layout.boardHeight;
+            const int boxX = layout.originX;
+            WINDOW* box = newwin(boxH, boxW, boxY, boxX);
+            if (!box) {
+                return false;
+            }
+            applyWindowBg(box);
+            werase(box);
+            drawBoxSafe(box);
+            const int contentW = std::max(8, boxW - 4);
+            mvwprintw(box, 1, 2, "%s",
+                      clipUiText("Choose Board Display", static_cast<std::size_t>(contentW)).c_str());
+            for (int i = 0; i < 2; ++i) {
+                if (selected == i) {
+                    wattron(box, A_REVERSE | A_BOLD);
+                }
+                const std::string lineText = std::string("- ") + names[i] +
+                                             (i == selected ? std::string("  ") + descriptions[i] : std::string());
+                mvwprintw(box, 2 + i, 2, "%-*s", contentW,
+                          clipUiText(lineText, static_cast<std::size_t>(contentW)).c_str());
+                if (selected == i) {
+                    wattroff(box, A_REVERSE | A_BOLD);
+                }
+            }
+            refresh();
+            wrefresh(box);
+
+            const int ch = getch();
+            delwin(box);
+            if (ch == KEY_RESIZE) {
+                if (!ensureMinSize()) {
+                    return false;
+                }
+                continue;
+            }
+            if (ch == KEY_LEFT || ch == KEY_RIGHT ||
+                ch == KEY_UP || ch == KEY_DOWN ||
+                ch == 'a' || ch == 'A' || ch == 'd' || ch == 'D' ||
+                ch == 'w' || ch == 'W' || ch == 's' || ch == 'S') {
+                selected = selected == 0 ? 1 : 0;
+            } else if (ch == '1' || ch == '2') {
+                selected = ch - '1';
+            } else if (ch == 27) {
+                return false;
+            } else if (ch == '\n' || ch == '\r' || ch == KEY_ENTER) {
+                boardViewMode = selected == 0 ? BoardViewMode::FollowCamera : BoardViewMode::ClassicFull;
+                return true;
+            }
+        }
+    }
+
+    if (msgWin && titleWin) {
+        if (boardWin) {
+            werase(boardWin);
+            drawBoxSafe(boardWin);
+            wrefresh(boardWin);
+        }
+        if (infoWin) {
+            werase(infoWin);
+            drawBoxSafe(infoWin);
+            wrefresh(infoWin);
+        }
+        renderHeader();
+
+        const char* names[] = {
+            "Follow Camera Mode",
+            "Classic / Full Board Mode"
+        };
+        const char* descriptions[] = {
+            "Zoomed route view centered on the current player.",
+            "Shows the whole route with the classic board layout."
+        };
+
+        while (true) {
+            int msgH = 0;
+            int msgW = 0;
+            getmaxyx(msgWin, msgH, msgW);
+            (void)msgH;
+            const int contentW = std::max(8, msgW - 4);
+
+            werase(msgWin);
+            drawBoxSafe(msgWin);
+            mvwprintw(msgWin, 1, 2, "%s",
+                      clipUiText("Choose Board Display", static_cast<std::size_t>(contentW)).c_str());
+
+            for (int i = 0; i < 2; ++i) {
+                if (selected == i) {
+                    wattron(msgWin, A_REVERSE | A_BOLD);
+                }
+                const std::string lineText = std::string("- ") + names[i] +
+                                             (i == selected ? std::string("  ") + descriptions[i] : std::string());
+                mvwprintw(msgWin, 2 + i, 2, "%-*s",
+                          contentW,
+                          clipUiText(lineText, static_cast<std::size_t>(contentW)).c_str());
+                if (selected == i) {
+                    wattroff(msgWin, A_REVERSE | A_BOLD);
+                }
+            }
+            wrefresh(msgWin);
+
+            const int ch = wgetch(msgWin);
+            if (ch == KEY_RESIZE) {
+                if (!ensureMinSize()) {
+                    return false;
+                }
+                destroyWindows();
+                createWindows();
+                renderHeader();
+                continue;
+            }
+            if (ch == KEY_LEFT || ch == KEY_RIGHT ||
+                ch == KEY_UP || ch == KEY_DOWN ||
+                ch == 'a' || ch == 'A' ||
+                ch == 'd' || ch == 'D' ||
+                ch == 'w' || ch == 'W' ||
+                ch == 's' || ch == 'S') {
+                selected = selected == 0 ? 1 : 0;
+            } else if (ch == '1' || ch == '2') {
+                selected = ch - '1';
+            } else if (ch == 27) {
+                return false;
+            } else if (ch == '\n' || ch == '\r' || ch == KEY_ENTER) {
+                boardViewMode = selected == 0
+                    ? BoardViewMode::FollowCamera
+                    : BoardViewMode::ClassicFull;
+                return true;
+            }
+        }
+    }
 
     while (true) {
         int h = 0;
@@ -1925,6 +2049,7 @@ void Game::setupPlayers() {
     setupInProgress = true;
     clear();
     refresh();
+    drawSetupTitle();
     int numPlayers = 0;
     while (numPlayers < 2 || numPlayers > 4) {
         werase(msgWin);
@@ -1935,6 +2060,7 @@ void Game::setupPlayers() {
         const std::string prompt = clipUiText("Enter number of players: ", static_cast<std::size_t>(contentW));
         mvwprintw(msgWin, 1, 2, "%s", title.c_str());
         mvwprintw(msgWin, 3, 2, "%s", prompt.c_str());
+        refresh();
         wrefresh(msgWin);
 
         echo();
@@ -1961,15 +2087,11 @@ void Game::setupPlayers() {
                              static_cast<std::size_t>(contentW)).c_str());
         mvwprintw(msgWin, 2, 2, "%s",
                   clipUiText("Press any key to try again.", static_cast<std::size_t>(contentW)).c_str());
+        refresh();
         wrefresh(msgWin);
         wgetch(msgWin);
-        clear();
-        refresh();
+        drawSetupTitle();
     }
-    showInfoPopup("Game setup",
-                  "You chose " + std::to_string(numPlayers) +
-                  " players. Next, choose each player's type and name.");
-
     players.clear();
     players.reserve(numPlayers);
     for (int i = 0; i < numPlayers; ++i) {
@@ -2021,6 +2143,7 @@ void Game::setupPlayers() {
         }
         namePrompt = clipUiText(namePrompt, static_cast<std::size_t>(contentW));
         mvwprintw(msgWin, 3, 2, "%s", namePrompt.c_str());
+        refresh();
         wrefresh(msgWin);
         char nameBuf[32] = {0};
         int cursorRow = 0;
@@ -2338,8 +2461,8 @@ int Game::rollSpinner(const std::string& title, const std::string& detail) {
     const std::string settle = "The wheel settles on " + std::to_string(value) + ". Press ENTER to continue the story.";
     const std::string clippedTitle = clipUiText(title, static_cast<std::size_t>(contentW));
     const std::string clippedSettle = clipUiText(settle, static_cast<std::size_t>(contentW));
-    mvwprintw(msgWin, 1, std::max(2, (msgW - static_cast<int>(clippedTitle.size())) / 2), "%s", clippedTitle.c_str());
-    mvwprintw(msgWin, 2, std::max(2, (msgW - static_cast<int>(clippedSettle.size())) / 2), "%s", clippedSettle.c_str());
+    mvwprintw(msgWin, 1, 2, "%s", clippedTitle.c_str());
+    mvwprintw(msgWin, 2, 2, "%s", clippedSettle.c_str());
     wrefresh(msgWin);
     waitForEnter(msgWin, 2, 2, "");
     return value;
@@ -2354,6 +2477,43 @@ int Game::showBranchPopup(const std::string& title,
     std::vector<int> values;
     for (std::size_t i = 0; i < lines.size(); ++i) {
         values.push_back(static_cast<int>(i));
+    }
+
+    if (setupInProgress && msgWin && !lines.empty()) {
+        int highlighted = 0;
+        while (true) {
+            int msgH = 0;
+            int msgW = 0;
+            getmaxyx(msgWin, msgH, msgW);
+            const int contentW = std::max(8, msgW - 4);
+            werase(msgWin);
+            drawBoxSafe(msgWin);
+            mvwprintw(msgWin, 1, 2, "%s",
+                      clipUiText(title, static_cast<std::size_t>(contentW)).c_str());
+            for (std::size_t i = 0; i < lines.size() && 2 + static_cast<int>(i) < msgH - 1; ++i) {
+                if (static_cast<int>(i) == highlighted) {
+                    wattron(msgWin, A_REVERSE | A_BOLD);
+                }
+                mvwprintw(msgWin, 2 + static_cast<int>(i), 2, "%-*s",
+                          contentW,
+                          clipUiText(lines[i], static_cast<std::size_t>(contentW)).c_str());
+                if (static_cast<int>(i) == highlighted) {
+                    wattroff(msgWin, A_REVERSE | A_BOLD);
+                }
+            }
+            wrefresh(msgWin);
+
+            const int ch = wgetch(msgWin);
+            if (ch == KEY_UP) {
+                highlighted = highlighted == 0 ? static_cast<int>(lines.size()) - 1 : highlighted - 1;
+            } else if (ch == KEY_DOWN) {
+                highlighted = highlighted + 1 >= static_cast<int>(lines.size()) ? 0 : highlighted + 1;
+            } else if (ch == '\n' || ch == '\r' || ch == KEY_ENTER) {
+                return values[static_cast<std::size_t>(highlighted)];
+            } else if (ch == 27) {
+                break;
+            }
+        }
     }
 
     if (!setupInProgress && boardWin && !lines.empty()) {
@@ -3685,14 +3845,20 @@ bool Game::run() {
                 return false;
             }
 
-            createWindows();
             if (startChoice == START_LOAD_GAME) {
+                createWindows();
                 if (loadSavedGame()) {
                     break;
                 }
                 destroyWindows();
                 continue;
             }
+
+            if (!chooseBoardViewMode()) {
+                continue;
+            }
+
+            createWindows();
 
             setupRules();
             setupPlayers();

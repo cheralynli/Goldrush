@@ -120,47 +120,73 @@ void showTurnSummaryReport(const TurnSummary& summary, bool hasColor) {
         addText(lines, "IMPORTANT EVENT", "No tracked stat changes this turn.", GOLDRUSH_BROWN_CREAM);
     }
 
-    int screenH = 0;
-    int screenW = 0;
-    getmaxyx(stdscr, screenH, screenW);
-    int popupW = std::min(76, std::max(48, screenW - 4));
-    int popupH = std::min(std::max(18, 8 + static_cast<int>(lines.size()) * 3), std::max(14, screenH - 2));
-    WINDOW* popup = createCenteredWindow(popupH, popupW, 14, 48);
-    if (!popup) {
-        showTerminalSizeWarning(14, 48, hasColor);
-        return;
-    }
-    keypad(popup, TRUE);
-    getmaxyx(popup, popupH, popupW);
-    werase(popup);
-    drawBoxSafe(popup);
+    while (true) {
+        int screenH = 0;
+        int screenW = 0;
+        getmaxyx(stdscr, screenH, screenW);
+        const UILayout layout = calculateUILayout(screenH, screenW);
+        const int boardInnerW = std::max(48, layout.boardWidth - 4);
+        const int boardInnerH = std::max(14, layout.boardHeight - 4);
+        const int desiredW = std::min(76, std::max(48, boardInnerW));
+        const int desiredH = std::min(std::max(18, 8 + static_cast<int>(lines.size()) * 3), boardInnerH);
+        const int popupW = std::max(48, std::min(desiredW, boardInnerW));
+        const int popupH = std::max(14, std::min(desiredH, boardInnerH));
+        const int popupY = layout.originY + layout.headerHeight + 1 + std::max(0, (boardInnerH - popupH) / 2);
+        const int popupX = layout.originX + 1 + std::max(0, (boardInnerW - popupW) / 2);
 
-    if (hasColor) {
-        wattron(popup, COLOR_PAIR(GOLDRUSH_GOLD_SAND) | A_BOLD);
-    }
-    centerPrint(popup, 1, " _____ _   _ __  __ __  __    _    ______   __", A_BOLD);
-    centerPrint(popup, 2, "/  ___| | | |  \\/  |  \\/  |  / \\  |  _ \\ \\ / /", A_BOLD);
-    centerPrint(popup, 3, "\\___ \\| | | | |\\/| | |\\/| | / _ \\ | |_) \\ V /", A_BOLD);
-    centerPrint(popup, 4, " ___) | |_| | |  | | |  | |/ ___ \\|  _ < | |", A_BOLD);
-    centerPrint(popup, 5, "|____/ \\___/|_|  |_|_|  |_/_/   \\_\\_| \\_\\|_|", A_BOLD);
-    if (hasColor) {
-        wattroff(popup, COLOR_PAIR(GOLDRUSH_GOLD_SAND) | A_BOLD);
-    }
-    centerPrint(popup,
-                7,
-                summary.playerName + " End-of-Turn " + std::to_string(summary.turnNumber) + " Summary",
-                A_BOLD);
+        if (popupY < 0 || popupX < 0 || popupY + popupH > screenH || popupX + popupW > screenW) {
+            showTerminalSizeWarning(14, 48, hasColor);
+            continue;
+        }
+        WINDOW* popup = newwin(popupH, popupW, popupY, popupX);
+        if (!popup) {
+            showTerminalSizeWarning(14, 48, hasColor);
+            continue;
+        }
+        apply_ui_background(popup);
+        keypad(popup, TRUE);
 
-    int y = 9;
-    for (std::size_t i = 0; i < lines.size(); ++i) {
-        drawSummarySection(popup, y, lines[i], popupW);
+        int actualH = 0;
+        int actualW = 0;
+        getmaxyx(popup, actualH, actualW);
+        werase(popup);
+        drawBoxSafe(popup);
+
+        if (hasColor) {
+            wattron(popup, COLOR_PAIR(GOLDRUSH_GOLD_SAND) | A_BOLD);
+        }
+        centerPrint(popup, 1, " ____  _   _ __  __ __  __    _    ____  __   __", A_BOLD);
+        centerPrint(popup, 2, "/ ___|| | | |  \\/  |  \\/  |  / \\  |  _ \\ \\ \\ / /", A_BOLD);
+        centerPrint(popup, 3, "\\___ \\| | | | |\\/| | |\\/| | / _ \\ | |_) | \\ V / ", A_BOLD);
+        centerPrint(popup, 4, " ___) | |_| | |  | | |  | |/ ___ \\|  _ <   | |  ", A_BOLD);
+        centerPrint(popup, 5, "|____/ \\___/|_|  |_|_|  |_/_/   \\_\\_| \\_\\  |_|  ", A_BOLD);
+        if (hasColor) {
+            wattroff(popup, COLOR_PAIR(GOLDRUSH_GOLD_SAND) | A_BOLD);
+        }
+        centerPrint(popup,
+                    7,
+                    summary.playerName + " End-of-Turn " + std::to_string(summary.turnNumber) + " Summary",
+                    A_BOLD);
+
+        int y = 9;
+        for (std::size_t i = 0; i < lines.size(); ++i) {
+            drawSummarySection(popup, y, lines[i], actualW);
+        }
+
+        mvwprintw(popup, actualH - 2, 3, "%s",
+                  clipUiText("Press ENTER to continue...", static_cast<std::size_t>(std::max(1, actualW - 5))).c_str());
+        wrefresh(popup);
+
+        const int ch = wgetch(popup);
+        delwin(popup);
+        if (ch == KEY_RESIZE) {
+            continue;
+        }
+        if (ch == '\n' || ch == '\r' || ch == KEY_ENTER) {
+            break;
+        }
     }
 
-    mvwprintw(popup, popupH - 2, 3, "%s",
-              clipUiText("Press ENTER to continue...", static_cast<std::size_t>(std::max(1, popupW - 5))).c_str());
-    wrefresh(popup);
-    waitForEnterPrompt(popup, popupH - 2, 3, "");
-    delwin(popup);
     touchwin(stdscr);
     refresh();
 }
