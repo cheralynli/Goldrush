@@ -35,7 +35,7 @@ enum TileKind {
     TILE_HOUSE
 };
 
-//Input: none (data container)
+//Input: none 
 //Output: holds tile attributes (id, position, label, kind, connections, value, stop flag)
 //Purpose: represents a single tile on the board
 //Relation: managed by Board, accessed in rendering and movement logic
@@ -51,7 +51,7 @@ struct Tile {
     bool stop;
 };
 
-//Input: none (data container)
+//Input: none
 //Output: holds region name and tile index range
 //Purpose: groups tiles into named regions for gameplay and UI
 //Relation: used by Board::regionNameForTile and tutorialLegend
