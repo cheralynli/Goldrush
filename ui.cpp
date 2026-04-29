@@ -1053,7 +1053,6 @@ int selector_component(char* prompt_text,
                        int y_offset,
                        int width,
                        int height) {
-    (void)y_offset;
     auto clipToWidth = [](const char* text, int maxWidth) -> std::string {
         if (!text || maxWidth <= 0) {
             return "";
@@ -1079,12 +1078,17 @@ int selector_component(char* prompt_text,
     desiredWidth = std::max(12, desiredWidth);
     const int frameWidth = std::min(std::max(20, desiredWidth + 4), std::max(20, termWidth - 2));
     const int frameHeight = std::min(std::max(5, height + 4), std::max(5, termHeight - 2));
-
-    WINDOW* popup = createCenteredWindow(frameHeight, frameWidth, 5, 20);
-    if (!popup) {
+    UiWindowBounds bounds{0, 0, 0, 0};
+    if (!calculateCenteredWindowBounds(frameHeight, frameWidth, 5, 20, bounds)) {
         showTerminalSizeWarning(5, 20, has_colors());
         return default_value;
     }
+    bounds.y = std::max(0, std::min(bounds.y + y_offset, std::max(0, termHeight - bounds.height)));
+    WINDOW* popup = newwin(bounds.height, bounds.width, bounds.y, bounds.x);
+    if (!popup) {
+        return default_value;
+    }
+    apply_ui_background(popup);
     keypad(popup, TRUE);
 
     int chosen_option_value = default_value;
@@ -1114,11 +1118,7 @@ int selector_component(char* prompt_text,
         drawBoxSafe(popup);
         wattron(popup, COLOR_PAIR(GOLDRUSH_GOLD_BLACK));
         const std::string clippedPrompt = clipToWidth(prompt_text, contentWidth);
-        mvwprintw(popup,
-                  1,
-                  2 + std::max(0, (contentWidth - static_cast<int>(clippedPrompt.size())) / 2),
-                  "%s",
-                  clippedPrompt.c_str());
+        mvwprintw(popup, 1, 2, "%s", clippedPrompt.c_str());
         wattroff(popup, COLOR_PAIR(GOLDRUSH_GOLD_BLACK));
 
         for (int row = 0; row < visibleOptions; ++row) {
@@ -1163,7 +1163,8 @@ int selector_component(char* prompt_text,
 int choose_branch_with_selector(const std::string& prompt_title,
                                 const std::vector<std::string>& option_lines,
                                 const std::vector<int>& option_values,
-                                int default_value) {
+                                int default_value,
+                                int y_offset) {
     std::vector<char*> mutable_options;
     mutable_options.reserve(option_lines.size());
     for (size_t i = 0; i < option_lines.size(); ++i) {
@@ -1180,7 +1181,7 @@ int choose_branch_with_selector(const std::string& prompt_title,
                               mutable_values.data(),
                               static_cast<int>(option_lines.size()),
                               default_value,
-                              0,
+                              y_offset,
                               width,
                               static_cast<int>(option_lines.size()) + 1);
 }

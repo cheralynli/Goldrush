@@ -211,6 +211,7 @@ Game::Game()
       createdTime(0),
       lastSavedTime(0),
       autoAdvanceUi(false),
+      setupInProgress(false),
       sabotageUnlockAnnounced(false),
       tutorialFlags(),
       activeTraps() {
@@ -238,6 +239,7 @@ Game::Game(std::uint32_t seed)
       createdTime(0),
       lastSavedTime(0),
       autoAdvanceUi(false),
+      setupInProgress(false),
       sabotageUnlockAnnounced(false),
       tutorialFlags(),
       activeTraps() {
@@ -836,11 +838,7 @@ Game::StartChoice Game::showStartScreen() {
         int ch = getch();
         if (!choosingMode) {
             if (ch == 'n' || ch == 'N' || ch == 's' || ch == 'S') {
-                GameSettings selectedSettings = settings;
-                if (!showGameModeMenu(selectedSettings, hasColor)) {
-                    continue;
-                }
-                settings = selectedSettings;
+                settings = createLifeModeSettings();
                 rules = makeNormalRules();
                 applyGameSettingsToRules(settings, rules);
                 if (!chooseBoardViewMode()) {
@@ -1869,22 +1867,30 @@ void Game::setupRules() {
 void Game::setupPlayers() {
     noecho();
     curs_set(0);
-    drawSetupTitle();
+    setupInProgress = true;
+    clear();
+    refresh();
     int numPlayers = 0;
     while (numPlayers < 2 || numPlayers > 4) {
         werase(msgWin);
         drawBoxSafe(msgWin);
         const int msgW = getmaxx(msgWin);
         const int contentW = std::max(1, msgW - 4);
-        mvwprintw(msgWin, 1, std::max(2, (msgW - 16) / 2), "Players (2-4):");
-        mvwprintw(msgWin, 3, 2, "%s",
-                  clipUiText("Enter number of players: ", static_cast<std::size_t>(contentW)).c_str());
+        const std::string title = clipUiText("Players (2-4):", static_cast<std::size_t>(contentW));
+        const std::string prompt = clipUiText("Enter number of players: ", static_cast<std::size_t>(contentW));
+        mvwprintw(msgWin, 1, 2, "%s", title.c_str());
+        mvwprintw(msgWin, 3, 2, "%s", prompt.c_str());
         wrefresh(msgWin);
 
         echo();
         curs_set(1);
         char inputBuf[8] = {0};
-        wgetnstr(msgWin, inputBuf, 7);
+        int cursorRow = 0;
+        int cursorX = 0;
+        getyx(msgWin, cursorRow, cursorX);
+        (void)cursorRow;
+        const int maxInputChars = 1;
+        wgetnstr(msgWin, inputBuf, maxInputChars);
         noecho();
         curs_set(0);
 
@@ -1902,7 +1908,8 @@ void Game::setupPlayers() {
                   clipUiText("Press any key to try again.", static_cast<std::size_t>(contentW)).c_str());
         wrefresh(msgWin);
         wgetch(msgWin);
-        drawSetupTitle();
+        clear();
+        refresh();
     }
     showInfoPopup("Game setup",
                   "You chose " + std::to_string(numPlayers) +
@@ -1911,7 +1918,6 @@ void Game::setupPlayers() {
     players.clear();
     players.reserve(numPlayers);
     for (int i = 0; i < numPlayers; ++i) {
-        drawSetupTitle();
         const int typeChoice = showBranchPopup(
             "Choose Player " + std::to_string(i + 1) + " of " + std::to_string(numPlayers) + " type",
             std::vector<std::string>{
@@ -1923,7 +1929,6 @@ void Game::setupPlayers() {
         PlayerType playerType = typeChoice == 0 ? PlayerType::Human : PlayerType::CPU;
         CpuDifficulty difficulty = CpuDifficulty::Normal;
         if (playerType == PlayerType::CPU) {
-            drawSetupTitle();
             const int difficultyChoice = showBranchPopup(
                 "Choose CPU " + std::to_string(i + 1) + " difficulty",
                 std::vector<std::string>{
@@ -1942,32 +1947,33 @@ void Game::setupPlayers() {
             }
         }
 
-        drawSetupTitle();
         echo();
         curs_set(1);
         werase(msgWin);
         drawBoxSafe(msgWin);
         const int msgW = getmaxx(msgWin);
         const int contentW = std::max(1, msgW - 4);
-        mvwprintw(msgWin,
-                  1,
-                  std::max(2, (msgW - 26) / 2),
-                  "Setting up player %d of %d",
-                  i + 1,
-                  numPlayers);
+        const std::string setupTitle = clipUiText("Setting up player " + std::to_string(i + 1) +
+                                                      " of " + std::to_string(numPlayers),
+                                                  static_cast<std::size_t>(contentW));
+        mvwprintw(msgWin, 1, 2, "%s", setupTitle.c_str());
+        std::string namePrompt;
         if (playerType == PlayerType::CPU) {
-            mvwprintw(msgWin, 3, 2, "%s",
-                      clipUiText("CPU " + std::to_string(i + 1) +
-                                     " name [CPU " + std::to_string(i + 1) + "]: ",
-                                 static_cast<std::size_t>(contentW)).c_str());
+            namePrompt = "CPU " + std::to_string(i + 1) +
+                         " name [CPU " + std::to_string(i + 1) + "]: ";
         } else {
-            mvwprintw(msgWin, 3, 2, "%s",
-                      clipUiText("Player " + std::to_string(i + 1) + " name: ",
-                                 static_cast<std::size_t>(contentW)).c_str());
+            namePrompt = "Player " + std::to_string(i + 1) + " name: ";
         }
+        namePrompt = clipUiText(namePrompt, static_cast<std::size_t>(contentW));
+        mvwprintw(msgWin, 3, 2, "%s", namePrompt.c_str());
         wrefresh(msgWin);
         char nameBuf[32] = {0};
-        wgetnstr(msgWin, nameBuf, 31);
+        int cursorRow = 0;
+        int cursorX = 0;
+        getyx(msgWin, cursorRow, cursorX);
+        (void)cursorRow;
+        const int maxNameChars = std::max(1, std::min(31, msgW - 1 - cursorX));
+        wgetnstr(msgWin, nameBuf, maxNameChars);
         noecho();
         curs_set(0);
 
@@ -2026,6 +2032,7 @@ void Game::setupPlayers() {
 
     noecho();
     curs_set(0);
+    setupInProgress = false;
 }
 
 void Game::setupInvestments() {
@@ -2293,7 +2300,99 @@ int Game::showBranchPopup(const std::string& title,
     for (std::size_t i = 0; i < lines.size(); ++i) {
         values.push_back(static_cast<int>(i));
     }
-    return choose_branch_with_selector(title, lines, values, 0);
+
+    if (!setupInProgress && boardWin && !lines.empty()) {
+        auto clipToWidth = [](const std::string& text, int maxWidth) -> std::string {
+            if (maxWidth <= 0) {
+                return "";
+            }
+            if (static_cast<int>(text.size()) <= maxWidth) {
+                return text;
+            }
+            return text.substr(0, static_cast<std::size_t>(maxWidth));
+        };
+
+        int boardH = 0;
+        int boardW = 0;
+        int boardY = 0;
+        int boardX = 0;
+        getmaxyx(boardWin, boardH, boardW);
+        getbegyx(boardWin, boardY, boardX);
+
+        int desiredWidth = static_cast<int>(title.size());
+        for (std::size_t i = 0; i < lines.size(); ++i) {
+            desiredWidth = std::max(desiredWidth, static_cast<int>(lines[i].size()));
+        }
+        const int popupW = std::max(24, std::min(boardW - 6, desiredWidth + 6));
+        const int popupH = std::max(6, std::min(boardH - 4, static_cast<int>(lines.size()) + 4));
+        const int popupY = boardY + std::max(1, boardH - popupH - 2);
+        const int popupX = boardX + std::max(2, (boardW - popupW) / 2);
+
+        WINDOW* popup = newwin(popupH, popupW, popupY, popupX);
+        if (popup) {
+            applyWindowBg(popup);
+            keypad(popup, TRUE);
+            int highlighted = 0;
+
+            while (true) {
+                werase(popup);
+                drawBoxSafe(popup);
+                const int contentW = std::max(1, popupW - 4);
+                if (hasColor) wattron(popup, COLOR_PAIR(GOLDRUSH_GOLD_BLACK) | A_BOLD);
+                mvwprintw(popup, 1, 2, "%s", clipToWidth(title, contentW).c_str());
+                if (hasColor) wattroff(popup, COLOR_PAIR(GOLDRUSH_GOLD_BLACK) | A_BOLD);
+
+                for (std::size_t i = 0; i < lines.size() && 2 + static_cast<int>(i) < popupH - 1; ++i) {
+                    if (static_cast<int>(i) == highlighted) {
+                        wattron(popup, A_REVERSE | A_BOLD);
+                    }
+                    mvwprintw(popup, 2 + static_cast<int>(i), 2, "%-*s",
+                              contentW,
+                              clipToWidth(lines[i], contentW).c_str());
+                    if (static_cast<int>(i) == highlighted) {
+                        wattroff(popup, A_REVERSE | A_BOLD);
+                    }
+                }
+                wrefresh(popup);
+
+                const int ch = wgetch(popup);
+                if (ch == KEY_UP) {
+                    highlighted = highlighted == 0 ? static_cast<int>(lines.size()) - 1 : highlighted - 1;
+                } else if (ch == KEY_DOWN) {
+                    highlighted = highlighted + 1 >= static_cast<int>(lines.size()) ? 0 : highlighted + 1;
+                } else if (ch == '\n' || ch == '\r' || ch == KEY_ENTER) {
+                    delwin(popup);
+                    touchwin(boardWin);
+                    wrefresh(boardWin);
+                    if (infoWin) {
+                        touchwin(infoWin);
+                        wrefresh(infoWin);
+                    }
+                    if (msgWin) {
+                        touchwin(msgWin);
+                        wrefresh(msgWin);
+                    }
+                    return values[static_cast<std::size_t>(highlighted)];
+                } else if (ch == 27) {
+                    break;
+                }
+            }
+
+            delwin(popup);
+            touchwin(boardWin);
+            wrefresh(boardWin);
+            if (infoWin) {
+                touchwin(infoWin);
+                wrefresh(infoWin);
+            }
+            if (msgWin) {
+                touchwin(msgWin);
+                wrefresh(msgWin);
+            }
+        }
+    }
+
+    return choose_branch_with_selector(title, lines, values, 0, 4);
 }
 
 void Game::playBlackTileMinigame(int playerIndex) {
