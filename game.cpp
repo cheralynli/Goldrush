@@ -166,12 +166,21 @@ std::vector<std::string> bigRollNumberArt(int value) {
                     "| (_) | ",
                     "\\___/  "};
         case 7:
+<<<<<<< HEAD
             return {"  ______  ",
                     " |____  | ",
                     "     / /  ",
                     "    / /   ",
                     "   / /    ",
                     "  /_/     "};
+=======
+            return {"  ______ ", 
+                    " |____  |", 
+                    "     / / ", 
+                    "    / /  ", 
+                    "   / /   ",
+                    "  /_/    "};
+>>>>>>> 2c8e877ecacbdc52d144f56988230094781a3683
         case 8:
             return {"   ___   ", 
                     "  / _ \\  ", 
@@ -188,11 +197,11 @@ std::vector<std::string> bigRollNumberArt(int value) {
                     "   /_/   "};
         case 10:
             return {"  _   ___   ", 
-                    "/_ | / _ \\  ", 
+                    "/_ | / _ \\ ", 
                     " | || | | | ", 
                     " | || | | | ", 
-                    " | || |_| |",
-                    " |_|\\___/"};
+                    " | || |_| | ",
+                    " |_|\\___// "};
         default:
             return {std::to_string(value)};
     }
@@ -447,7 +456,43 @@ void Game::drawSetupTitle() const {
     if (!msgWin) {
         return;
     }
+<<<<<<< HEAD
     drawGoldrushTitleArt(hasColor);
+=======
+
+    const char* lines[] = {
+        "  ________         .__       .___                       .__      ",
+        " /  _____/    ____ |  |    __| _/______ __ __     _____ |  |__   ",
+        "/   \\  ___  /  _\\|  |   / __ |\\_  __ \\  |  \\/  ___/|     \\ ",
+        "\\   \\_\\  (  <_> )  |__/ /_/ |  |  | \\/  |  /\\___ \\|   Y  \\",
+        " \\______  /\\____/|____/\\____|  |__|   |____/  /____  >___|  / ",
+        "        \\/                  \\/                     \\/    \\/  "
+    };
+    const int artW = 60;
+
+    int h, w;
+    getmaxyx(stdscr, h, w);
+    int startY = (h / 2) - 6;
+    int startX = (w - artW) / 2;
+    if (startY < 1) startY = 1;
+    if (startX < 0) startX = 0;
+
+    if (hasColor) {
+        attron(COLOR_PAIR(GOLDRUSH_GOLD_BLACK) | A_BOLD);
+    }
+    for (int i = 0; i < 6; ++i) {
+        mvprintw(startY + i, startX, "%s", lines[i]);
+    }
+    if (hasColor) {
+        attroff(COLOR_PAIR(GOLDRUSH_GOLD_BLACK) | A_BOLD);
+        attron(COLOR_PAIR(GOLDRUSH_GOLD_SAND) | A_BOLD);
+    }
+    mvprintw(startY + 9, (w - 8) / 2, "GOLDRUSH");
+    if (hasColor) {
+        attroff(COLOR_PAIR(GOLDRUSH_GOLD_SAND) | A_BOLD);
+    }
+    refresh();
+>>>>>>> 2c8e877ecacbdc52d144f56988230094781a3683
 }
 
 void Game::flashSpinResult(const std::string& title, int value) const {
@@ -823,6 +868,19 @@ bool Game::loadSavedGame() {
 }
 
 Game::StartChoice Game::showStartScreen() {
+<<<<<<< HEAD
+=======
+    const char* lines[] = {
+        "  ________         .__       .___                       .__      ",
+        " /  _____/    ____ |  |    __| _/______ __ __     _____ |  |__   ",
+        "/   \\  ___  /  _\\|  |   / __ |\\_  __ \\  |  \\/  ___/|     \\ ",
+        "\\   \\_\\  (  <_> )  |__/ /_/ |  |  | \\/  |  /\\___ \\|   Y  \\",
+        " \\______  /\\____/|____/\\____|  |__|   |____/  /____  >___|  / ",
+        "        \\/                  \\/                     \\/    \\/  "
+    };
+    const int artLines = static_cast<int>(sizeof(lines) / sizeof(lines[0]));
+    const int artW = 60;
+>>>>>>> 2c8e877ecacbdc52d144f56988230094781a3683
     // The title screen is a two-step state machine: first choose new/load/quit,
     // then choose the ruleset for a new game.
     bool choosingMode = false;
