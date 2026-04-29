@@ -36,12 +36,20 @@ const std::vector<std::string> MINESWEEPER_TITLE = {
     "                                                                        "
 };
 
+//Input: none (data container)
+//Output: holds cell attributes (bomb presence, revealed state, adjacent bomb count)
+//Purpose: represents a single cell in the Minesweeper grid
+//Relation: used throughout grid creation, adjacency calculation, and reveal logic
 struct Cell {
     bool hasBomb;
     bool revealed;
     int adjacentBombs;
 };
 
+//Input: value, minValue, maxValue
+//Output: integer clamped between minValue and maxValue
+//Purpose: ensures cursor stays within grid bounds
+//Relation: used in player movement logic
 int clampInt(int value, int minValue, int maxValue) {
     if (value < minValue) {
         return minValue;
@@ -52,6 +60,10 @@ int clampInt(int value, int minValue, int maxValue) {
     return value;
 }
 
+//Input: WINDOW pointer, screen width, hasColor flag
+//Output: none
+//Purpose: draws ASCII art title for Minesweeper
+//Relation: called at the start of playMinesweeperMinigame for UI
 void drawAsciiTitle(WINDOW* win, int screenW, bool hasColor) {
     if (hasColor) {
         wattron(win, COLOR_PAIR(GOLDRUSH_GOLD_SAND) | A_BOLD);
@@ -66,14 +78,26 @@ void drawAsciiTitle(WINDOW* win, int screenW, bool hasColor) {
     }
 }
 
+//Input: row, col
+//Output: bool
+//Purpose: checks if coordinates are inside grid
+//Relation: used in adjacency and reveal logic
 bool inBounds(int row, int col) {
     return row >= 0 && row < GRID_ROWS && col >= 0 && col < GRID_COLS;
 }
 
+//Input: row, col
+//Output: integer index
+//Purpose: maps 2D coordinates to 1D vector index
+//Relation: used in grid storage and reveal logic
 int indexFor(int row, int col) {
     return row * GRID_COLS + col;
 }
 
+//Input: vector<Cell>& grid
+//Output: none
+//Purpose: calculates adjacent bomb counts for each cell
+//Relation: called after bombs are placed or moved
 void computeAdjacencies(std::vector<Cell>& grid) {
     for (int row = 0; row < GRID_ROWS; ++row) {
         for (int col = 0; col < GRID_COLS; ++col) {
@@ -99,6 +123,10 @@ void computeAdjacencies(std::vector<Cell>& grid) {
     }
 }
 
+//Input: none
+//Output: vector<Cell> initialized grid
+//Purpose: creates grid, randomly places bombs, computes adjacencies
+//Relation: called at start of playMinesweeperMinigame
 std::vector<Cell> createGrid() {
     std::vector<Cell> grid(static_cast<std::size_t>(GRID_ROWS * GRID_COLS));
     for (std::size_t i = 0; i < grid.size(); ++i) {
@@ -120,6 +148,10 @@ std::vector<Cell> createGrid() {
     return grid;
 }
 
+//Input: grid reference, centerRow, centerCol
+//Output: none
+//Purpose: guarantees first reveal is safe by relocating bombs
+//Relation: called on first reveal in playMinesweeperMinigame
 void ensureFirstRevealSafeZone(std::vector<Cell>& grid, int centerRow, int centerCol) {
     std::vector<int> protectedIndices;
     for (int dRow = -1; dRow <= 1; ++dRow) {
@@ -154,6 +186,10 @@ void ensureFirstRevealSafeZone(std::vector<Cell>& grid, int centerRow, int cente
     computeAdjacencies(grid);
 }
 
+//Input: grid reference, startRow, startCol
+//Output: integer count of revealed tiles
+//Purpose: reveals safe tiles recursively using BFS flood-fill
+//Relation: core gameplay mechanic for revealing cells
 int revealSafeTiles(std::vector<Cell>& grid, int startRow, int startCol) {
     const int startIndex = indexFor(startRow, startCol);
     if (grid[static_cast<std::size_t>(startIndex)].revealed ||
@@ -200,6 +236,10 @@ int revealSafeTiles(std::vector<Cell>& grid, int startRow, int startCol) {
     return revealedCount;
 }
 
+//Input: WINDOW pointer, coordinates, Cell reference, selected flag, revealBombs flag, hasColor flag
+//Output: none
+//Purpose: draws a single cell with appropriate content (bomb, number, empty)
+//Relation: called in rendering loop of playMinesweeperMinigame
 void drawCell(WINDOW* win,
               int y,
               int x,
@@ -237,6 +277,10 @@ void drawCell(WINDOW* win,
     }
 }
 
+//Input: WINDOW pointer, coordinates, arenaLeft, arenaWidth, text, positive flag, hasColor flag
+//Output: none
+//Purpose: displays feedback messages (SAFE!, BOMB!, TIME UP!)
+//Relation: used in playMinesweeperMinigame to give player feedback
 void drawFeedbackBanner(WINDOW* win,
                         int y,
                         int arenaLeft,
@@ -269,6 +313,10 @@ void drawFeedbackBanner(WINDOW* win,
 
 }  // namespace
 
+//Input: playerName (string), hasColor (bool)
+//Output: MinesweeperResult struct (safeTilesRevealed, hitBomb, timedOut, abandoned)
+//Purpose: runs the full Minesweeper minigame loop, shows tutorial, initializes grid, handles input (movement, reveal, quit), updates game state (safe tiles, bombs, timer), renders UI (grid, feedback, timer, status)
+//Relation: main entry point for the minigame, integrates all helper functions
 MinesweeperResult playMinesweeperMinigame(const std::string& playerName, bool hasColor) {
     static bool seeded = false;
     if (!seeded) {
