@@ -22,7 +22,7 @@ struct SummaryLine {
 //Input: WINDOW win, int y(rows), string text, int attrs
 //Output: none
 //Purpose: draws text horizontally and centered
-//Relation: used by UI functions
+//Relation: used by turn_summary UI functions
 void centerPrint(WINDOW* win, int y, const std::string& text, int attrs = A_NORMAL) {
     int h = 0;
     int w = 0;

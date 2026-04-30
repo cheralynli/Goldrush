@@ -7,6 +7,10 @@
 #include "ui_helpers.h"
 
 namespace {
+//Input: int height, int width (popup size)
+//Output: WINDOW centeredPopup
+//Purpose: create a popup with specified dimensions
+//Relation: to display tutorials in the form of a popup
 WINDOW* centeredPopup(int height, int width) {
     int screenH = 0;
     int screenW = 0;
@@ -22,6 +26,10 @@ WINDOW* centeredPopup(int height, int width) {
     return popup;
 }
 
+//Input: WINDOW win, int y(rows), string text, int attrs
+//Output: none
+//Purpose: draws text horizontally and centered
+//Relation: used by tutorial UI functions
 void drawCentered(WINDOW* win, int y, const std::string& text, int attrs = A_NORMAL) {
     int height = 0;
     int width = 0;
@@ -38,6 +46,10 @@ void drawCentered(WINDOW* win, int y, const std::string& text, int attrs = A_NOR
 }
 }
 
+//Input: TutorialFlags flags, TutorialTopic topic
+//Output: tutorialFlagForTopic
+//Purpose: to check if tutorial has popped up before
+//Relation: to make sure each tutorial is only shown once maxmimum
 bool& tutorialFlagForTopic(TutorialFlags& flags, TutorialTopic topic) {
     switch (topic) {
         case TutorialTopic::AutomaticLoan: return flags.automaticLoan;
@@ -58,6 +70,10 @@ bool& tutorialFlagForTopic(TutorialFlags& flags, TutorialTopic topic) {
     return flags.automaticLoan;
 }
 
+//Input: TutorialTopic topic
+//Output: string tutorialTitle
+//Purpose: convert TutorialTopic into a title to be read by the user
+//Relation: used in showFirstTimeTutorial
 std::string tutorialTitle(TutorialTopic topic) {
     switch (topic) {
         case TutorialTopic::AutomaticLoan: return "Automatic Loans";
@@ -78,6 +94,10 @@ std::string tutorialTitle(TutorialTopic topic) {
     return "Guide";
 }
 
+//Input: TutorialTopic topic
+//Output: string tutorialLines
+//Purpose: convert TutorialTopic into a description to be read by the user
+//Relation: used in showFirstTimeTutorial
 std::vector<std::string> tutorialLines(TutorialTopic topic) {
     switch (topic) {
         case TutorialTopic::AutomaticLoan:
@@ -154,6 +174,10 @@ std::vector<std::string> tutorialLines(TutorialTopic topic) {
     return std::vector<std::string>();
 }
 
+//Input: string title, vector<string> pages, bool hasColor
+//Output: none
+//Purpose: display a multi-paged window popup
+//Relation: used for a specfied tutorial
 void showPagedGuide(const std::string& title,
                     const std::vector<std::vector<std::string> >& pages,
                     bool hasColor) {
@@ -214,6 +238,10 @@ void showPagedGuide(const std::string& title,
     refresh();
 }
 
+//Input: bool hasColor
+//Output: none
+//Purpose: show pregame guide before game starts
+//Relation: to inform the user about basic information
 void showPreGameQuickGuide(bool hasColor) {
     std::vector<std::vector<std::string> > pages;
     pages.push_back({
@@ -256,6 +284,10 @@ void showPreGameQuickGuide(bool hasColor) {
     showPagedGuide("QUICK GUIDE", pages, hasColor);
 }
 
+//Input: TutorialTopic, bool hasColor
+//Output: none
+//Purpose: show popup window for specified tutorial
+//Relation: to inform the user about a tutorial topic for the first time
 void showFirstTimeTutorial(TutorialTopic topic, bool hasColor) {
     std::vector<std::vector<std::string> > pages;
     std::vector<std::string> page;
@@ -267,6 +299,10 @@ void showFirstTimeTutorial(TutorialTopic topic, bool hasColor) {
     showPagedGuide("FIRST-TIME TIP", pages, hasColor);
 }
 
+//Input: Board board, RuleSet rules, bool sabotageUnlocked, bool hasColor
+//Output: none
+//Purpose: show full guide
+//Relation: to remind user of instructions and functions of the game
 void showFullGuide(const Board& board, const RuleSet& rules, bool sabotageUnlocked, bool hasColor) {
     std::vector<std::vector<std::string> > pages;
     std::vector<std::string> legendPage;
@@ -317,6 +353,10 @@ void showFullGuide(const Board& board, const RuleSet& rules, bool sabotageUnlock
     showPagedGuide("GUIDE", pages, hasColor);
 }
 
+//Input: bool hasColor
+//Output: bool showQuitConfirmation
+//Purpose: ask user to confirm quit
+//Relation: used in showStartScreen
 bool showQuitConfirmation(bool hasColor) {
     WINDOW* popup = centeredPopup(10, 56);
     if (!popup) {
@@ -356,6 +396,10 @@ bool showQuitConfirmation(bool hasColor) {
     }
 }
 
+//Input: bool hasColor
+//Output: none
+//Purpose: popup sabotage unlock animation
+//Relation: used in maybeShowSabotageUnlock
 void showSabotageUnlockAnimation(bool hasColor) {
     std::vector<std::string> art;
     art.push_back(" ____    _    ____   ___ _____  _    ____ _____");
@@ -396,6 +440,10 @@ void showSabotageUnlockAnimation(bool hasColor) {
     delwin(popup);
 }
 
+//Input: bool hasColor
+//Output: none
+//Purpose: popup sabotage tutorial
+//Relation: used in maybeShowSabotageUnlock
 void showSabotageTutorial(bool hasColor) {
     std::vector<std::vector<std::string> > pages;
     pages.push_back({
