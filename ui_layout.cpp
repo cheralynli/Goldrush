@@ -5,6 +5,7 @@
 #include <ncurses.h>
 
 namespace {
+//dimensions for full vs compact sized games
 const int FULL_HEADER_HEIGHT = 9;
 const int FULL_BOARD_WIDTH = 82;
 const int FULL_BOARD_HEIGHT = 31;
@@ -18,6 +19,10 @@ const int COMPACT_SIDE_PANEL_WIDTH = 34;
 const int COMPACT_MESSAGE_HEIGHT = 5;
 }
 
+//Input: int termHeight, int termWidth (terminal height/width)
+//Output: UILayout calculateUILayout
+//Purpose: determine UI size based on size of terminal
+//Relation: used in createWindows and chooseBoardViewMode in game.cpp
 UILayout calculateUILayout(int termHeight, int termWidth) {
     if (termHeight < 0 || termWidth < 0) {
         getmaxyx(stdscr, termHeight, termWidth);
@@ -41,10 +46,18 @@ UILayout calculateUILayout(int termHeight, int termWidth) {
     return layout;
 }
 
+//Input: none
+//Output: int minimumGameWidth
+//Purpose: minimum terminal width to run game
+//Relation: used in ensureMinSize
 int minimumGameWidth() {
     return 124;
 }
 
+//Input: none
+//Output: int minimumGameHeight
+//Purpose: minimum terminal height to run game
+//Relation: used in ensureMinSize
 int minimumGameHeight() {
     return 45;
 }
