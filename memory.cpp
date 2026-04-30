@@ -330,12 +330,35 @@ MemoryMatchResult playMemoryMatchMinigame(const std::string& playerName, bool ha
             
             if (!grid[cellIdx].matched && !grid[cellIdx].revealed) {
                 if (!waitingForSecondMatch) {
+                    //Reveal first tile 
                     firstMatchIdx = cellIdx;
                     grid[cellIdx].revealed = true;
                     waitingForSecondMatch = true;
-                } else if (cellIdx != firstMatchIdx) {
-                    grid[cellIdx].revealed = true;
+                    //Force immediate redraw to show the revealed tile
                     wrefresh(overlay);
+                } 
+                else if (cellIdx != firstMatchIdx) {
+                    //Reveal second tile and check for match
+                    grid[cellIdx].revealed = true;
+                    //Force immediate redraw to show BOTH tiles
+                    wrefresh(overlay);
+
+                    //Force a complete redraw of the grid
+                    //Redraw all cells to ensure second tile is visible
+                    for (int row = 0; row < GRID_SIZE; ++row) {
+                        for (int col = 0; col < GRID_SIZE; ++col) {
+                            int idx = row * GRID_SIZE + col;
+                            int x = gridStartX + col * CELL_WIDTH;
+                            int y = gridStartY + row * CELL_HEIGHT;
+                            bool isSelected = (row == currentRow && col == currentCol && 
+                                            !grid[idx].matched && !grid[idx].revealed);
+                            drawCell(overlay, y, x, grid[idx].symbol, grid[idx].revealed, 
+                                    grid[idx].matched, isSelected, false);
+                        }
+                    }
+                    wrefresh(overlay);
+
+                    //Give player time to see BOTH tiles clearly
                     napms(MATCH_REVEAL_MS);
                     
                     if (grid[firstMatchIdx].symbol == grid[cellIdx].symbol) {
