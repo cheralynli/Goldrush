@@ -155,11 +155,11 @@ void showTurnSummaryReport(const TurnSummary& summary, bool hasColor) {
         if (hasColor) {
             wattron(popup, COLOR_PAIR(GOLDRUSH_GOLD_SAND) | A_BOLD);
         }
-        centerPrint(popup, 1, " ____  _   _ __  __ __  __    _    ____  __   __", A_BOLD);
-        centerPrint(popup, 2, "/ ___|| | | |  \\/  |  \\/  |  / \\  |  _ \\ \\ \\ / /", A_BOLD);
-        centerPrint(popup, 3, "\\___ \\| | | | |\\/| | |\\/| | / _ \\ | |_) | \\ V / ", A_BOLD);
-        centerPrint(popup, 4, " ___) | |_| | |  | | |  | |/ ___ \\|  _ <   | |  ", A_BOLD);
-        centerPrint(popup, 5, "|____/ \\___/|_|  |_|_|  |_/_/   \\_\\_| \\_\\  |_|  ", A_BOLD);
+            centerPrint(popup, 1, " ____  _   _ __  __ __  __    _     ____  __    __", A_BOLD);
+            centerPrint(popup, 2, "/ ___|| | | |  \\/ |  \\/ |  / \\  |  _ \\ \\  / /", A_BOLD);
+            centerPrint(popup, 3, "\\___ \\| | | | \\/| | \\/| |/ _ \\ | |_) | \\ V /", A_BOLD);
+            centerPrint(popup, 4, " ___) | |_| | |  | | |  | |  __/ |  _ <   | |", A_BOLD);
+            centerPrint(popup, 5, "|____/ \\___/|_|  |_|_|  |_|\\___| |_| \\_\\  |_|", A_BOLD);
         if (hasColor) {
             wattroff(popup, COLOR_PAIR(GOLDRUSH_GOLD_SAND) | A_BOLD);
         }
@@ -174,7 +174,7 @@ void showTurnSummaryReport(const TurnSummary& summary, bool hasColor) {
         }
 
         mvwprintw(popup, actualH - 2, 3, "%s",
-                  clipUiText("Press ENTER to continue...", static_cast<std::size_t>(std::max(1, actualW - 5))).c_str());
+                  clipUiText("Press ENTER or ESC to continue...", static_cast<std::size_t>(std::max(1, actualW - 5))).c_str());
         wrefresh(popup);
 
         const int ch = wgetch(popup);
@@ -186,13 +186,4 @@ void showTurnSummaryReport(const TurnSummary& summary, bool hasColor) {
             break;
         }
     }
-
-    mvwprintw(popup, popupH - 2, 3, "%s",
-              clipUiText("Press ENTER or ESC to continue...",
-                         static_cast<std::size_t>(std::max(1, popupW - 5))).c_str());
-    wrefresh(popup);
-    waitForEnterPrompt(popup, popupH - 2, 3, "");
-    delwin(popup);
-    touchwin(stdscr);
-    refresh();
 }

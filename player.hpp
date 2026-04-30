@@ -55,6 +55,8 @@ struct Player {
     int salaryReductionPercent = 0;
     int sabotageCooldown = 0;
     int itemDisableTurns = 0;
+    bool hasFamilyPath;
+    int familyBabyEventsRemaining;
 };
 
 char tokenForName(const std::string& name, int index);

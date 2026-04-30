@@ -188,4 +188,5 @@ private:
 
     int minRewardForTier(int tier) const;
     int maxRewardForTier(int tier) const;
+    void triggerBabyEvent(Player& player);
 };

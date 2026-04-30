@@ -905,8 +905,8 @@ Game::StartChoice Game::showStartScreen() {
         " \\______  /\\____/|____/\\____|  |__|   |____/  /____  >___|  / ",
         "        \\/                  \\/                     \\/    \\/  "
     };
-    const int artLines = static_cast<int>(sizeof(lines) / sizeof(lines[0]));
-    const int artW = 60;
+    //const int artLines = static_cast<int>(sizeof(lines) / sizeof(lines[0]));
+    //const int artW = 60;
     // The title screen is a two-step state machine: first choose new/load/quit,
     // then choose the ruleset for a new game.
     bool choosingMode = false;
@@ -2324,6 +2324,8 @@ bool Game::setupPlayers() {
         p.salaryReductionPercent = 0;
         p.sabotageCooldown = 0;
         p.itemDisableTurns = 0;
+        p.hasFamilyPath = false;
+        p.familyBabyEventsRemaining = 0;
         players.push_back(p);
         if (p.type == PlayerType::CPU) {
             addHistory("Joined CPU: " + p.name + " (" + cpuDifficultyLabel(p.cpuDifficulty) + ")");
@@ -3454,15 +3456,73 @@ void Game::resolveFamilyStop(Player& player) {
         choice = showRequiredBranchPopup(
             "Family or Life path?",
             std::vector<std::string>{
-                "- Family path: babies and houses",
-                "- Life path: careers, safe/risky route"
+                "- FAMILY PATH: Start a family, have children, build a home",
+                "- LIFE PATH: Focus on careers, safe/risky route"
             },
             'A',
             'B');
     }
+    
     player.familyChoice = choice;
-    addHistory(player.name + (choice == 0 ? " chose Family path" : " chose Life path"));
-    showInfoPopup("Family STOP", choice == 0 ? "Family path selected." : "Life path selected.");
+
+    if (choice == 0) {
+        // Family path - enable baby events
+        player.hasFamilyPath = true;
+        player.familyBabyEventsRemaining = 3;
+        addHistory(player.name + " chose the Family path");
+        showInfoPopup("Family Path", "Children may arrive in future events!");
+    } else {
+        // Work path - normal continuation
+        player.hasFamilyPath = false;
+        addHistory(player.name + " chose the Work path");
+        showInfoPopup("Work Path", "Focusing on career advancement.");
+    }
+}
+
+void Game::triggerBabyEvent(Player& player) {
+    if (!player.hasFamilyPath) return;
+    if (player.familyBabyEventsRemaining <= 0) return;
+    
+    const int playerIndex = findPlayerIndex(player);
+    player.familyBabyEventsRemaining--;
+    
+    // Show narrative in the message window
+    renderGame(playerIndex, 
+               player.name + " receives happy news!", 
+               "The family is growing... Press SPACE to see how many babies!");
+    
+    // Spin for number of babies
+    int spin = rollSpinner("Baby News", "Hold SPACE to see how many babies you'll have");
+    int babies = babiesFromSpin(spin);
+    
+    if (babies == 0) {
+        showInfoPopup("Family Event", "No babies this time. Maybe next time!");
+        addHistory(player.name + " hoped for children but none arrived yet.");
+        return;
+    }
+    
+    // Calculate cost: $10,000 per baby
+    int cost = babies * 10000;
+    PaymentResult payment = bank.charge(player, cost);
+    maybeShowLoanTutorial(playerIndex, payment);
+    
+    // Add babies to player
+    player.kids += babies;
+    
+    // Show result in info popup
+    std::string result = babiesLabel(babies) + " arrived! Cost: $" + std::to_string(cost);
+    if (payment.loansTaken > 0) {
+        result += " (Auto-loan: " + std::to_string(payment.loansTaken) + ")";
+    }
+    
+    addHistory(player.name + " had " + babiesLabel(babies) + " and paid $" + std::to_string(cost));
+    showInfoPopup(" NEW ARRIVAL! ", result);
+    
+    // Update the game display
+    renderGame(playerIndex, 
+               player.name + " welcomes " + babiesLabel(babies), 
+               "Total children: " + std::to_string(player.kids));
+    napms(1500);
 }
 
 void Game::resolveNightSchool(Player& player) {
@@ -3733,7 +3793,16 @@ void Game::applyTileEffect(int playerIndex, const Tile& tile) {
             resolveMarriageStop(player);
             return;
         case TILE_FAMILY:
-            resolveFamilyStop(player);
+            if (player.hasFamilyPath && player.familyBabyEventsRemaining > 0) {
+                triggerBabyEvent(player);
+            } 
+            else if (player.hasFamilyPath && player.familyBabyEventsRemaining == 0) {
+                addHistory(player.name + " passed through Family space - no more baby events remain");  // ADD THIS
+                showInfoPopup("Family Space", "Your family journey is complete.");
+
+            } else {
+                showInfoPopup("Family Space", "You continue on your journey.");
+            }
             return;
         case TILE_NIGHT_SCHOOL:
             resolveNightSchool(player);
@@ -3790,17 +3859,23 @@ void Game::applyTileEffect(int playerIndex, const Tile& tile) {
             addHistory(player.name + " collected payday $" + std::to_string(payout));
             break;
         }
-        case TILE_BABY:
-            resolveBabyStop(player, tile);
-            return;
         case TILE_HOUSE:
             buyHouse(player);
             return;
         case TILE_RETIREMENT:
             resolveRetirement(playerIndex);
             return;
+        case TILE_BABY:
+            if (player.hasFamilyPath && player.familyBabyEventsRemaining > 0) {
+                triggerBabyEvent(player);
+            } else {
+                resolveBabyStop(player, tile); // Original behavior for non-family path players
+            }
+            return;
         case TILE_SPLIT_START:
-        case TILE_SPLIT_FAMILY:
+        case TILE_SPLIT_FAMILY: //first time player hits family split
+            resolveFamilyStop(player); //ask: family path vs life path
+            return;
         case TILE_EMPTY:
         default:
             break;
