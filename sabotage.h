@@ -8,6 +8,10 @@
 #include "random_service.hpp"
 #include "sabotage_card.h"
 
+//Input: none
+//Output: ActiveTrap structure
+//Purpose: builds the features of default trap
+//Relation: determine trap penalties
 struct ActiveTrap {
     int tileId = 0;
     int ownerIndex = -1;
@@ -16,6 +20,10 @@ struct ActiveTrap {
     bool armed = true;
 };
 
+//Input: none
+//Output: SabotageResult
+//Purpose: update sabotage summary
+//Relation: determine sabotage outcome
 struct SabotageResult {
     bool attempted = false;
     bool blocked = false;
@@ -27,6 +35,10 @@ struct SabotageResult {
 };
 
 class SabotageManager {
+//Input: parameters for each type of sabotage
+//Output: result for each type of sabotage
+//Purpose: declares each type of sabotage
+//Relation: manages each type of sabotage
 public:
     SabotageManager(Bank& bank, RandomService& random);
 
@@ -51,6 +63,10 @@ public:
     bool consumeShield(Player& target, std::string& message);
     int applyInsurance(Player& target, int amount, std::string& message);
 
+//Input: random event percentages, success/critical flags
+//Output: random event outcome, and penalty amounts
+//Purpose: provides access to bank, and rng features
+//Relation: used to resolve sabotages
 private:
     Bank& bank;
     RandomService& rng;
