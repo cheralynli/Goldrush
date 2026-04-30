@@ -1,5 +1,9 @@
 #include "tile_display.h"
 
+//Input: TileKind kind
+//Output: full name of tile kind
+//Purpose: get the full name of a tile kind for display
+//Relation: used in 3D layout
 std::string getTileFullName(TileKind kind) {
     switch (kind) {
         case TILE_BLACK: return "Action Tile";
@@ -27,6 +31,10 @@ std::string getTileFullName(TileKind kind) {
     }
 }
 
+//Input: Tile tile
+//Output: full name of tile
+//Reason: get the full name of a tile for display
+//Relation: used in 3D layout
 std::string getTileFullName(const Tile& tile) {
     if (tile.kind == TILE_BLACK) {
         if (tile.value >= 3) {
@@ -49,6 +57,10 @@ std::string getTileFullName(const Tile& tile) {
     return getTileFullName(tile.kind);
 }
 
+//Input: TileKind kind
+//Output: abbreviation of tile kind
+//Purpose: get the abbreviation of a tile kind for display
+//Relation: used in 3D layout
 std::string getTileAbbreviation(TileKind kind) {
     switch (kind) {
         case TILE_BLACK: return "A";
@@ -76,6 +88,10 @@ std::string getTileAbbreviation(TileKind kind) {
     }
 }
 
+//Input: Tile tile
+//Output: abbreviation of tile
+//Purpose: get the abbreviation of a tile for display
+//Relation: used in 3D layout
 std::string getTileAbbreviation(const Tile& tile) {
     if (tile.kind == TILE_BLACK) {
         return tile.value >= 3 ? "MG" : "A";
@@ -92,6 +108,10 @@ std::string getTileAbbreviation(const Tile& tile) {
     return getTileAbbreviation(tile.kind);
 }
 
+//Input: TileKind kind
+//Output: board symbol of tile kind
+//Purpose: get the board symbol of a tile kind for display
+//Relation: used in classic layout
 std::string getTileBoardSymbol(TileKind kind) {
     switch (kind) {
         case TILE_BLACK: return "..";
@@ -119,6 +139,10 @@ std::string getTileBoardSymbol(TileKind kind) {
     }
 }
 
+//Input: Tile tile
+//Output: board symbol of tile
+//Purpose: get the board symbol of a tile for display
+//Relation: used in classic layout
 std::string getTileBoardSymbol(const Tile& tile) {
     if (tile.kind == TILE_BLACK) {
         if (tile.value >= 3) {
@@ -138,10 +162,18 @@ std::string getTileBoardSymbol(const Tile& tile) {
     return getTileBoardSymbol(tile.kind);
 }
 
+//Input: TileKind kind
+//Output: tile display name
+//Purpose: combines full name and abbreviation for display
+//Relation: used for display in 3D layout
 std::string getTileDisplayName(TileKind kind) {
     return getTileFullName(kind) + " (" + getTileAbbreviation(kind) + ")";
 }
 
+//Input: Tile tile
+//Output: tile display name
+//Purpose: combines full name and abbreviation for display
+//Relation: used for display in 3D layout
 std::string getTileDisplayName(const Tile& tile) {
     return getTileFullName(tile) + " (" + getTileAbbreviation(tile) + ")";
 }
