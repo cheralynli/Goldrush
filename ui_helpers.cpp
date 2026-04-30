@@ -7,8 +7,13 @@
 #include <sstream>
 
 namespace {
+//Specify how long to blink when displaying "blinking" text
 const int BLINK_HALF_MS = 160;
 
+//Input: WINDOW win, int y(columns), int x(rows), string text, bool hasColor, int colorPair, int attrs
+//Output: none
+//Purpose: draws colored text in a specified window
+//Relation: used in UI components
 void drawSolidText(WINDOW* win,
                    int y,
                    int x,
@@ -29,6 +34,10 @@ void drawSolidText(WINDOW* win,
     }
 }
 
+//Input: WINDOW win, int y(columns), int x(rows), int width
+//Output: none
+//Purpose: clear text to simulate "blinking"
+//Relation: used in blinkIndicator
 void clearTextArea(WINDOW* win, int y, int x, int width) {
     if (width <= 0) {
         return;
@@ -36,6 +45,10 @@ void clearTextArea(WINDOW* win, int y, int x, int width) {
     mvwprintw(win, y, x, "%-*s", width, "");
 }
 
+//Input: string text
+//Output: vector splitLines
+//Purpose: split text by '\n' into a vector of lines
+//Relation: used by wrapUiText and into showPopupMessage
 std::vector<std::string> splitLines(const std::string& text) {
     std::vector<std::string> lines;
     std::istringstream in(text);
@@ -50,6 +63,10 @@ std::vector<std::string> splitLines(const std::string& text) {
 }
 }  // namespace
 
+//Input: int minHeight, int minWidth
+//Output: bool terminalIsAtLeast
+//Purpose: check if terminal is correctly sized
+//Relation: used in minigames to ensure game can be displayed properly
 bool terminalIsAtLeast(int minHeight, int minWidth) {
     int h = 0;
     int w = 0;
@@ -57,6 +74,10 @@ bool terminalIsAtLeast(int minHeight, int minWidth) {
     return h >= minHeight && w >= minWidth;
 }
 
+//Input: int minHeight, int minWidth, bool hasColor, bool waitForKey
+//Output: none
+//Purpose: display warning (terminal too small), and required/current terminal sizes
+//Relation: used in minigames to ensure game can be displayed properly
 void showTerminalSizeWarning(int minHeight, int minWidth, bool hasColor, bool waitForKey) {
     int h = 0;
     int w = 0;
@@ -87,6 +108,10 @@ void showTerminalSizeWarning(int minHeight, int minWidth, bool hasColor, bool wa
     }
 }
 
+//Input: int preferredHeight, int preferredWidth, int minHeight, int minWidth
+//Output: bool calculateCenteredWindowBounds
+//Purpose: computes UiWindowBounds bounds based on preferences and constraints
+//Relation: used in createCenteredWindow
 bool calculateCenteredWindowBounds(int preferredHeight,
                                    int preferredWidth,
                                    int minHeight,
@@ -122,6 +147,10 @@ bool calculateCenteredWindowBounds(int preferredHeight,
            bounds.x + bounds.width <= screenW;
 }
 
+//Input: int preferredHeight, int preferredWidth, int minHeight, int minWidth
+//Output: WINDOW createCenteredWindow
+//Purpose: create window for popup messages
+//Relation: used in showPopupMessage
 WINDOW* createCenteredWindow(int preferredHeight, int preferredWidth, int minHeight, int minWidth) {
     UiWindowBounds bounds{0, 0, 0, 0};
     if (!calculateCenteredWindowBounds(preferredHeight, preferredWidth, minHeight, minWidth, bounds)) {
@@ -134,6 +163,10 @@ WINDOW* createCenteredWindow(int preferredHeight, int preferredWidth, int minHei
     return win;
 }
 
+//Input: WINDOW win
+//Output: none
+//Purpose: clears area within a bordered window (row 1 to row h-2)
+//Relation: 
 void clearWindowInterior(WINDOW* win) {
     if (!win) {
         return;
@@ -146,6 +179,10 @@ void clearWindowInterior(WINDOW* win) {
     }
 }
 
+//Input: WINDOW win, int y(columns), int x(rows), string message
+//Output: none
+//Purpose: wait for user to enter prompt
+//Relation: used in showPopupMessage while waiting for prompt
 void waitForEnterPrompt(WINDOW* win, int y, int x, const std::string& message) {
     if (!win) {
         return;
@@ -159,6 +196,31 @@ void waitForEnterPrompt(WINDOW* win, int y, int x, const std::string& message) {
     waitForConfirmOrCancel(win);
 }
 
+//Input: string text, int blinkCount, int finalHoldMs
+//Output: blinkIndicator()
+//Purpose: simplify blinkIndicator()
+//Relation: convenience wrapper for blinkIndicator()
+void blinkIndicator(const std::string& text, int blinkCount, int finalHoldMs) {
+    int h = 0;
+    int w = 0;
+    getmaxyx(stdscr, h, w);
+    const int x = std::max(0, (w - static_cast<int>(text.size())) / 2);
+    const int y = std::max(0, h / 2);
+    blinkIndicator(stdscr,
+                   y,
+                   x,
+                   text,
+                   has_colors(),
+                   GOLDRUSH_GOLD_SAND,
+                   blinkCount,
+                   finalHoldMs,
+                   static_cast<int>(text.size()));
+}
+
+//Input: WINDOW win, int y(columns), int x(rows), string text, bool hasColor, int colorPair, int blinkCount, int finalHoldMs, int clearWidth
+//Output: none
+//Purpose: draw blinking text that blinks blinkCount times
+//Relation: used in game.cpp prompts
 void blinkIndicator(WINDOW* win,
                     int y,
                     int x,
@@ -195,23 +257,10 @@ void blinkIndicator(WINDOW* win,
     }
 }
 
-void blinkIndicator(const std::string& text, int blinkCount, int finalHoldMs) {
-    int h = 0;
-    int w = 0;
-    getmaxyx(stdscr, h, w);
-    const int x = std::max(0, (w - static_cast<int>(text.size())) / 2);
-    const int y = std::max(0, h / 2);
-    blinkIndicator(stdscr,
-                   y,
-                   x,
-                   text,
-                   has_colors(),
-                   GOLDRUSH_GOLD_SAND,
-                   blinkCount,
-                   finalHoldMs,
-                   static_cast<int>(text.size()));
-}
-
+//Input: string text, size_t width
+//Output: wrapped vector<string> wrapUiText
+//Purpose: wrap text according to width
+//Relation: used in showPopupMessage to ensure text fits in popup windows
 std::vector<std::string> wrapUiText(const std::string& text, std::size_t width) {
     if (width == 0) {
         return splitLines(text);
@@ -255,6 +304,10 @@ std::vector<std::string> wrapUiText(const std::string& text, std::size_t width) 
     return out;
 }
 
+//Input: string text, size_t width
+//Output: clipped string clipUiText
+//Purpose: clip text to width-3 if text is too long
+//Relation: used in showPopupMessage to ensure text fits in popup windows
 std::string clipUiText(const std::string& text, std::size_t width) {
     if (text.size() <= width) {
         return text;
@@ -265,6 +318,21 @@ std::string clipUiText(const std::string& text, std::size_t width) {
     return text.substr(0, width - 3) + "...";
 }
 
+//Input: string title, string message, bool hasColor, bool autoAdvance
+//Output: showPopupMessage()
+//Purpose: splits message into a vector of strings
+//Relation: pre-processing of message before entering showPopupMessage
+void showPopupMessage(const std::string& title,
+                      const std::string& message,
+                      bool hasColor,
+                      bool autoAdvance) {
+    showPopupMessage(title, splitLines(message), hasColor, autoAdvance);
+}
+
+//Input: string title, vector lines, bool hasColor, bool autoAdvance
+//Output: none
+//Purpose: create a window to display popup message
+//Relation: used in showDecisionPopup and in game.cpp
 void showPopupMessage(const std::string& title,
                       const std::vector<std::string>& lines,
                       bool hasColor,
@@ -335,13 +403,10 @@ void showPopupMessage(const std::string& title,
     refresh();
 }
 
-void showPopupMessage(const std::string& title,
-                      const std::string& message,
-                      bool hasColor,
-                      bool autoAdvance) {
-    showPopupMessage(title, splitLines(message), hasColor, autoAdvance);
-}
-
+//Input: string playerName, string decision, string explanation
+//Output: showPopupMessage()
+//Purpose: pop up a decision window
+//Relation: used in game.cpp
 void showDecisionPopup(const std::string& playerName,
                        const std::string& decision,
                        const std::string& explanation,
