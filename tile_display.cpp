@@ -33,7 +33,7 @@ std::string getTileFullName(TileKind kind) {
 
 //Input: Tile tile
 //Output: full name of tile
-//Reason: get the full name of a tile for display
+//Purpose: get the full name of a tile for display
 //Relation: used in 3D layout
 std::string getTileFullName(const Tile& tile) {
     if (tile.kind == TILE_BLACK) {
