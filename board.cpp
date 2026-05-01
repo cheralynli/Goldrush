@@ -1,656 +1,396 @@
 #include "board.hpp"
-#include "tile_display.h"
-#include "ui.h"
 
 #include <algorithm>
-#include <cctype>
-#include <set>
-#include <utility>
+#include <array>
+#include <map>
 #include <string>
+#include <utility>
 #include <vector>
+
+#include "ui.h"
 
 namespace {
 
-struct UiPos {
-    int x;
-    int y;
+const short PAIR_TILE_BLACK_BG = 60;
+const short PAIR_UI_YELLOW_BG = 61;
+const short PAIR_GREEN_BG = 62;
+const short PAIR_MAGENTA_BG = 63;
+const short PAIR_CYAN_BG = 64;
+const short PAIR_RED_BG = 65;
+const short PAIR_PURPLE_BG = 66;
+
+struct GridPoint {
+    int row;
+    int col;
 };
 
-static const UiPos CLASSIC_BOARD_POSITIONS[TILE_COUNT] = {
-    {17, 1}, {21, 1}, {25, 1}, {29, 1}, {33, 1}, {37, 1}, {41, 1}, {45, 1}, {49, 1}, {53, 1}, {57, 1}, {61, 1}, {39, 4},
-    {3, 7}, {7, 7}, {11, 7}, {15, 7}, {19, 7}, {23, 7}, {27, 7}, {31, 7}, {35, 7}, {39, 7}, {43, 7}, {47, 7},
-    {25, 10}, {29, 10}, {33, 10}, {37, 10}, {41, 10}, {45, 10}, {49, 10}, {53, 10}, {57, 10}, {61, 10}, {65, 10}, {69, 10}, {73, 10},
-    {19, 13}, {23, 13}, {27, 13}, {31, 13}, {35, 13}, {39, 13}, {43, 13}, {47, 13}, {51, 13}, {55, 13}, {59, 13},
-    {21, 16}, {25, 16}, {29, 16}, {33, 16}, {37, 16}, {41, 16}, {45, 16}, {49, 16}, {53, 16}, {57, 16},
-    {3, 19}, {7, 19}, {11, 19}, {15, 19}, {19, 19}, {23, 19}, {27, 19}, {31, 19}, {35, 19}, {39, 19}, {43, 19}, {47, 19}, {51, 19}, {55, 19},
-    {23, 22}, {27, 22}, {31, 22}, {35, 22}, {39, 22}, {43, 22}, {47, 22}, {51, 22}, {55, 22}, {59, 22}, {63, 22}, {67, 22}, {71, 22}, {75, 22},
-    {37, 25}, {41, 25}
-};
+const std::array<GridPoint, 15> kBlackTiles = {{
+    {9, 2}, {9, 6}, {8, 0}, {8, 8}, {6, 2},
+    {6, 6}, {5, 0}, {5, 4}, {5, 8}, {4, 2},
+    {4, 6}, {3, 0}, {1, 2}, {0, 0}, {0, 4}
+}};
 
-struct RowSegment {
-    int y;
-    int startIndex;
-    int count;
-};
+int gCellH = CELL_H;
+int gCellW = CELL_W;
 
-static const RowSegment CLASSIC_ROW_SEGMENTS[] = {
-    {1, 0, 12},
-    {4, 12, 1},
-    {7, 13, 12},
-    {10, 25, 13},
-    {13, 38, 11},
-    {16, 49, 10},
-    {19, 59, 14},
-    {22, 73, 14},
-    {25, 87, 2}
-};
-
-struct RegionLabel {
-    const char* name;
-    int y;
-    int x;
-};
-
-static const RegionLabel CLASSIC_REGION_LABELS[] = {
-    {"STARTUP STREET", 2, 28},
-    {"CAREER CITY", 5, 28},
-    {"GOLDRUSH VALLEY", 11, 27},
-    {"FAMILY AVENUE", 17, 24},
-    {"RISKY ROAD", 23, 28},
-    {"RETIREMENT RIDGE", 26, 25}
-};
-
-const int PLAYER_PAIR_BASE = 9;
-const int VIEW_COLS = 5;
-const int VIEW_ROWS = 3;
-const int TILE_W = 12;
-const int TILE_H = 5;
-const int TILE_GAP_X = 1;
-const int TILE_GAP_Y = 1;
-
-int centeredX(int areaLeft, int areaWidth, int textWidth) {
-    return areaLeft + std::max(0, (areaWidth - textWidth) / 2);
+int tileIdFor(int row, int col) {
+    return row * BOARD_GRID_COLS + col;
 }
 
-std::string clipText(const std::string& text, int maxWidth) {
-    if (maxWidth <= 0) {
-        return "";
+std::pair<int, int> chooseCellSize(int availableHeight, int availableWidth) {
+    const std::array<std::pair<int, int>, 3> presets = {{
+        {CELL_H, CELL_W},
+        {4, 8},
+        {3, 6}
+    }};
+
+    for (std::size_t i = 0; i < presets.size(); ++i) {
+        const int cellH = presets[i].first;
+        const int cellW = presets[i].second;
+        const int boardH = BOARD_ROWS * cellH + 1;
+        const int boardW = BOARD_COLS * cellW + 1;
+        if (boardH <= availableHeight && boardW <= availableWidth) {
+            return presets[i];
+        }
     }
-    if (static_cast<int>(text.size()) <= maxWidth) {
-        return text;
-    }
-    return text.substr(0, static_cast<std::size_t>(maxWidth));
+
+    return presets.back();
 }
 
-std::string tileTitle(const Tile& tile) {
-    switch (tile.kind) {
-        case TILE_BLACK:
-            if (tile.id >= 14 && tile.id <= 24) return "College";
-            if (tile.id >= 26 && tile.id <= 36) return "Career";
-            if (tile.id >= 59 && tile.id <= 68) return "Family";
-            if (tile.id >= 69 && tile.id <= 78) return "Work";
-            if (tile.id >= 80 && tile.id <= 82) return "Safe";
-            if (tile.id >= 83 && tile.id <= 85) return "Risk";
-            return "Action";
-        case TILE_START: return "Start";
-        case TILE_SPLIT_START: return "Choice";
-        case TILE_COLLEGE: return "College";
-        case TILE_CAREER: return "Career";
-        case TILE_GRADUATION: return "Grad";
-        case TILE_MARRIAGE: return "Married";
-        case TILE_SPLIT_FAMILY: return "Family";
-        case TILE_FAMILY: return "Family";
-        case TILE_NIGHT_SCHOOL: return "Night";
-        case TILE_SPLIT_RISK: return "Fork";
-        case TILE_SAFE: return "Safe";
-        case TILE_RISKY: return "Risk";
-        case TILE_SPIN_AGAIN: return "Spin";
-        case TILE_CAREER_2: return "Work";
-        case TILE_PAYDAY: return "Payday";
-        case TILE_BABY: return "Baby";
-        case TILE_RETIREMENT: return "Retire";
-        case TILE_HOUSE: return "House";
-        case TILE_EMPTY:
-        default:
-            return "Road";
+bool pointMatches(const GridPoint& point, int row, int col) {
+    return point.row == row && point.col == col;
+}
+
+bool isInsideWindow(WINDOW* win, int y, int x) {
+    if (!win) {
+        return false;
+    }
+    int maxY = 0;
+    int maxX = 0;
+    getmaxyx(win, maxY, maxX);
+    return y >= 0 && y < maxY && x >= 0 && x < maxX;
+}
+
+void safeAddCh(WINDOW* win, int y, int x, chtype ch) {
+    if (isInsideWindow(win, y, x)) {
+        mvwaddch(win, y, x, ch);
     }
 }
 
-std::string tileCaption(const Tile& tile) {
-    return clipText(getTileAbbreviation(tile), TILE_W - 2);
-}
-
-int tileColorPair(const Tile& tile) {
-    switch (tile.kind) {
-        case TILE_BLACK:
-        case TILE_RISKY:
-        case TILE_MARRIAGE:
-        case TILE_SPLIT_START:
-        case TILE_SPLIT_FAMILY:
-        case TILE_SPLIT_RISK:
-        case TILE_HOUSE:
-            return 5;
-        case TILE_START:
-        case TILE_RETIREMENT:
-        case TILE_PAYDAY:
-        case TILE_GRADUATION:
-        case TILE_BABY:
-        case TILE_NIGHT_SCHOOL:
-        case TILE_SPIN_AGAIN:
-            return 4;
-        default:
-            return 3;
-    }
-}
-
-std::vector<int> playersAtTile(const std::vector<Player>& players, int tileIndex) {
-    std::vector<int> indices;
-    for (std::size_t i = 0; i < players.size(); ++i) {
-        if (players[i].tile == tileIndex) {
-            indices.push_back(static_cast<int>(i));
-        }
-    }
-    return indices;
-}
-
-std::vector<std::pair<int, int> > boardConnections(const std::vector<Tile>& tiles) {
-    std::vector<std::pair<int, int> > connections;
-    for (std::size_t i = 0; i < tiles.size(); ++i) {
-        if (tiles[i].next >= 0) {
-            connections.push_back(std::make_pair(static_cast<int>(i), tiles[i].next));
-        }
-        if (tiles[i].altNext >= 0) {
-            connections.push_back(std::make_pair(static_cast<int>(i), tiles[i].altNext));
-        }
-    }
-    return connections;
-}
-
-std::set<int> reachableTiles(const std::vector<Tile>& tiles) {
-    std::set<int> reachable;
-    std::vector<int> pending;
-    pending.push_back(0);
-
-    while (!pending.empty()) {
-        const int current = pending.back();
-        pending.pop_back();
-        if (current < 0 || current >= static_cast<int>(tiles.size()) || reachable.count(current) != 0) {
-            continue;
-        }
-
-        reachable.insert(current);
-        if (tiles[static_cast<std::size_t>(current)].next >= 0) {
-            pending.push_back(tiles[static_cast<std::size_t>(current)].next);
-        }
-        if (tiles[static_cast<std::size_t>(current)].altNext >= 0) {
-            pending.push_back(tiles[static_cast<std::size_t>(current)].altNext);
-        }
-    }
-
-    return reachable;
-}
-
-int nextTileForView(const std::vector<Tile>& tiles, const Player& player, int tileId) {
-    const Tile& tile = tiles[static_cast<std::size_t>(tileId)];
-    if (tile.kind == TILE_SPLIT_START || tile.kind == TILE_START) {
-        if (player.startChoice == 0) {
-            return tile.next;
-        }
-        if (player.startChoice == 1) {
-            return tile.altNext;
-        }
-        return tile.next;
-    }
-    if (tile.kind == TILE_SPLIT_FAMILY) {
-        if (player.familyChoice == 0) {
-            return tile.next;
-        }
-        if (player.familyChoice == 1) {
-            return tile.altNext;
-        }
-        return tile.altNext;
-    }
-    if (tile.kind == TILE_SPLIT_RISK) {
-        if (player.riskChoice == 0) {
-            return tile.next;
-        }
-        if (player.riskChoice == 1) {
-            return tile.altNext;
-        }
-        return tile.next;
-    }
-    return tile.next;
-}
-
-int previousTileForView(const std::vector<Tile>& tiles, const Player& player, int tileId) {
-    std::vector<int> candidates;
-    for (std::size_t i = 0; i < tiles.size(); ++i) {
-        if (tiles[i].next == tileId || tiles[i].altNext == tileId) {
-            candidates.push_back(static_cast<int>(i));
-        }
-    }
-    if (candidates.empty()) {
-        return -1;
-    }
-    if (candidates.size() == 1) {
-        return candidates[0];
-    }
-    if (tileId == 38){ // College/Career split
-        return player.startChoice == 0 ? 24 : 37;
-    }
-    if (tileId == 1) { //Path after graduation
-        return player.startChoice == 0 ? 37 : 36;
-    }
-    if (tileId == 79) { // Family split
-        return player.familyChoice == 0 ? 68 : 78;
-    }
-    if (tileId == 87) { // Risky/Safe split
-        return 86;
-    }
-    if (tileId == 86) { // Retirement split
-        return player.riskChoice == 0 ? 82 : 85;
-    }
-    return candidates[0];
-}
-
-std::set<int> buildVisibleTrail(const std::vector<Tile>& tiles, const Player& player, int focusTile) {
-    std::set<int> visible;
-    visible.insert(focusTile);
-
-    int cursor = focusTile;
-    for (int i = 0; i < 3; ++i) {
-        cursor = previousTileForView(tiles, player, cursor);
-        if (cursor < 0) {
-            break;
-        }
-        visible.insert(cursor);
-        if (tiles[static_cast<std::size_t>(cursor)].stop) {
-            break;
-        }
-    }
-
-    cursor = focusTile;
-    for (int i = 0; i < 6; ++i) {
-        cursor = nextTileForView(tiles, player, cursor);
-        if (cursor < 0) {
-            break;
-        }
-        visible.insert(cursor);
-        if (tiles[static_cast<std::size_t>(cursor)].stop) {
-            break;
-        }
-    }
-
-    const Tile& focus = tiles[static_cast<std::size_t>(focusTile)];
-    if (focus.kind == TILE_START || focus.kind == TILE_SPLIT_START) {
-        if (focus.next >= 0) {
-            visible.insert(focus.next);
-        }
-        if (focus.altNext >= 0) {
-            visible.insert(focus.altNext);
-        }
-    }
-    if (focus.kind == TILE_SPLIT_FAMILY || focus.kind == TILE_SPLIT_RISK) {
-        if (focus.next >= 0) {
-            visible.insert(focus.next);
-        }
-        if (focus.altNext >= 0) {
-            visible.insert(focus.altNext);
-        }
-    }
-
-    return visible;
-}
-
-void drawLineSegment(WINDOW* win, int y1, int x1, int y2, int x2, bool hasColor, int colorPair, int maxY, int maxX) {
-    if (hasColor) {
-        wattron(win, COLOR_PAIR(colorPair) | A_DIM);
-    } else {
-        wattron(win, A_DIM);
-    }
-
-    int x = x1;
-    int y = y1;
-    while (x != x2) {
-        x += (x2 > x) ? 1 : -1;
-        if (y > 0 && y < maxY - 1 && x > 0 && x < maxX - 1) {
-            drawBorderCharSafe(win, y, x, ACS_HLINE);
-        }
-    }
-    while (y != y2) {
-        y += (y2 > y) ? 1 : -1;
-        if (y > 0 && y < maxY - 1 && x > 0 && x < maxX - 1) {
-            drawBorderCharSafe(win, y, x, ACS_VLINE);
-        }
-    }
-
-    if (hasColor) {
-        wattroff(win, COLOR_PAIR(colorPair) | A_DIM);
-    } else {
-        wattroff(win, A_DIM);
-    }
-}
-
-void drawTokenString(WINDOW* boardWin,
-                     int y,
-                     int x,
-                     const std::vector<Player>& players,
-                     const std::vector<int>& tokenIndices,
-                     bool hasColor) {
-    const int maxTokens = tokenIndices.size() > 3 ? 2 : static_cast<int>(tokenIndices.size());
-    std::string tokenText = "[";
-    for (int i = 0; i < maxTokens; ++i) {
-        tokenText.push_back(players[static_cast<std::size_t>(tokenIndices[static_cast<std::size_t>(i)])].token);
-    }
-    if (tokenIndices.size() > 3) {
-        tokenText.push_back('+');
-    } else if (tokenIndices.size() == 3) {
-        tokenText.push_back(players[static_cast<std::size_t>(tokenIndices[2])].token);
-    } else if (tokenIndices.empty()) {
-        tokenText.push_back(' ');
-    }
-    tokenText.push_back(']');
-
-    const int drawX = x + std::max(0, ((TILE_W - 2) - static_cast<int>(tokenText.size())) / 2);
-    mvwprintw(boardWin, y, drawX, "%s", tokenText.c_str());
-
-    for (std::size_t i = 0; i < tokenIndices.size(); ++i) {
-        if (i >= 3) {
-            break;
-        }
-        const int tokenOffset = drawX + 1 + static_cast<int>(i);
-        if (hasColor) {
-            wattron(boardWin, COLOR_PAIR(PLAYER_PAIR_BASE + (tokenIndices[i] % 4)) | A_BOLD);
-        } else {
-            wattron(boardWin, A_BOLD);
-        }
-        mvwaddch(boardWin, y, tokenOffset, players[static_cast<std::size_t>(tokenIndices[i])].token);
-        if (hasColor) {
-            wattroff(boardWin, COLOR_PAIR(PLAYER_PAIR_BASE + (tokenIndices[i] % 4)) | A_BOLD);
-        } else {
-            wattroff(boardWin, A_BOLD);
-        }
-    }
-}
-
-void drawTileBox(WINDOW* boardWin,
-                 const Tile& tile,
-                 const std::vector<Player>& players,
-                 int tileLeft,
-                 int tileTop,
-                 bool isFocusTile,
-                 bool hasColor) {
-    const int borderPair = isFocusTile ? 8 : 2;
-    const int textPair = isFocusTile ? 8 : (tile.kind == TILE_EMPTY ? 6 : tileColorPair(tile));
-    const int attrs = isFocusTile ? A_BOLD : A_DIM;
-
-    if (hasColor) {
-        wattron(boardWin, COLOR_PAIR(borderPair) | attrs);
-    } else {
-        wattron(boardWin, attrs);
-    }
-
-    drawBoxAtSafe(boardWin, tileTop, tileLeft, TILE_H, TILE_W);
-
-    if (hasColor) {
-        wattroff(boardWin, COLOR_PAIR(borderPair) | attrs);
-    } else {
-        wattroff(boardWin, attrs);
-    }
-
-    const std::string title = clipText(tileTitle(tile), TILE_W - 2);
-    const std::string caption = tileCaption(tile);
-    const std::vector<int> tilePlayers = playersAtTile(players, tile.id);
-
-    if (hasColor) {
-        wattron(boardWin, COLOR_PAIR(textPair) | attrs);
-    } else {
-        wattron(boardWin, attrs);
-    }
-    mvwprintw(boardWin, tileTop + 1, centeredX(tileLeft + 1, TILE_W - 2, static_cast<int>(title.size())), "%s", title.c_str());
-    if (hasColor) {
-        wattroff(boardWin, COLOR_PAIR(textPair) | attrs);
-    } else {
-        wattroff(boardWin, attrs);
-    }
-
-    drawTokenString(boardWin, tileTop + 3, tileLeft + 1, players, tilePlayers, hasColor);
-
-    if (hasColor) {
-        wattron(boardWin, COLOR_PAIR(textPair) | attrs);
-    } else {
-        wattron(boardWin, attrs);
-    }
-    mvwprintw(boardWin, tileTop + TILE_H - 2,
-              centeredX(tileLeft + 1, TILE_W - 2, static_cast<int>(caption.size())),
-              "%s",
-              caption.c_str());
-    if (hasColor) {
-        wattroff(boardWin, COLOR_PAIR(textPair) | attrs);
-    } else {
-        wattroff(boardWin, attrs);
-    }
-}
-
-void drawClassicBoardGrid(WINDOW* boardWin, bool hasColor) {
-    if (hasColor) {
-        wattron(boardWin, COLOR_PAIR(GOLDRUSH_BROWN_SAND) | A_DIM);
-    } else {
-        wattron(boardWin, A_DIM);
-    }
-    for (std::size_t i = 0; i < sizeof(CLASSIC_ROW_SEGMENTS) / sizeof(CLASSIC_ROW_SEGMENTS[0]); ++i) {
-        const RowSegment& row = CLASSIC_ROW_SEGMENTS[i];
-        const int left = CLASSIC_BOARD_POSITIONS[row.startIndex].x - 1;
-        const int width = row.count * 4 + 1;
-        drawBorderLineSafe(boardWin, row.y - 1, left, width);
-        drawBorderLineSafe(boardWin, row.y + 1, left, width);
-        for (int col = 0; col <= row.count; ++col) {
-            drawBorderCharSafe(boardWin, row.y, left + (col * 4), ACS_VLINE);
-        }
-        drawBorderCharSafe(boardWin, row.y - 1, left, ACS_ULCORNER);
-        drawBorderCharSafe(boardWin, row.y + 1, left, ACS_LLCORNER);
-        for (int col = 1; col < row.count; ++col) {
-            drawBorderCharSafe(boardWin, row.y - 1, left + (col * 4), ACS_TTEE);
-            drawBorderCharSafe(boardWin, row.y + 1, left + (col * 4), ACS_BTEE);
-        }
-        drawBorderCharSafe(boardWin, row.y - 1, left + width - 1, ACS_URCORNER);
-        drawBorderCharSafe(boardWin, row.y + 1, left + width - 1, ACS_LRCORNER);
-    }
-    if (hasColor) {
-        wattroff(boardWin, COLOR_PAIR(GOLDRUSH_BROWN_SAND) | A_DIM);
-    } else {
-        wattroff(boardWin, A_DIM);
-    }
-}
-
-void drawClassicTreeGuides(WINDOW* boardWin, bool hasColor) {
-    if (hasColor) {
-        wattron(boardWin, COLOR_PAIR(GOLDRUSH_BROWN_SAND) | A_BOLD);
-    } else {
-        wattron(boardWin, A_BOLD);
-    }
-    drawBorderColumnSafe(boardWin, 3, 40, 1);
-    drawBorderColumnSafe(boardWin, 5, 16, 2);
-    drawBorderLineSafe(boardWin, 6, 17, 22);
-    drawBorderColumnSafe(boardWin, 5, 40, 2);
-    drawBorderColumnSafe(boardWin, 8, 40, 1);
-    drawBorderColumnSafe(boardWin, 11, 40, 1);
-    drawBorderColumnSafe(boardWin, 14, 40, 1);
-    drawBorderLineSafe(boardWin, 15, 40, 2);
-    drawBorderColumnSafe(boardWin, 15, 22, 2);
-    drawBorderLineSafe(boardWin, 18, 23, 17);
-    drawBorderColumnSafe(boardWin, 18, 58, 4);
-    drawBorderColumnSafe(boardWin, 23, 40, 1);
-    if (hasColor) {
-        wattroff(boardWin, COLOR_PAIR(GOLDRUSH_BROWN_SAND) | A_BOLD);
-    } else {
-        wattroff(boardWin, A_BOLD);
-    }
-}
-
-void drawClassicRegions(WINDOW* boardWin, bool hasColor) {
-    for (std::size_t i = 0; i < sizeof(CLASSIC_REGION_LABELS) / sizeof(CLASSIC_REGION_LABELS[0]); ++i) {
-        if (hasColor) {
-            wattron(boardWin, COLOR_PAIR(GOLDRUSH_GOLD_SAND) | A_BOLD);
-        } else {
-            wattron(boardWin, A_BOLD);
-        }
-        mvwprintw(boardWin, CLASSIC_REGION_LABELS[i].y, CLASSIC_REGION_LABELS[i].x,
-                  "%s", CLASSIC_REGION_LABELS[i].name);
-        if (hasColor) {
-            wattroff(boardWin, COLOR_PAIR(GOLDRUSH_GOLD_SAND) | A_BOLD);
-        } else {
-            wattroff(boardWin, A_BOLD);
-        }
-    }
-}
-
-void drawClassicLandmarks(WINDOW* boardWin, bool hasColor) {
-    if (hasColor) {
-        wattron(boardWin, COLOR_PAIR(GOLDRUSH_BLACK_CREAM) | A_BOLD);
-    } else {
-        wattron(boardWin, A_BOLD);
-    }
-    mvwprintw(boardWin, 2, 3, "BANK");
-    mvwprintw(boardWin, 3, 2, "/----\\");
-    mvwprintw(boardWin, 4, 2, "| $$ |");
-
-    mvwprintw(boardWin, 8, 67, "UNI");
-    mvwprintw(boardWin, 9, 66, "/---\\");
-    mvwprintw(boardWin, 10, 66, "| U |");
-
-    mvwprintw(boardWin, 14, 63, "[777]");
-    mvwprintw(boardWin, 15, 61, "LUCK HALL");
-
-    mvwprintw(boardWin, 26, 3, "RETIRE");
-    mvwprintw(boardWin, 27, 4, "/\\/\\");
-    if (hasColor) {
-        wattroff(boardWin, COLOR_PAIR(GOLDRUSH_BLACK_CREAM) | A_BOLD);
-    } else {
-        wattroff(boardWin, A_BOLD);
-    }
-}
-
-void drawClassicTile(WINDOW* boardWin, const Tile& tile, bool hasColor) {
-    const UiPos pos = CLASSIC_BOARD_POSITIONS[tile.id];
-    const int y = pos.y;
-    const int x = pos.x - 1;
-    const std::string label = getTileBoardSymbol(tile);
-    const int colorPair = getTileColorPair(tile);
-    const bool importantTile = tile.stop ||
-                               tile.kind == TILE_PAYDAY ||
-                               tile.kind == TILE_HOUSE ||
-                               tile.kind == TILE_RETIREMENT ||
-                               tile.kind == TILE_RISKY ||
-                               tile.kind == TILE_CAREER ||
-                               tile.kind == TILE_COLLEGE;
-
-    if (hasColor) {
-        wattron(boardWin, COLOR_PAIR(colorPair) | (importantTile ? A_BOLD : A_NORMAL));
-        if (tile.kind == TILE_EMPTY) {
-            wattron(boardWin, A_DIM);
-        }
-    } else if (importantTile) {
-        wattron(boardWin, A_BOLD);
-    }
-
-    mvwaddch(boardWin, y, x, '[');
-    mvwprintw(boardWin, y, x + 1, "%-2s", clipText(label, 2).c_str());
-    mvwaddch(boardWin, y, x + 3, ']');
-
-    if (hasColor) {
-        wattroff(boardWin, COLOR_PAIR(colorPair) | (importantTile ? A_BOLD : A_NORMAL));
-        if (tile.kind == TILE_EMPTY) {
-            wattroff(boardWin, A_DIM);
-        }
-    } else if (importantTile) {
-        wattroff(boardWin, A_BOLD);
-    }
-}
-
-void drawClassicTokens(WINDOW* boardWin,
-                       const std::vector<Player>& players,
-                       int tileIndex,
-                       int currentPlayerIndex,
-                       int highlightedTile,
-                       bool hasColor) {
-    std::vector<int> occupants = playersAtTile(players, tileIndex);
-    if (occupants.empty()) {
+void safePrint(WINDOW* win, int y, int x, const std::string& text) {
+    if (!win || text.empty()) {
         return;
     }
+    int maxY = 0;
+    int maxX = 0;
+    getmaxyx(win, maxY, maxX);
+    if (y < 0 || y >= maxY || x >= maxX) {
+        return;
+    }
+    const int available = std::max(0, maxX - x);
+    if (available <= 0) {
+        return;
+    }
+    mvwprintw(win, y, x, "%s", text.substr(0, static_cast<std::size_t>(available)).c_str());
+}
 
-    const bool highlighted = highlightedTile == tileIndex;
-    int colorPlayer = occupants[0];
-    for (std::size_t i = 0; i < occupants.size(); ++i) {
-        if (occupants[i] == currentPlayerIndex) {
-            colorPlayer = currentPlayerIndex;
-            break;
+void fillRect(WINDOW* win, int y, int x, int height, int width, int colorPair) {
+    if (!win) {
+        return;
+    }
+    for (int dy = 0; dy < height; ++dy) {
+        for (int dx = 0; dx < width; ++dx) {
+            safeAddCh(win, y + dy, x + dx, ' ' | COLOR_PAIR(colorPair));
+        }
+    }
+}
+
+void drawContinuousGrid(WINDOW* win, int top, int left, int rows, int cols, int cellH, int cellW, int colorPair) {
+    if (!win) {
+        return;
+    }
+    const chtype borderAttr = COLOR_PAIR(colorPair) | A_BOLD;
+    const int gridW = cols * cellW + 1;
+    const int gridH = rows * cellH + 1;
+
+    for (int row = 0; row <= rows; ++row) {
+        const int y = top + (row * cellH);
+        for (int dx = 0; dx < gridW; ++dx) {
+            safeAddCh(win, y, left + dx, ACS_HLINE | borderAttr);
         }
     }
 
-    std::string marker;
-    if (highlighted && currentPlayerIndex >= 0 && currentPlayerIndex < static_cast<int>(players.size())) {
-        marker = "<P" + std::to_string(currentPlayerIndex + 1);
-        if (marker.size() < 4) {
-            marker += ">";
+    for (int col = 0; col <= cols; ++col) {
+        const int x = left + (col * cellW);
+        for (int dy = 0; dy < gridH; ++dy) {
+            safeAddCh(win, top + dy, x, ACS_VLINE | borderAttr);
         }
-        marker = clipText(marker, 4);
-    } else if (occupants.size() == 1) {
-        marker = "[";
-        marker.push_back(players[static_cast<std::size_t>(occupants[0])].token);
-        marker += " ]";
-    } else {
-        marker = "[" + std::to_string(occupants.size()) + "P]";
-    }
-    if (marker.size() < 4) {
-        marker += std::string(4 - marker.size(), ' ');
     }
 
-    const UiPos pos = CLASSIC_BOARD_POSITIONS[tileIndex];
-    const int y = pos.y;
-    const int x = pos.x - 1;
-    if (hasColor) {
-        wattron(boardWin, COLOR_PAIR(PLAYER_PAIR_BASE + (colorPlayer % 4)) | A_BOLD | A_REVERSE);
-    } else {
-        wattron(boardWin, A_BOLD | A_REVERSE);
+    for (int row = 0; row <= rows; ++row) {
+        const int y = top + (row * cellH);
+        for (int col = 0; col <= cols; ++col) {
+            const int x = left + (col * cellW);
+            chtype corner = ACS_PLUS;
+            if (row == 0 && col == 0) corner = ACS_ULCORNER;
+            else if (row == 0 && col == cols) corner = ACS_URCORNER;
+            else if (row == rows && col == 0) corner = ACS_LLCORNER;
+            else if (row == rows && col == cols) corner = ACS_LRCORNER;
+            else if (row == 0) corner = ACS_TTEE;
+            else if (row == rows) corner = ACS_BTEE;
+            else if (col == 0) corner = ACS_LTEE;
+            else if (col == cols) corner = ACS_RTEE;
+            safeAddCh(win, y, x, corner | borderAttr);
+        }
     }
-    mvwprintw(boardWin, y, x, "%-.4s", marker.c_str());
-    if (hasColor) {
-        wattroff(boardWin, COLOR_PAIR(PLAYER_PAIR_BASE + (colorPlayer % 4)) | A_BOLD | A_REVERSE);
-    } else {
-        wattroff(boardWin, A_BOLD | A_REVERSE);
+}
+
+void fillInnerRect(WINDOW* win, int y, int x, int height, int width, int colorPair) {
+    if (!win || height <= 0 || width <= 0) {
+        return;
     }
+    fillRect(win, y, x, height, width, colorPair);
+}
+
+int defaultInnerPair() {
+    return PAIR_UI_YELLOW_BG;
+}
+
+bool defaultTileUsesYellow(int screenRow, int screenCol) {
+    return ((screenRow + screenCol) % 2) == 1;
+}
+
+int accentPairForTile(int tileType) {
+    switch (tileType) {
+        case TILE_START:
+            return PAIR_GREEN_BG;
+        case TILE_COLLEGE:
+        case TILE_CAREER:
+        case TILE_GRADUATION:
+            return PAIR_CYAN_BG;
+        case TILE_SAFE:
+            return PAIR_GREEN_BG;
+        case TILE_CAREER_2:
+        case TILE_RISKY:
+            return PAIR_RED_BG;
+        case TILE_MARRIAGE:
+        case TILE_FAMILY:
+        case TILE_BLACK:
+            return PAIR_MAGENTA_BG;
+        case TILE_RETIREMENT:
+            return PAIR_PURPLE_BG;
+        case TILE_EMPTY:
+            return defaultInnerPair();
+        default:
+            return defaultInnerPair();
+    }
+}
+
+std::string labelForTileType(int tileType) {
+    switch (tileType) {
+        case TILE_START:
+            return "START";
+        case TILE_COLLEGE:
+            return "C";
+        case TILE_CAREER:
+            return "C";
+        case TILE_GRADUATION:
+            return "G";
+        case TILE_MARRIAGE:
+            return "M";
+        case TILE_FAMILY:
+            return "F";
+        case TILE_CAREER_2:
+            return "W";
+        case TILE_SAFE:
+            return "$";
+        case TILE_RISKY:
+            return "!";
+        case TILE_RETIREMENT:
+            return "R";
+        case TILE_BLACK:
+            return "c";
+        default:
+            return "";
+    }
+}
+
+int tileTypeAtGameCoord(int gameRow, int gameCol) {
+    if (gameRow == 0 && gameCol == 0) {
+        return TILE_START;
+    }
+    if (gameRow == 0 && gameCol == 4) {
+        return TILE_COLLEGE;
+    }
+    if (gameRow == 0 && gameCol == 8) {
+        return TILE_CAREER;
+    }
+    if (gameRow == 2 && gameCol == 4) {
+        return TILE_GRADUATION;
+    }
+    if (gameRow == 4 && gameCol == 10) {
+        return TILE_MARRIAGE;
+    }
+    if (gameRow == 7 && gameCol == 4) {
+        return TILE_FAMILY;
+    }
+    if (gameRow == 7 && gameCol == 8) {
+        return TILE_CAREER_2;
+    }
+    if (gameRow == 9 && gameCol == 6) {
+        return TILE_SAFE;
+    }
+    if (gameRow == 9 && gameCol == 8) {
+        return TILE_RISKY;
+    }
+    if (gameRow == 10 && gameCol == 10) {
+        return TILE_RETIREMENT;
+    }
+    for (std::size_t i = 0; i < kBlackTiles.size(); ++i) {
+        if (pointMatches(kBlackTiles[i], gameRow, gameCol)) {
+            return TILE_BLACK;
+        }
+    }
+    return TILE_EMPTY;
+}
+
+void drawCenteredMarker(WINDOW* win,
+                        int gameRow,
+                        int gameCol,
+                        int startY,
+                        int startX,
+                        char marker,
+                        int colorPair) {
+    const int screenRow = game_to_screen_row(gameRow);
+    const int y = startY + (screenRow * gCellH);
+    const int x = startX + (gameCol * gCellW);
+    const int centerY = y + (gCellH / 2);
+    const int centerX = x + (gCellW / 2);
+
+    wattron(win, COLOR_PAIR(colorPair) | A_BOLD);
+    safeAddCh(win, centerY, centerX, marker);
+    wattroff(win, COLOR_PAIR(colorPair) | A_BOLD);
 }
 
 }  // namespace
 
 std::string boardViewModeName(BoardViewMode mode) {
-    switch (mode) {
-        case BoardViewMode::ClassicFull:
-            return "Classic Full Board";
-        case BoardViewMode::FollowCamera:
-        default:
-            return "Follow Camera";
-    }
+    return mode == BoardViewMode::ClassicFull ? "classic-full" : "follow-camera";
 }
 
 BoardViewMode boardViewModeFromName(const std::string& name) {
-    std::string normalized;
-    normalized.reserve(name.size());
-    for (std::size_t i = 0; i < name.size(); ++i) {
-        const char ch = static_cast<char>(std::tolower(static_cast<unsigned char>(name[i])));
-        if (ch != ' ' && ch != '_' && ch != '-' && ch != '/') {
-            normalized.push_back(ch);
-        }
+    return name == "classic-full" ? BoardViewMode::ClassicFull : BoardViewMode::ClassicFull;
+}
+
+void init_board_colors() {
+    if (!has_colors()) {
+        return;
     }
 
-    if (normalized == "classic" ||
-        normalized == "classicfull" ||
-        normalized == "classicfullboard" ||
-        normalized == "fullboard") {
-        return BoardViewMode::ClassicFull;
+    start_color();
+#ifdef NCURSES_VERSION
+    use_default_colors();
+#endif
+
+    if (can_change_color()) {
+        init_color(30, 1000, 910, 260);
+        init_color(31, 820, 560, 120);
     }
-    return BoardViewMode::FollowCamera;
+
+    const short lightYellow = can_change_color() ? 30 : COLOR_YELLOW;
+    const short darkYellow = can_change_color() ? 31 : COLOR_RED;
+    const short gold = lightYellow;
+    const short forest = COLOR_GREEN;
+    const short mauve = COLOR_MAGENTA;
+    const short steel = COLOR_CYAN;
+    const short terra = COLOR_RED;
+
+    init_pair(GOLDRUSH_BOARD_LIGHT, COLOR_BLACK, lightYellow);
+    init_pair(GOLDRUSH_BOARD_DARK, COLOR_BLACK, darkYellow);
+    init_pair(GOLDRUSH_GOLD_SAND, COLOR_YELLOW, COLOR_BLACK);
+    init_pair(GOLDRUSH_GOLD_TERRA, COLOR_RED, COLOR_BLACK);
+    init_pair(GOLDRUSH_TILE_CAREER, COLOR_CYAN, COLOR_BLACK);
+    init_pair(GOLDRUSH_BLACK_FOREST, COLOR_GREEN, COLOR_BLACK);
+    init_pair(GOLDRUSH_BLACK_TERRA, COLOR_RED, COLOR_BLACK);
+    init_pair(GOLDRUSH_PLAYER_ONE, COLOR_YELLOW, COLOR_BLACK);
+    init_pair(GOLDRUSH_PLAYER_TWO, COLOR_GREEN, COLOR_BLACK);
+    init_pair(GOLDRUSH_PLAYER_THREE, COLOR_MAGENTA, COLOR_BLACK);
+    init_pair(GOLDRUSH_PLAYER_FOUR, COLOR_BLUE, COLOR_BLACK);
+    init_pair(GOLDRUSH_TILE_WHITE, COLOR_WHITE, COLOR_BLACK);
+    init_pair(GOLDRUSH_CHARCOAL_BLACK, COLOR_WHITE, COLOR_BLACK);
+    init_pair(PAIR_TILE_BLACK_BG, COLOR_WHITE, COLOR_BLACK);
+    init_pair(PAIR_UI_YELLOW_BG, COLOR_BLACK, gold);
+    init_pair(PAIR_GREEN_BG, COLOR_BLACK, forest);
+    init_pair(PAIR_MAGENTA_BG, COLOR_BLACK, mauve);
+    init_pair(PAIR_CYAN_BG, COLOR_BLACK, steel);
+    init_pair(PAIR_RED_BG, COLOR_BLACK, terra);
+    init_pair(PAIR_PURPLE_BG, COLOR_BLACK, mauve);
+}
+
+int game_to_screen_row(int game_row) {
+    return (BOARD_ROWS - 1) - game_row;
+}
+
+void draw_tile(WINDOW *win, int screen_row, int screen_col, int tile_type, int start_y, int start_x) {
+    if (!win) {
+        return;
+    }
+
+    const int y = start_y + (screen_row * gCellH);
+    const int x = start_x + (screen_col * gCellW);
+    const int marginY = std::min(INNER_MARGIN_Y, std::max(0, (gCellH - 2) / 2));
+    const int marginX = std::min(INNER_MARGIN_X, std::max(0, (gCellW - 2) / 2));
+    const int innerY = y + marginY;
+    const int innerX = x + marginX;
+    const int innerH = std::max(1, gCellH - (2 * marginY));
+    const int innerW = std::max(1, gCellW - (2 * marginX));
+
+    int innerPair = 0;
+    if (tile_type == TILE_EMPTY) {
+        if (defaultTileUsesYellow(screen_row, screen_col)) {
+            innerPair = defaultInnerPair();
+        }
+    } else {
+        innerPair = accentPairForTile(tile_type);
+    }
+
+    if (innerPair != 0) {
+        fillInnerRect(win, innerY, innerX, innerH, innerW, innerPair);
+    }
+
+    const std::string label = labelForTileType(tile_type);
+    if (!label.empty() && innerPair != 0) {
+        const int labelY = innerY + (innerH / 2);
+        const int labelX = innerX + std::max(0, (innerW - static_cast<int>(label.size())) / 2);
+        wattron(win, COLOR_PAIR(innerPair) | A_BOLD);
+        safePrint(win, labelY, labelX, label);
+        wattroff(win, COLOR_PAIR(innerPair) | A_BOLD);
+    }
+}
+
+void draw_board(WINDOW *win, int start_y, int start_x) {
+    if (!win) {
+        return;
+    }
+
+    for (int gameRow = 0; gameRow < BOARD_ROWS; ++gameRow) {
+        const int screenRow = game_to_screen_row(gameRow);
+        for (int gameCol = 0; gameCol < BOARD_COLS; ++gameCol) {
+            draw_tile(win,
+                      screenRow,
+                      gameCol,
+                      tileTypeAtGameCoord(gameRow, gameCol),
+                      start_y,
+                      start_x);
+        }
+    }
+}
+
+void draw_player(WINDOW *win, int game_row, int game_col, int start_y, int start_x) {
+    if (!win) {
+        return;
+    }
+    drawCenteredMarker(win, game_row, game_col, start_y, start_x, '@', GOLDRUSH_TILE_WHITE);
 }
 
 Board::Board() {
@@ -659,469 +399,205 @@ Board::Board() {
 }
 
 const Tile& Board::tileAt(int id) const {
-    return tiles[id];
-}
-
-void Board::initTiles() {
-    tiles.resize(TILE_COUNT);
-    for (int i = 0; i < TILE_COUNT; ++i) {
-        tiles[i].id = i;
-        tiles[i].y = 0;
-        tiles[i].x = 0;
-        tiles[i].label = "  ";
-        tiles[i].kind = TILE_EMPTY;
-        tiles[i].next = (i < TILE_COUNT - 1) ? i + 1 : -1;
-        tiles[i].altNext = -1;
-        tiles[i].value = 0;
-        tiles[i].stop = false;
-    }
-
-    const auto place = [&](int id, int col, int row) {
-        tiles[id].x = col;
-        tiles[id].y = row;
-    };
-
-    place(0, 1, 0);
-
-    place(1, 9, 5);
-    place(2, 8, 5);
-    place(3, 7, 5);
-    place(4, 6, 5);
-    place(5, 5, 5);
-    place(6, 5, 4);
-    place(7, 5, 3);
-    place(8, 5, 2);
-    place(9, 6, 2);
-    place(10, 7, 2);
-    place(11, 8, 2);
-    place(12, 9, 2);
-
-    place(13, 0, 1);
-    place(14, 0, 2);
-    place(15, 0, 3);
-    place(16, 0, 4);
-    place(17, 1, 4);
-    place(18, 2, 4);
-    place(19, 3, 4);
-    place(20, 4, 4);
-    place(21, 5, 4);
-    place(22, 6, 4);
-    place(23, 7, 4);
-    place(24, 8, 4);
-
-    place(25, 2, 1);
-    place(26, 3, 1);
-    place(27, 4, 1);
-    place(28, 5, 1);
-    place(29, 6, 1);
-    place(30, 7, 1);
-    place(31, 8, 1);
-    place(32, 9, 1);
-    place(33, 10, 1);
-    place(34, 10, 2);
-    place(35, 10, 3);
-    place(36, 10, 4);
-    place(37, 9, 4);
-
-    place(38, 4, 8);
-    place(39, 3, 6);
-    place(40, 4, 6);
-    place(41, 6, 9);
-    place(42, 7, 9);
-    place(43, 8, 9);
-    place(44, 11, 4);
-    place(45, 11, 5);
-    place(46, 11, 6);
-    place(47, 11, 7);
-    place(48, 11, 8);
-    place(49, 11, 9);
-    place(50, 11, 10);
-    place(51, 11, 11);
-    place(52, 11, 12);
-    place(53, 10, 12);
-    place(54, 9, 12);
-    place(55, 8, 12);
-    place(56, 7, 12);
-    place(57, 6, 12);
-    place(58, 5, 12);
-
-    place(59, 10, 3);
-    place(60, 9, 3);
-    place(61, 8, 3);
-    place(62, 7, 3);
-    place(63, 7, 4);
-    place(64, 7, 5);
-    place(65, 7, 6);
-    place(66, 7, 7);
-    place(67, 7, 8);
-    place(68, 7, 9);
-
-    place(69, 10, 2);
-    place(70, 9, 2);
-    place(71, 8, 2);
-    place(72, 7, 2);
-    place(73, 6, 2);
-    place(74, 5, 2);
-    place(75, 5, 3);
-    place(76, 5, 4);
-    place(77, 5, 5);
-    place(78, 5, 6);
-
-    place(79, 6, 9);
-    place(80, 0, 10);
-    place(81, 0, 11);
-    place(82, 0, 12);
-    place(83, 1, 11);
-    place(84, 1, 12);
-    place(85, 1, 13);
-    place(86, 3, 10);
-    place(87, 4, 10);
-    place(88, 4, 10);
-
-    for (int i = 1; i <= 12; ++i) {
-        tiles[i].label = "BK";
-        tiles[i].kind = TILE_BLACK;
-        tiles[i].value = 2;
-    }
-
-    tiles[0].label = "ST";
-    tiles[0].kind = TILE_START;
-    tiles[0].next = 13;
-    tiles[0].altNext = 25;
-
-    tiles[13].label = "O";
-    tiles[13].kind = TILE_COLLEGE;
-    tiles[13].stop = true;
-    for (int i = 14; i <= 24; ++i) {
-        tiles[i].label = "BK";
-        tiles[i].kind = TILE_BLACK;
-        tiles[i].value = 1;
-    }
-    tiles[22].label = "PD";
-    tiles[22].kind = TILE_PAYDAY;
-    tiles[22].value = 5000;
-    tiles[24].next = 37;
-
-    tiles[25].label = "A";
-    tiles[25].kind = TILE_CAREER;
-    tiles[25].stop = true;
-    for (int i = 26; i <= 37; ++i) {
-        tiles[i].label = "BK";
-        tiles[i].kind = TILE_BLACK;
-        tiles[i].value = 1;
-    }
-    tiles[31].label = "PD";
-    tiles[31].kind = TILE_PAYDAY;
-    tiles[31].value = 7000;
-    tiles[37].label = "GR";
-    tiles[37].kind = TILE_GRADUATION;
-    tiles[37].stop = true;
-    tiles[37].next = 1;
-    tiles[36].next = 1;
-
-    tiles[38].label = "BK";
-    tiles[38].kind = TILE_BLACK;
-    tiles[38].value = 2;
-    tiles[38].stop = false;
-    tiles[38].next = 39;
-
-    for (int i = 39; i <= 58; ++i) {
-        tiles[i].label = "BK";
-        tiles[i].kind = TILE_BLACK;
-        tiles[i].value = 2;
-    }
-    tiles[12].next = 58;
-    tiles[41].label = "PD";
-    tiles[41].kind = TILE_PAYDAY;
-    tiles[41].value = 12000;
-    tiles[9].label = "M";
-    tiles[9].kind = TILE_MARRIAGE;
-    tiles[9].stop = true;
-    tiles[47].label = "PD";
-    tiles[47].kind = TILE_PAYDAY;
-    tiles[47].value = 15000;
-    tiles[55].label = "PD";
-    tiles[55].kind = TILE_PAYDAY;
-    tiles[55].value = 18000;
-    tiles[12].label = "FW";
-    tiles[12].kind = TILE_SPLIT_FAMILY;
-    tiles[12].stop = true;
-    tiles[12].next = 59;
-    tiles[12].altNext = 69;
-
-    for (int i = 59; i <= 68; ++i) {
-        tiles[i].label = "BK";
-        tiles[i].kind = TILE_BLACK;
-        tiles[i].value = 2;
-    }
-    tiles[59].label = "F";
-    tiles[59].kind = TILE_FAMILY;
-    tiles[59].stop = true;
-    tiles[64].label = "PD";
-    tiles[64].kind = TILE_PAYDAY;
-    tiles[64].value = 20000;
-    tiles[68].next = 79;
-
-    for (int i = 69; i <= 78; ++i) {
-        tiles[i].label = "BK";
-        tiles[i].kind = TILE_BLACK;
-        tiles[i].value = 2;
-    }
-    tiles[69].label = "W";
-    tiles[69].kind = TILE_CAREER_2;
-    tiles[69].value = 10000;
-    tiles[75].label = "PD";
-    tiles[75].kind = TILE_PAYDAY;
-    tiles[75].value = 22000;
-    tiles[78].next = 79;
-
-    tiles[79].label = "SR";
-    tiles[79].kind = TILE_SPLIT_RISK;
-    tiles[79].stop = true;
-    tiles[79].next = 80;
-    tiles[79].altNext = 83;
-
-    tiles[80].label = "S";
-    tiles[80].kind = TILE_SAFE;
-    tiles[80].stop = true;
-    tiles[81].label = "BK";
-    tiles[81].kind = TILE_BLACK;
-    tiles[81].value = 2;
-    tiles[82].label = "BK";
-    tiles[82].kind = TILE_BLACK;
-    tiles[82].value = 2;
-    tiles[82].next = 86;
-
-    tiles[83].label = "R";
-    tiles[83].kind = TILE_RISKY;
-    tiles[83].stop = true;
-    tiles[84].label = "BK";
-    tiles[84].kind = TILE_BLACK;
-    tiles[84].value = 3;
-    tiles[85].label = "BK";
-    tiles[85].kind = TILE_BLACK;
-    tiles[85].value = 3;
-    tiles[85].next = 86;
-
-    tiles[86].label = "BK";
-    tiles[86].kind = TILE_BLACK;
-    tiles[86].value = 3;
-    tiles[86].next = 87;
-
-    tiles[87].label = "RET";
-    tiles[87].kind = TILE_RETIREMENT;
-    tiles[87].stop = true;
-    tiles[87].next = -1;
-
-    tiles[88].label = "RET";
-    tiles[88].kind = TILE_RETIREMENT;
-    tiles[88].stop = true;
-    tiles[88].next = -1;
+    return tiles.at(static_cast<std::size_t>(id));
 }
 
 bool Board::isStopSpace(const Tile& tile) const {
-    return tile.stop;
+    return tile.kind != TILE_EMPTY;
 }
 
 std::string Board::regionNameForTile(int tileIndex) const {
-    for (std::size_t i = 0; i < regions.size(); ++i) {
-        if (tileIndex >= regions[i].startTileIndex && tileIndex <= regions[i].endTileIndex) {
-            return regions[i].name;
-        }
+    const Tile& tile = tileAt(tileIndex);
+    switch (tile.kind) {
+        case TILE_START:
+            return "Start";
+        case TILE_COLLEGE:
+        case TILE_GRADUATION:
+            return "College";
+        case TILE_CAREER:
+        case TILE_CAREER_2:
+            return "Career";
+        case TILE_MARRIAGE:
+            return "Marriage";
+        case TILE_FAMILY:
+            return "Family";
+        case TILE_SAFE:
+            return "Safe";
+        case TILE_RISKY:
+            return "Risk";
+        case TILE_RETIREMENT:
+            return "Retirement";
+        case TILE_BLACK:
+            return "Black Tile";
+        case TILE_EMPTY:
+        default:
+            return "Open Trail";
     }
-    return "Open Road";
 }
 
 std::vector<std::string> Board::tutorialLegend() const {
-    std::vector<std::string> lines;
-    lines.push_back("[" + getTileBoardSymbol(tileAt(10)) + "] " + getTileDisplayName(tileAt(10)));
-    lines.push_back("[" + getTileBoardSymbol(tileAt(12)) + "] " + getTileDisplayName(tileAt(12)));
-    lines.push_back("[" + getTileBoardSymbol(tileAt(13)) + "] " + getTileDisplayName(tileAt(13)));
-    lines.push_back("[" + getTileBoardSymbol(tileAt(25)) + "] " + getTileDisplayName(tileAt(25)));
-    lines.push_back("[" + getTileBoardSymbol(tileAt(20)) + "] " + getTileDisplayName(tileAt(20)));
-    lines.push_back("[" + getTileBoardSymbol(tileAt(39)) + "] " + getTileDisplayName(tileAt(39)));
-    lines.push_back("[" + getTileBoardSymbol(tileAt(84)) + "] " + getTileDisplayName(tileAt(84)));
-    lines.push_back("[" + getTileBoardSymbol(tileAt(68)) + "] " + getTileDisplayName(tileAt(68)));
-    lines.push_back("[" + getTileBoardSymbol(tileAt(83)) + "] " + getTileDisplayName(tileAt(83)));
-    lines.push_back("[" + getTileBoardSymbol(tileAt(0)) + "] " + getTileDisplayName(tileAt(0)));
-    lines.push_back("[2P] Multiple players on one tile");
-    return lines;
+    return std::vector<std::string>{
+        "START: begin here and collect $10,000.",
+        "COLLEGE: pay $10,000 tuition and take a $20,000 loan.",
+        "CAREER: start working with a $3,000 salary.",
+        "GRADUATION: upgrade to a better $6,000-$8,000 job.",
+        "MARRIAGE: pay $5,000 and gain a spouse.",
+        "FAMILY: gain 1 kid and pay $2,000 per kid.",
+        "WORK: salary promotion worth +$5,000.",
+        "SAFE: guaranteed +$3,000.",
+        "RISK: 50/50 for +$15,000 or -$10,000.",
+        "RETIREMENT: first player here ends the game.",
+        "c tiles: launch Pong, Minesweeper, or Spaceship Shooter.",
+        "Teetotum: spin 1-6, then choose a valid direction."
+    };
+}
+
+bool Board::isInsideGrid(int row, int col) const {
+    return row >= 0 && row < BOARD_GRID_ROWS && col >= 0 && col < BOARD_GRID_COLS;
+}
+
+int Board::tileIdAt(int row, int col) const {
+    return isInsideGrid(row, col) ? tileIdFor(row, col) : -1;
+}
+
+void Board::initTiles() {
+    tiles.clear();
+    tiles.resize(TILE_COUNT);
+    for (int row = 0; row < BOARD_GRID_ROWS; ++row) {
+        for (int col = 0; col < BOARD_GRID_COLS; ++col) {
+            const int id = tileIdFor(row, col);
+            Tile& tile = tiles[static_cast<std::size_t>(id)];
+            tile.id = id;
+            tile.y = row;
+            tile.x = col;
+            tile.label = "";
+            tile.kind = TILE_EMPTY;
+            tile.next = (id + 1 < TILE_COUNT) ? id + 1 : -1;
+            tile.altNext = -1;
+            tile.value = 0;
+            tile.stop = false;
+        }
+    }
+
+    auto setTile = [this](int row, int col, TileKind kind, const std::string& label, int value = 0) {
+        Tile& tile = tiles[static_cast<std::size_t>(tileIdFor(row, col))];
+        tile.kind = kind;
+        tile.label = label;
+        tile.value = value;
+        tile.stop = kind != TILE_EMPTY;
+    };
+
+    setTile(0, 10, TILE_RETIREMENT, "RETIRE", 0);
+    setTile(1, 6, TILE_SAFE, "SAFE", 3000);
+    setTile(1, 8, TILE_RISKY, "RISK", 0);
+    setTile(3, 4, TILE_FAMILY, "FAMILY", 2000);
+    setTile(3, 8, TILE_CAREER_2, "WORK", 5000);
+    setTile(6, 10, TILE_MARRIAGE, "MARRIAGE", 5000);
+    setTile(8, 4, TILE_GRADUATION, "GRAD", 0);
+    setTile(10, 0, TILE_START, "START", 10000);
+    setTile(10, 4, TILE_COLLEGE, "COLLEGE", 10000);
+    setTile(10, 8, TILE_CAREER, "CAREER", 3000);
+
+    for (std::size_t i = 0; i < kBlackTiles.size(); ++i) {
+        setTile(kBlackTiles[i].row, kBlackTiles[i].col, TILE_BLACK, "c", 1);
+    }
 }
 
 void Board::initRegions() {
     regions.clear();
-    regions.push_back({"Startup Street", 0, 12});
-    regions.push_back({"Career City", 13, 38});
-    regions.push_back({"Goldrush Valley", 39, 58});
-    regions.push_back({"Family Avenue", 59, 72});
-    regions.push_back({"Risky Road", 73, 86});
-    regions.push_back({"Retirement Ridge", 87, 88});
+    regions.push_back({"Opening", tileIdFor(0, 0), tileIdFor(3, 10)});
+    regions.push_back({"Middle Years", tileIdFor(4, 0), tileIdFor(7, 10)});
+    regions.push_back({"Late Game", tileIdFor(8, 0), tileIdFor(10, 10)});
 }
+
 void Board::render(WINDOW* boardWin,
                    const std::vector<Player>& players,
                    int focusPlayerIndex,
                    int highlightedTile,
                    bool hasColor,
-                   BoardViewMode viewMode) const {
+                   BoardViewMode /*viewMode*/) const {
+    if (!boardWin) {
+        return;
+    }
+
+    int height = 0;
+    int width = 0;
+    getmaxyx(boardWin, height, width);
     werase(boardWin);
     drawBoxSafe(boardWin);
 
-    if (players.empty()) {
-        mvwprintw(boardWin, 1, 2, "Board view unavailable.");
-        wrefresh(boardWin);
-        return;
+    if (hasColor) {
+        init_board_colors();
     }
 
-    const int focusIndex = std::max(0, std::min(focusPlayerIndex, static_cast<int>(players.size()) - 1));
-    const int centerTile = players[static_cast<std::size_t>(focusIndex)].tile;
-    const int focusTile = highlightedTile >= 0 ? highlightedTile : centerTile;
+    const int contentTop = 3;
+    const int contentBottomMargin = 2;
+    const int contentSideMargin = 2;
+    const int availableHeight = std::max(1, height - contentTop - contentBottomMargin);
+    const int availableWidth = std::max(1, width - (2 * contentSideMargin));
+    const std::pair<int, int> cellSize = chooseCellSize(availableHeight, availableWidth);
+    gCellH = cellSize.first;
+    gCellW = cellSize.second;
 
-    if (viewMode == BoardViewMode::ClassicFull) {
-        const int maxY = getmaxy(boardWin);
-        const int maxX = getmaxx(boardWin);
-        const std::string statusLine =
-            players[static_cast<std::size_t>(focusIndex)].name + " at Space " +
-            std::to_string(centerTile) + " - " + getTileDisplayName(tileAt(centerTile));
-
-        drawClassicBoardGrid(boardWin, hasColor);
-        drawClassicTreeGuides(boardWin, hasColor);
-        drawClassicRegions(boardWin, hasColor);
-        drawClassicLandmarks(boardWin, hasColor);
-        for (int i = 0; i < TILE_COUNT; ++i) {
-            drawClassicTile(boardWin, tiles[static_cast<std::size_t>(i)], hasColor);
-        }
-        for (int i = 0; i < TILE_COUNT; ++i) {
-            drawClassicTokens(boardWin, players, i, focusIndex, focusTile, hasColor);
-        }
-        if (maxY >= 31) {
-            const int statusY = std::min(maxY - 2, 28);
-            mvwprintw(boardWin,
-                      statusY,
-                      centeredX(1, maxX - 2, static_cast<int>(clipText(statusLine, maxX - 4).size())),
-                      "%s",
-                      clipText(statusLine, maxX - 4).c_str());
-        }
-        drawBoxSafe(boardWin);
-        wrefresh(boardWin);
-        return;
-    }
-
-    const Tile& center = tileAt(centerTile);
-    const int maxY = getmaxy(boardWin);
-    const int maxX = getmaxx(boardWin);
-
-    const std::string title =
-        " " + players[static_cast<std::size_t>(focusIndex)].name + "'s view ";
-    mvwprintw(boardWin, 1, 3, "%s", clipText(title, std::max(0, maxX - 6)).c_str());
-
-    const std::string statusLine =
-        players[static_cast<std::size_t>(focusIndex)].name + " at Space " +
-        std::to_string(centerTile) + " - " + getTileDisplayName(tileAt(centerTile));
-    mvwprintw(boardWin, 2, centeredX(1, maxX - 2, static_cast<int>(clipText(statusLine, maxX - 4).size())),
-              "%s", clipText(statusLine, maxX - 4).c_str());
-
-    const int viewportWidth = (VIEW_COLS * TILE_W) + ((VIEW_COLS - 1) * TILE_GAP_X) + 2;
-    const int viewportHeight = (VIEW_ROWS * TILE_H) + ((VIEW_ROWS - 1) * TILE_GAP_Y) + 2;
-    const int viewportLeft = std::max(1, (maxX - viewportWidth) / 2);
-    const int viewportTop = 4;
-    const int viewportBottom = std::min(maxY - 2, viewportTop + viewportHeight - 1);
+    const int boardWidth = BOARD_COLS * gCellW + 1;
+    const int boardHeight = BOARD_ROWS * gCellH + 1;
+    const int startY = contentTop + std::max(0, (availableHeight - boardHeight) / 2);
+    const int startX = contentSideMargin + std::max(0, (availableWidth - boardWidth) / 2);
 
     if (hasColor) {
-        wattron(boardWin, COLOR_PAIR(8) | A_BOLD);
+        wattron(boardWin, COLOR_PAIR(GOLDRUSH_GOLD_SAND) | A_BOLD);
     }
-    drawBoxAtSafe(boardWin, viewportTop, viewportLeft, viewportBottom - viewportTop + 1, viewportWidth);
+    const std::string title = "G O L D R U S H";
+    safePrint(boardWin, 1, std::max(2, (width - static_cast<int>(title.size())) / 2), title);
     if (hasColor) {
-        wattroff(boardWin, COLOR_PAIR(8) | A_BOLD);
+        wattroff(boardWin, COLOR_PAIR(GOLDRUSH_GOLD_SAND) | A_BOLD);
     }
 
-    const int tileStartLeft = viewportLeft + 1;
-    const int tileStartTop = viewportTop + 1;
-    const int centerCol = center.x;
-    const int centerRow = center.y;
-    const std::vector<std::pair<int, int> > connections = boardConnections(tiles);
-    const std::set<int> reachable = reachableTiles(tiles);
-    const std::set<int> visibleTrail =
-        buildVisibleTrail(tiles, players[static_cast<std::size_t>(focusIndex)], focusTile);
+    fillRect(boardWin, startY, startX, boardHeight, boardWidth, PAIR_TILE_BLACK_BG);
+    drawContinuousGrid(boardWin, startY, startX, BOARD_ROWS, BOARD_COLS, gCellH, gCellW, GOLDRUSH_GOLD_SAND);
+    draw_board(boardWin, startY, startX);
 
-    for (std::size_t i = 0; i < connections.size(); ++i) {
-        if (reachable.count(connections[i].first) == 0 || reachable.count(connections[i].second) == 0) {
-            continue;
+    if (highlightedTile >= 0 && highlightedTile < TILE_COUNT) {
+        const Tile& tile = tileAt(highlightedTile);
+        const int y = startY + (game_to_screen_row(tile.y) * gCellH);
+        const int x = startX + (tile.x * gCellW);
+        if (hasColor) {
+            wattron(boardWin, COLOR_PAIR(GOLDRUSH_TILE_WHITE) | A_BOLD);
         }
-        if (visibleTrail.count(connections[i].first) == 0 || visibleTrail.count(connections[i].second) == 0) {
-            continue;
+        safeAddCh(boardWin, y, x, ACS_DIAMOND);
+        if (hasColor) {
+            wattroff(boardWin, COLOR_PAIR(GOLDRUSH_TILE_WHITE) | A_BOLD);
         }
-        const Tile& from = tiles[static_cast<std::size_t>(connections[i].first)];
-        const Tile& to = tiles[static_cast<std::size_t>(connections[i].second)];
-        const int fromDeltaCol = from.x - centerCol;
-        const int fromDeltaRow = from.y - centerRow;
-        const int toDeltaCol = to.x - centerCol;
-        const int toDeltaRow = to.y - centerRow;
-        if (fromDeltaCol < -2 || fromDeltaCol > 2 || fromDeltaRow < -1 || fromDeltaRow > 1 ||
-            toDeltaCol < -2 || toDeltaCol > 2 || toDeltaRow < -1 || toDeltaRow > 1) {
-            continue;
-        }
-
-        const int fromLeft = tileStartLeft + (fromDeltaCol + 2) * (TILE_W + TILE_GAP_X);
-        const int fromTop = tileStartTop + (fromDeltaRow + 1) * (TILE_H + TILE_GAP_Y);
-        const int toLeft = tileStartLeft + (toDeltaCol + 2) * (TILE_W + TILE_GAP_X);
-        const int toTop = tileStartTop + (toDeltaRow + 1) * (TILE_H + TILE_GAP_Y);
-        int startY = fromTop + (TILE_H / 2);
-        int startX = fromLeft + (TILE_W / 2);
-        int endY = toTop + (TILE_H / 2);
-        int endX = toLeft + (TILE_W / 2);
-
-        if (to.x > from.x) {
-            startX = fromLeft + TILE_W - 1;
-            endX = toLeft;
-        } else if (to.x < from.x) {
-            startX = fromLeft;
-            endX = toLeft + TILE_W - 1;
-        }
-
-        if (to.y > from.y) {
-            startY = fromTop + TILE_H - 1;
-            endY = toTop;
-        } else if (to.y < from.y) {
-            startY = fromTop;
-            endY = toTop + TILE_H - 1;
-        }
-
-        drawLineSegment(boardWin,
-                        startY,
-                        startX,
-                        endY,
-                        endX,
-                        hasColor,
-                        2,
-                        maxY,
-                        maxX);
     }
 
-    for (int i = 0; i < TILE_COUNT; ++i) {
-        if (reachable.count(i) == 0) {
+    std::map<std::pair<int, int>, std::vector<std::size_t> > occupantMap;
+    for (std::size_t i = 0; i < players.size(); ++i) {
+        if (players[i].tile < 0 || players[i].tile >= TILE_COUNT) {
             continue;
         }
-        if (visibleTrail.count(i) == 0) {
-            continue;
-        }
-        const Tile& tile = tiles[static_cast<std::size_t>(i)];
-        const int deltaCol = tile.x - centerCol;
-        const int deltaRow = tile.y - centerRow;
-        if (deltaCol < -2 || deltaCol > 2 || deltaRow < -1 || deltaRow > 1) {
+        const Tile& tile = tileAt(players[i].tile);
+        occupantMap[std::make_pair(tile.y, tile.x)].push_back(i);
+    }
+
+    for (std::map<std::pair<int, int>, std::vector<std::size_t> >::const_iterator it = occupantMap.begin();
+         it != occupantMap.end();
+         ++it) {
+        const int gameRow = it->first.first;
+        const int gameCol = it->first.second;
+        const std::vector<std::size_t>& indices = it->second;
+        if (indices.empty()) {
             continue;
         }
 
-        const int col = deltaCol + 2;
-        const int row = deltaRow + 1;
-        const int tileLeft = tileStartLeft + col * (TILE_W + TILE_GAP_X);
-        const int tileTop = tileStartTop + row * (TILE_H + TILE_GAP_Y);
-        drawTileBox(boardWin,
-                    tile,
-                    players,
-                    tileLeft,
-                    tileTop,
-                    i == focusTile,
-                    hasColor);
+        char marker = '@';
+        int markerPair = GOLDRUSH_TILE_WHITE;
+        if (indices.size() == 1U) {
+            const std::size_t playerIndex = indices.front();
+            marker = players[playerIndex].token;
+            markerPair = static_cast<int>(playerIndex) == focusPlayerIndex ? GOLDRUSH_TILE_WHITE :
+                (players[playerIndex].token == 'J' ? GOLDRUSH_PLAYER_TWO : GOLDRUSH_PLAYER_ONE);
+        }
+        drawCenteredMarker(boardWin, gameRow, gameCol, startY, startX, marker, markerPair);
     }
 
     wrefresh(boardWin);

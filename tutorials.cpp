@@ -136,13 +136,19 @@ std::vector<std::string> tutorialLines(TutorialTopic topic) {
 void showPagedGuide(const std::string& title,
                     const std::vector<std::vector<std::string> >& pages,
                     bool hasColor) {
-    WINDOW* popup = centeredPopup(20, 84);
-    if (!popup) {
-        return;
-    }
     const int pageCount = std::max(1, static_cast<int>(pages.size()));
 
     for (int page = 0; page < pageCount;) {
+        if (hasColor) {
+            bkgd(COLOR_PAIR(GOLDRUSH_GOLD_BLACK));
+        }
+        clear();
+        refresh();
+
+        WINDOW* popup = centeredPopup(20, 84);
+        if (!popup) {
+            return;
+        }
         int height = 0;
         int width = 0;
         getmaxyx(popup, height, width);
@@ -171,6 +177,10 @@ void showPagedGuide(const std::string& title,
                   clipUiText("ENTER next  ESC back", static_cast<std::size_t>(std::max(1, width - 4))).c_str());
         wrefresh(popup);
         const int ch = wgetch(popup);
+        delwin(popup);
+        if (ch == KEY_RESIZE) {
+            continue;
+        }
         if (isCancelKey(ch)) {
             break;
         }
@@ -179,7 +189,6 @@ void showPagedGuide(const std::string& title,
         }
     }
 
-    delwin(popup);
     touchwin(stdscr);
     refresh();
 }

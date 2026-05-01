@@ -5,16 +5,16 @@
 #include <ncurses.h>
 
 namespace {
-const int FULL_HEADER_HEIGHT = 9;
-const int FULL_BOARD_WIDTH = 82;
-const int FULL_BOARD_HEIGHT = 31;
+const int FULL_HEADER_HEIGHT = 4;
+const int FULL_BOARD_WIDTH = 94;
+const int FULL_BOARD_HEIGHT = 49;
 const int FULL_SIDE_PANEL_WIDTH = 42;
-const int FULL_MESSAGE_HEIGHT = 6;
+const int FULL_MESSAGE_HEIGHT = 5;
 
 const int COMPACT_HEADER_HEIGHT = 4;
-const int COMPACT_BOARD_WIDTH = 82;
-const int COMPACT_BOARD_HEIGHT = 29;
-const int COMPACT_SIDE_PANEL_WIDTH = 34;
+const int COMPACT_BOARD_WIDTH = 94;
+const int COMPACT_BOARD_HEIGHT = 49;
+const int COMPACT_SIDE_PANEL_WIDTH = 42;
 const int COMPACT_MESSAGE_HEIGHT = 5;
 }
 
@@ -42,9 +42,9 @@ UILayout calculateUILayout(int termHeight, int termWidth) {
 }
 
 int minimumGameWidth() {
-    return 124;
+    return FULL_BOARD_WIDTH + FULL_SIDE_PANEL_WIDTH;
 }
 
 int minimumGameHeight() {
-    return 45;
+    return FULL_HEADER_HEIGHT + FULL_BOARD_HEIGHT + FULL_MESSAGE_HEIGHT;
 }

@@ -174,7 +174,7 @@ private:
     void maybeAwardSpinToWin(Player& player, int spinnerValue);
     void maybeAwardPetCard(Player& player, const std::string& reason);
     int chooseNextTile(Player& player, const Tile& tile);
-    bool animateMove(int currentPlayer, int steps);
+    bool animateMove(int currentPlayer, int deltaRow, int deltaCol, int steps);
     void takeMovementSpin(int currentPlayer, const std::string& reason);
     bool allPlayersRetired() const;
     void finalizeScoring();

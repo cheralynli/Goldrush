@@ -6,7 +6,16 @@
 
 #include "player.hpp"
 
-static const int TILE_COUNT = 89;
+#define BOARD_ROWS 11
+#define BOARD_COLS 11
+#define CELL_H 5
+#define CELL_W 10
+#define INNER_MARGIN_Y 1
+#define INNER_MARGIN_X 2
+
+static const int BOARD_GRID_COLS = BOARD_COLS;
+static const int BOARD_GRID_ROWS = BOARD_ROWS;
+static const int TILE_COUNT = BOARD_GRID_COLS * BOARD_GRID_ROWS;
 
 enum TileKind {
     TILE_EMPTY,
@@ -57,6 +66,14 @@ enum class BoardViewMode {
 std::string boardViewModeName(BoardViewMode mode);
 BoardViewMode boardViewModeFromName(const std::string& name);
 
+// Standalone renderer helpers. These are intentionally simple so they can be
+// called directly from an ncurses game loop without pulling in board logic.
+void init_board_colors();
+int game_to_screen_row(int game_row);
+void draw_tile(WINDOW *win, int screen_row, int screen_col, int tile_type, int start_y, int start_x);
+void draw_board(WINDOW *win, int start_y, int start_x);
+void draw_player(WINDOW *win, int game_row, int game_col, int start_y, int start_x);
+
 class Board {
 public:
     Board();
@@ -70,7 +87,10 @@ public:
                 int focusPlayerIndex,
                 int highlightedTile,
                 bool hasColor,
-                BoardViewMode viewMode = BoardViewMode::FollowCamera) const;
+                BoardViewMode viewMode = BoardViewMode::ClassicFull) const;
+
+    bool isInsideGrid(int row, int col) const;
+    int tileIdAt(int row, int col) const;
 
 private:
     std::vector<Tile> tiles;
