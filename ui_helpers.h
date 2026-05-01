@@ -108,3 +108,65 @@ void showDecisionPopup(const std::string& playerName,
 //Relation: used in showPopupMessage to ensure text fits in popup windows
 std::string clipUiText(const std::string& text, std::size_t width);
 std::vector<std::string> wrapUiText(const std::string& text, std::size_t width);
+
+
+// Safe drawing functions with bounds checking
+bool is_valid_draw_position(WINDOW* win, int y, int x);
+
+// Safe version of mvwprintw that checks bounds before drawing
+void safe_mvwprintw(WINDOW* win, int y, int x, const char* fmt, ...);
+
+// Safe version of mvwaddch that checks bounds before drawing
+void safe_mvwaddch(WINDOW* win, int y, int x, chtype ch);
+
+// Safe version of mvwaddstr that checks bounds
+void safe_mvwaddstr(WINDOW* win, int y, int x, const char* str);
+
+// Draw a character with bounds checking
+void safe_addch(WINDOW* win, int y, int x, chtype ch);
+
+// Macro version that clips coordinates (safer than ignoring)
+#define CLIPPED_MVWPRINTW(win, y, x, ...) \
+    do { \
+        WINDOW* _win = (win); \
+        int _y = (y); \
+        int _x = (x); \
+        int _max_y = getmaxy(_win); \
+        int _max_x = getmaxx(_win); \
+        if (_y >= _max_y) _y = _max_y - 1; \
+        if (_y < 0) _y = 0; \
+        if (_x >= _max_x) _x = _max_x - 1; \
+        if (_x < 0) _x = 0; \
+        mvwprintw(_win, _y, _x, __VA_ARGS__); \
+    } while(0)
+
+// Debug version that logs out-of-bounds (for development)
+#ifdef DEBUG
+#define DBG_MVWPRINTW(win, y, x, ...) \
+    do { \
+        WINDOW* _win = (win); \
+        int _y = (y); \
+        int _x = (x); \
+        int _max_y = getmaxy(_win); \
+        int _max_x = getmaxx(_win); \
+        if (_y < 0 || _y >= _max_y || _x < 0 || _x >= _max_x) { \
+            fprintf(stderr, "WARNING: out of bounds! y=%d (0-%d), x=%d (0-%d)\n", \
+                    _y, _max_y-1, _x, _max_x-1); \
+        } else { \
+            mvwprintw(_win, _y, _x, __VA_ARGS__); \
+        } \
+    } while(0)
+#else
+#define DBG_MVWPRINTW(win, y, x, ...) mvwprintw(win, y, x, __VA_ARGS__)
+#endif
+
+// Get the content area inside a bordered box
+struct BoxContentArea {
+    int startY;
+    int startX;
+    int height;
+    int width;
+};
+
+BoxContentArea getBoxContentArea(WINDOW* win);
+

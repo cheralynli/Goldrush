@@ -630,34 +630,30 @@ void debugCPUDecision() {
 void debugMinigames() {
     while (true) {
         std::cout << "\n===== MINIGAME DEBUG MENU =====\n"
-                  << "1. Test memory minigame\n"
-                  << "2. Test math minigame\n"
-                  << "3. Test reaction minigame\n"
-                  << "4. Test luck-based minigame\n"
-                  << "5. Test hangman minigame\n"
-                  << "6. Test battleship minigame\n"
-                  << "7. Return to main debug menu\n";
+                  << "1. Test Pong\n"
+                  << "2. Test Battleship\n"
+                  << "3. Test Hangman\n"
+                  << "4. Test Memory Match\n"
+                  << "5. Test Minesweeper\n"
+                  << "6. Return to main debug menu\n";
 
-        const int choice = readMenuChoice(1, 7);
+        const int choice = readMenuChoice(1, 6);
         if (choice == 1) {
-            runCursesMemory();
-            pauseForEnter();
-        } else if (choice == 2) {
-            debugMathMinigameStub();
-            pauseForEnter();
-        } else if (choice == 3) {
             runCursesPong();
             pauseForEnter();
-        } else if (choice == 4) {
-            runCursesMinesweeper();
-            pauseForEnter();
-        } else if (choice == 5) {
-            runCursesHangman();
-            pauseForEnter();
-        } else if (choice == 6) {
+        } else if (choice == 2) {
             runCursesBattleship();
             pauseForEnter();
-        } else if (choice == 7) {
+        } else if (choice == 3) {
+            runCursesHangman();
+            pauseForEnter();
+        } else if (choice == 4) {
+            runCursesMemory();
+            pauseForEnter();
+        } else if (choice == 5) {
+            runCursesMinesweeper();
+            pauseForEnter();
+        } else if (choice == 6) {
             return;
         }
     }
@@ -1730,6 +1726,98 @@ void debugGameSettingsMenu() {
     }
 }
 
+void debugEndScreen() {
+    // Build fake players with varied stats to test the breakdown display
+    RuleSet rules = makeNormalRules();
+    Bank bank(rules);
+
+    Player p1 = makeDebugPlayer("Alice", 0);
+    p1.cash = 120000;
+    p1.houseValue = 200000;
+    p1.finalHouseSaleValue = 250000;
+    p1.actionCards = {"Bonus Payday", "Stock Options"};
+    p1.petCards = {"Dog"};
+    p1.kids = 3;
+    p1.retirementBonus = 50000;
+    p1.loans = 2;   // will affect totalLoanDebt
+
+    Player p2 = makeDebugPlayer("Bob", 1);
+    p2.cash = 300000;
+    p2.houseValue = 100000;
+    p2.finalHouseSaleValue = 0;
+    p2.actionCards = {};
+    p2.petCards = {};
+    p2.kids = 0;
+    p2.retirementBonus = 20000;
+    p2.loans = 0;
+
+    Player p3 = makeDebugPlayer("CPU Easy", 2);
+    p3.type = PlayerType::CPU;
+    p3.cpuDifficulty = CpuDifficulty::Easy;
+    p3.cash = 60000;
+    p3.houseValue = 150000;
+    p3.kids = 1;
+    p3.retirementBonus = 0;
+    p3.loans = 4;
+
+    std::vector<Player> players = {p1, p2, p3};
+
+    // Replicate calculateFinalWorth inline (since it's a private Game method)
+    auto calcWorth = [&](const Player& p) {
+        int worth = p.cash;
+        worth += p.finalHouseSaleValue > 0 ? p.finalHouseSaleValue : p.houseValue;
+        worth += static_cast<int>(p.actionCards.size()) * 100000;
+        worth += static_cast<int>(p.petCards.size()) * 100000;
+        worth += p.kids * 50000;
+        worth += p.retirementBonus;
+        worth -= bank.totalLoanDebt(p);
+        return worth;
+    };
+
+    // Find winner
+    int winner = 0;
+    int best = calcWorth(players[0]);
+    for (std::size_t i = 1; i < players.size(); ++i) {
+        int worth = calcWorth(players[i]);
+        if (worth > best) { best = worth; winner = static_cast<int>(i); }
+    }
+
+    // Ranked order
+    std::vector<std::size_t> ranked = {0, 1, 2};
+    std::sort(ranked.begin(), ranked.end(), [&](std::size_t a, std::size_t b) {
+        return calcWorth(players[a]) > calcWorth(players[b]);
+    });
+
+    // Build the lines (mirrors what you'll put in game.cpp)
+    std::vector<std::string> endgameLines;
+    endgameLines.push_back(players[winner].name + " wins with $" + std::to_string(best) + ".");
+    endgameLines.push_back("");
+    const char* medals[] = {"1st", "2nd", "3rd", "4th"};
+    for (std::size_t rank = 0; rank < ranked.size(); ++rank) {
+        const Player& p = players[ranked[rank]];
+        const int house     = p.finalHouseSaleValue > 0 ? p.finalHouseSaleValue : p.houseValue;
+        const int actions   = static_cast<int>(p.actionCards.size()) * 100000;
+        const int pets      = static_cast<int>(p.petCards.size()) * 100000;
+        const int family    = p.kids * 50000;
+        const int loans     = bank.totalLoanDebt(p);
+        endgameLines.push_back(std::string(medals[rank]) + " " + p.name +
+                               "  TOTAL: $" + std::to_string(calcWorth(p)));
+        endgameLines.push_back("  Cash $" + std::to_string(p.cash) +
+                               "  House $" + std::to_string(house) +
+                               "  Actions $" + std::to_string(actions));
+        endgameLines.push_back("  Pets $" + std::to_string(pets) +
+                               "  Family $" + std::to_string(family) +
+                               "  Retire $" + std::to_string(p.retirementBonus));
+        endgameLines.push_back("  Loans -$" + std::to_string(loans));
+        endgameLines.push_back("");
+    }
+    endgameLines.push_back("Press ENTER to return to the main menu.");
+
+    initialize_game_ui();
+    showPopupMessage("Player " + std::to_string(winner + 1) + " Wins!", endgameLines, has_colors(), false);
+    destroy_game_ui();
+}
+
 void runDebugMenu() {
     while (true) {
         std::cout << "\n===== DEBUG MENU =====\n"
@@ -1745,9 +1833,10 @@ void runDebugMenu() {
                   << "10. Test board UI features\n"
                   << "11. Test playtest fixes\n"
                   << "12. Test game settings\n"
-                  << "13. Exit\n";
+                  << "13. Test endgame screen\n"
+                  << "14. Exit\n";
 
-        const int choice = readMenuChoice(1, 13);
+        const int choice = readMenuChoice(1, 14);
         switch (choice) {
             case 1:
                 debugDiceRoll();
@@ -1786,6 +1875,9 @@ void runDebugMenu() {
                 debugGameSettingsMenu();
                 break;
             case 13:
+                debugEndScreen();
+                break;
+            case 14:
                 std::cout << "Exiting debug menu.\n";
                 return;
             default:

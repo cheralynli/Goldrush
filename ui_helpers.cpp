@@ -21,6 +21,11 @@ void drawSolidText(WINDOW* win,
                    bool hasColor,
                    int colorPair,
                    int attrs) {
+    // Check bounds first
+    if (!is_valid_draw_position(win, y, x)) {
+        return;
+    }
+
     if (hasColor) {
         wattron(win, COLOR_PAIR(colorPair) | attrs);
     } else {
@@ -42,7 +47,10 @@ void clearTextArea(WINDOW* win, int y, int x, int width) {
     if (width <= 0) {
         return;
     }
-    mvwprintw(win, y, x, "%-*s", width, "");
+    if (!is_valid_draw_position(win, y, x)) {
+        return;
+    }
+    safe_mvwprintw(win, y, x, "%-*s", width, "");
 }
 
 //Input: string text
@@ -97,7 +105,7 @@ void showTerminalSizeWarning(int minHeight, int minWidth, bool hasColor, bool wa
     for (std::size_t i = 0; i < lines.size(); ++i) {
         const int x = std::max(0, (w - static_cast<int>(lines[i].size())) / 2);
         if (startY + static_cast<int>(i) >= 0 && startY + static_cast<int>(i) < h) {
-            mvprintw(startY + static_cast<int>(i), x, "%s", lines[i].c_str());
+            safe_mvwprintw(stdscr, startY + static_cast<int>(i), x, "%s", lines[i].c_str());
         }
     }
     refresh();
@@ -188,7 +196,7 @@ void waitForEnterPrompt(WINDOW* win, int y, int x, const std::string& message) {
         return;
     }
     if (!message.empty()) {
-        mvwprintw(win, y, x, "%s", message.c_str());
+        safe_mvwprintw(win, y, x, "%s", message.c_str());
         wrefresh(win);
     }
 
@@ -349,7 +357,7 @@ void showPopupMessage(const std::string& title,
         wrapped.insert(wrapped.end(), part.begin(), part.end());
     }
 
-    int popupH = std::min(std::max(10, static_cast<int>(wrapped.size()) + 6), h - 2);
+    int popupH = std::min(std::max(12, static_cast<int>(wrapped.size()) + 8), h - 2);
     WINDOW* popup = createCenteredWindow(popupH, popupW, 8, 32);
     if (!popup) {
         showTerminalSizeWarning(8, 32, hasColor, !autoAdvance);
@@ -370,8 +378,8 @@ void showPopupMessage(const std::string& title,
     drawBoxSafe(popup);
 
     blinkIndicator(popup,
-                   1,
                    2,
+                   3,
                    clipUiText(title, static_cast<std::size_t>(actualContentW)),
                    hasColor,
                    GOLDRUSH_GOLD_SAND,
@@ -381,19 +389,19 @@ void showPopupMessage(const std::string& title,
 
     const int maxLines = popupH - 5;
     for (int i = 0; i < maxLines && i < static_cast<int>(wrapped.size()); ++i) {
-        mvwprintw(popup, 3 + i, 2, "%s", clipUiText(wrapped[static_cast<std::size_t>(i)],
+        mvwprintw(popup, 4 + i, 3, "%s", clipUiText(wrapped[static_cast<std::size_t>(i)],
                                                      static_cast<std::size_t>(actualContentW)).c_str());
     }
 
     if (autoAdvance) {
-        mvwprintw(popup, popupH - 2, 2, "%s",
+        mvwprintw(popup, popupH - 3, 3, "%s",
                   clipUiText("Continuing...", static_cast<std::size_t>(actualContentW)).c_str());
         wrefresh(popup);
         napms(2000);
     } else {
         waitForEnterPrompt(popup,
-                           popupH - 2,
-                           2,
+                           popupH - 3,
+                           3,
                            clipUiText("Press ENTER or ESC to continue...",
                                       static_cast<std::size_t>(actualContentW)));
     }
@@ -417,4 +425,51 @@ void showDecisionPopup(const std::string& playerName,
     lines.push_back("");
     lines.push_back(explanation);
     showPopupMessage("Decision Confirmed", lines, hasColor, autoAdvance);
+}
+
+
+// ============================================
+// Safe drawing functions with bounds checking
+// ============================================
+
+bool is_valid_draw_position(WINDOW* win, int y, int x) {
+    if (!win) return false;
+    int max_y = getmaxy(win);
+    int max_x = getmaxx(win);
+    return (y >= 0 && y < max_y && x >= 0 && x < max_x);
+}
+
+void safe_mvwprintw(WINDOW* win, int y, int x, const char* fmt, ...) {
+    if (!win || !fmt) return;
+    
+    // Check bounds before drawing
+    if (!is_valid_draw_position(win, y, x)) {
+        // Silently ignore - don't crash
+        return;
+    }
+    
+    va_list args;
+    va_start(args, fmt);
+    vw_printw(win, fmt, args);
+    va_end(args);
+}
+
+void safe_mvwaddch(WINDOW* win, int y, int x, chtype ch) {
+    if (!win) return;
+    if (!is_valid_draw_position(win, y, x)) {
+        return;
+    }
+    mvwaddch(win, y, x, ch);
+}
+
+void safe_mvwaddstr(WINDOW* win, int y, int x, const char* str) {
+    if (!win || !str) return;
+    if (!is_valid_draw_position(win, y, x)) {
+        return;
+    }
+    mvwaddstr(win, y, x, str);
+}
+
+void safe_addch(WINDOW* win, int y, int x, chtype ch) {
+    safe_mvwaddch(win, y, x, ch);
 }

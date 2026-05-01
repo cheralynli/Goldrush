@@ -80,7 +80,7 @@ private:
 
     bool isTerminalSizeValid() const;
     bool ensureMinSize() const;
-    bool recoverTerminalLayout(int currentPlayer, const std::string& msg, const std::string& detail);
+
     void createWindows();
     void destroyWindows();
     void waitForEnter(WINDOW* w, int y, int x, const std::string& text) const;
@@ -95,6 +95,8 @@ private:
     bool chooseSaveFileToLoad(SaveFileInfo& selected);
     bool saveCurrentGame();
     bool loadSavedGame();
+    bool windowsValid; //member variable to track if windows are currently created, to avoid unnecessary create/destroy calls
+    bool recoverTerminalLayout(int currentPlayer, const std::string& msg, const std::string& detail);
 
     StartChoice showStartScreen();
     bool chooseBoardViewMode();

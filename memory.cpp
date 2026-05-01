@@ -246,6 +246,7 @@ MemoryMatchResult playMemoryMatchMinigame(const std::string& playerName, bool ha
         gridStartX = arenaLeft + (arenaWidth - TOTAL_GRID_WIDTH) / 2;
         
         if (memorizationPhase) {
+            // Draw the grid with all cards revealed for memorization
             for (int row = 0; row < GRID_SIZE; ++row) {
                 for (int col = 0; col < GRID_SIZE; ++col) {
                     int idx = row * GRID_SIZE + col;
@@ -255,18 +256,50 @@ MemoryMatchResult playMemoryMatchMinigame(const std::string& playerName, bool ha
                 }
             }
             
-            const int remaining = std::max(0, 5 - static_cast<int>(std::time(nullptr) - memorizationStart));
-            const std::string timer = countdownTimerText(remaining);
-            mvwprintw(overlay, arenaBottom - 4, (screenW - 30) / 2,
-                      "Memorize the positions!");
-            drawCountdownTimer(overlay,
-                               arenaBottom - 3,
-                               (screenW - static_cast<int>(timer.size())) / 2,
-                               remaining,
-                               hasColor);
+            // Show countdown timer below help text, above grid
+            int remaining = 5 - static_cast<int>(std::time(nullptr) - memorizationStart);
+            
+            if (remaining > 0) {
+                const std::string timerMsg = "Memorize: " + std::to_string(remaining);
+                int countdownX = arenaLeft + (arenaWidth - static_cast<int>(timerMsg.size())) / 2;
+                int countdownY = arenaTop + 3;
+                
+                wattron(overlay, COLOR_PAIR(GOLDRUSH_GOLD_SAND) | A_BOLD);
+                mvwprintw(overlay, countdownY, countdownX, "%s", timerMsg.c_str());
+                wattroff(overlay, COLOR_PAIR(GOLDRUSH_GOLD_SAND) | A_BOLD);
+                
+                // Check for ESC key during countdown
+                nodelay(overlay, TRUE);
+                int ch = wgetch(overlay);
+                nodelay(overlay, FALSE);
+                
+                if (ch == 27 || isCancelKey(ch)) {
+                    // Show quit confirmation popup
+                    WINDOW* quitPopup = createCenteredWindow(8, 40, 6, 30);
+                    if (quitPopup) {
+                        drawBoxSafe(quitPopup);
+                        mvwprintw(quitPopup, 2, 5, "Quit Memory Match?");
+                        mvwprintw(quitPopup, 4, 5, "ENTER Yes    ESC No");
+                        wrefresh(quitPopup);
+                        
+                        int confirmCh = wgetch(quitPopup);
+                        delwin(quitPopup);
+                        touchwin(overlay);
+                        wrefresh(overlay);
+                        
+                        if (isConfirmKey(confirmCh)) {
+                            result.abandoned = true;
+                            break;
+                        }
+                        // If ESC or anything else, continue playing
+                        continue;
+                    }
+                }
+            }
+            
             wrefresh(overlay);
             
-            if (std::time(nullptr) - memorizationStart >= 5) {
+            if (remaining <= 0) {
                 memorizationPhase = false;
                 for (int i = 0; i < TOTAL_CELLS; ++i) {
                     if (!grid[i].matched) {
@@ -292,6 +325,14 @@ MemoryMatchResult playMemoryMatchMinigame(const std::string& playerName, bool ha
         wrefresh(overlay);
         
         int ch = wgetch(overlay);
+        // Resize handling here
+        if (ch == KEY_RESIZE) {
+            int newH, newW;
+            getmaxyx(stdscr, newH, newW);
+            wresize(overlay, newH, newW);
+            mvwin(overlay, 0, 0);
+            continue;  // Redraw on next iteration
+        }
         
         const InputAction action = getInputAction(ch, ControlScheme::SinglePlayer);
         if (action == InputAction::Cancel) {
@@ -388,6 +429,14 @@ MemoryMatchResult playMemoryMatchMinigame(const std::string& playerName, bool ha
             }
         }
     }
+
+    if (result.abandoned) {
+        // Cleanup and return
+        delwin(overlay);
+        touchwin(stdscr);
+        refresh();
+        return result;
+    }
     
     result.won = (result.pairsMatched == TOTAL_PAIRS);
     
@@ -410,11 +459,11 @@ MemoryMatchResult playMemoryMatchMinigame(const std::string& playerName, bool ha
     
     if (result.won) {
         if (hasColor) wattron(overlay, COLOR_PAIR(GOLDRUSH_BLACK_FOREST) | A_BOLD);
-        mvwprintw(overlay, screenH/2 - 1, (screenW - 50) / 2, "You matched all %d pairs!", TOTAL_PAIRS);
-        mvwprintw(overlay, screenH/2, (screenW - 46) / 2, "Lives remaining: %d  |  Earned $1000", result.livesRemaining);
+        mvwprintw(overlay, arenaTop + 8, arenaLeft + 5, "You matched all %d pairs!", TOTAL_PAIRS);
+        mvwprintw(overlay, arenaTop + 9, arenaLeft + 5, "Lives remaining: %d  |  Earned $1000", result.livesRemaining);
         blinkIndicator(overlay,
-                       screenH / 2 - 2,
-                       (screenW - 8) / 2,
+                       arenaTop + 6,
+                       arenaLeft + (arenaWidth - 8) / 2,
                        "VICTORY!",
                        hasColor,
                        GOLDRUSH_BLACK_FOREST,
@@ -423,14 +472,15 @@ MemoryMatchResult playMemoryMatchMinigame(const std::string& playerName, bool ha
                        8);
         if (hasColor) wattroff(overlay, COLOR_PAIR(GOLDRUSH_BLACK_FOREST) | A_BOLD);
     } else if (result.abandoned) {
-        mvwprintw(overlay, screenH/2 - 1, (screenW - 30) / 2, "Game abandoned.");
+        mvwprintw(overlay, arenaTop + 8, arenaLeft + 5, "Game abandoned.");
     } else {
         if (hasColor) wattron(overlay, COLOR_PAIR(GOLDRUSH_GOLD_TERRA) | A_BOLD);
-        mvwprintw(overlay, screenH/2 - 1, (screenW - 45) / 2, "You ran out of lives!");
-        mvwprintw(overlay, screenH/2, (screenW - 46) / 2, "Pairs matched: %d/8  |  Earned $%d", result.pairsMatched, result.pairsMatched * 100);
+        mvwprintw(overlay, arenaTop + 8, arenaLeft + 5, "You ran out of lives!");
+        mvwprintw(overlay, arenaTop + 9, arenaLeft + 5, "Pairs matched: %d/8  |  Earned $%d", 
+                  result.pairsMatched, result.pairsMatched * 100);
         blinkIndicator(overlay,
-                       screenH / 2 - 2,
-                       (screenW - 10) / 2,
+                       arenaTop + 6,
+                       arenaLeft + (arenaWidth - 10) / 2,
                        "GAME OVER!",
                        hasColor,
                        GOLDRUSH_GOLD_TERRA,
@@ -440,7 +490,7 @@ MemoryMatchResult playMemoryMatchMinigame(const std::string& playerName, bool ha
         if (hasColor) wattroff(overlay, COLOR_PAIR(GOLDRUSH_GOLD_TERRA) | A_BOLD);
     }
     
-    mvwprintw(overlay, screenH/2 + 2, (screenW - 34) / 2, "Press ENTER or ESC to continue.");
+    mvwprintw(overlay, arenaTop + 11, arenaLeft + 5, "Press ENTER or ESC to continue.");
     wrefresh(overlay);
     waitForConfirmOrCancel(overlay);
     

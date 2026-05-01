@@ -1035,7 +1035,7 @@ void draw_message_ui(WINDOW* msgWin, const std::string& line1, const std::string
     drawBoxSafe(msgWin);
 
     wattron(msgWin, COLOR_PAIR(GOLDRUSH_GOLD_SAND) | A_BOLD);
-    mvwprintw(msgWin, 1, 2, "%s",
+    mvwprintw(msgWin, 2, 3, "%s",
               clipPanelText(line1, static_cast<std::size_t>(std::max(8, width - 4))).c_str());
     wattroff(msgWin, COLOR_PAIR(GOLDRUSH_GOLD_SAND) | A_BOLD);
 
@@ -1044,7 +1044,7 @@ void draw_message_ui(WINDOW* msgWin, const std::string& line1, const std::string
     const int maxLines = std::min(std::max(0, height - 4), static_cast<int>(lines.size()));
     wattron(msgWin, COLOR_PAIR(GOLDRUSH_BROWN_CREAM));
     for (int i = 0; i < maxLines; ++i) {
-        mvwprintw(msgWin, 2 + i, 2, "%s", lines[static_cast<std::size_t>(i)].c_str());
+        mvwprintw(msgWin, 3 + i, 3, "%s", lines[static_cast<std::size_t>(i)].c_str());
     }
     wattroff(msgWin, COLOR_PAIR(GOLDRUSH_BROWN_CREAM));
     wrefresh(msgWin);

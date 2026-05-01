@@ -174,6 +174,12 @@ BattleshipMinigameResult playBattleshipMinigame(const std::string& playerName, b
                          "Each ship destroyed pays $100. Ammo is limited.",
                          hasColor);
 
+    const int enemySpacingX = 7;
+    const int enemySpacingY = 3;
+    const int enemyRows = 2;
+    const int enemyCols = 5;
+    const int maxShips = enemyRows * enemyCols;                         
+
     int screenH = 0;
     int screenW = 0;
     getmaxyx(stdscr, screenH, screenW);
@@ -193,34 +199,23 @@ BattleshipMinigameResult playBattleshipMinigame(const std::string& playerName, b
     nodelay(overlay, TRUE);
     wbkgd(overlay, COLOR_PAIR(GOLDRUSH_GOLD_BLACK));
 
-    const int arenaWidth = 86;
-    const int arenaHeight = 28;
-    const int arenaLeft = (screenW - arenaWidth) / 2;
-    const int arenaTop = 9;
-    const int arenaRight = arenaLeft + arenaWidth - 1;
-    const int arenaBottom = arenaTop + arenaHeight - 1;
-    const int playerY = arenaBottom - 3;
-    const int enemyTopY = arenaTop + 4;
-    const int enemySpacingX = 7;
-    const int enemySpacingY = 3;
-    const int enemyRows = 2;
-    const int enemyCols = 5;
-    const int maxShips = enemyRows * enemyCols;
-
     std::vector<EnemyShip> enemies;
-    enemies.reserve(static_cast<std::size_t>(maxShips));
-    const int formationStartX = arenaLeft + 12;
-    for (int row = 0; row < enemyRows; ++row) {
-        for (int col = 0; col < enemyCols; ++col) {
-            EnemyShip ship;
-            ship.x = formationStartX + (col * enemySpacingX);
-            ship.y = enemyTopY + (row * enemySpacingY);
-            ship.alive = true;
-            enemies.push_back(ship);
-        }
-    }
+    //enemies.reserve(static_cast<std::size_t>(maxShips));
+    //const int formationStartX = arenaLeft + 12;
+    //for (int row = 0; row < enemyRows; ++row) {
+    //    for (int col = 0; col < enemyCols; ++col) {
+    //        EnemyShip ship;
+    //        ship.x = formationStartX + (col * enemySpacingX);
+    //        ship.y = enemyTopY + (row * enemySpacingY);
+    //        ship.alive = true;
+    //        enemies.push_back(ship);
+    //    }
+    //}
 
-    int playerX = arenaLeft + arenaWidth / 2;
+    //int playerX = arenaLeft + arenaWidth / 2;
+
+    int playerX = 0; // Will be initialized in the loop after calculating arena dimensions
+    
     int formationOffsetX = 0;
     int formationDirection = 1;
     int frameCounter = 0;
@@ -235,9 +230,47 @@ BattleshipMinigameResult playBattleshipMinigame(const std::string& playerName, b
     std::vector<Shot> playerShots;
     std::vector<Shot> enemyShots;
 
-    while (true) {
-        werase(overlay);
+    bool initialized = false;
 
+    while (true) {
+        int screenH, screenW;
+        getmaxyx(stdscr, screenH, screenW);
+
+        const int arenaWidth = 86;
+        const int arenaHeight = 28;
+        const int arenaLeft = (screenW - arenaWidth) / 2;
+        const int arenaTop = 9;
+        const int arenaRight = arenaLeft + arenaWidth - 1;
+        const int arenaBottom = arenaTop + arenaHeight - 1;
+        const int playerY = arenaBottom - 3;
+        const int enemyTopY = arenaTop + 4;
+
+        if (!initialized) {
+            // Initialize enemies and playerX here
+            const int formationStartX = arenaLeft + 12;
+            enemies.clear();
+            enemies.reserve(static_cast<std::size_t>(maxShips));
+            for (int row = 0; row < enemyRows; ++row) {
+                for (int col = 0; col < enemyCols; ++col) {
+                    EnemyShip ship;
+                    ship.x = formationStartX + (col * enemySpacingX);
+                    ship.y = enemyTopY + (row * enemySpacingY);
+                    ship.alive = true;
+                    enemies.push_back(ship);
+                }
+            }
+            playerX = arenaLeft + arenaWidth / 2;
+            initialized = true;
+        }
+
+        // Then clamp player position:
+        playerX = clampInt(playerX, arenaLeft + 2, arenaRight - 4);
+
+        // Resize overlay window to fill new screen size
+        wresize(overlay, screenH, screenW);
+        mvwin(overlay, 0, 0);
+
+        werase(overlay);
         drawAsciiTitle(overlay, screenW, hasColor);
 
         const std::string statusLine =
@@ -320,6 +353,14 @@ BattleshipMinigameResult playBattleshipMinigame(const std::string& playerName, b
         wrefresh(overlay);
 
         int ch = wgetch(overlay);
+        // Resize handling here
+        if (ch == KEY_RESIZE) {
+            int newH, newW;
+            getmaxyx(stdscr, newH, newW);
+            wresize(overlay, newH, newW);
+            mvwin(overlay, 0, 0);
+            continue;  // Redraw on next iteration
+        }
         const InputAction action = getInputAction(ch, ControlScheme::SinglePlayer);
 
         if (waitingForStart) {

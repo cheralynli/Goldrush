@@ -336,7 +336,9 @@ Game::Game()
       setupInProgress(false),
       sabotageUnlockAnnounced(false),
       tutorialFlags(),
-      activeTraps() {
+      activeTraps(), 
+      windowsValid(false)
+      {
 }
 
 Game::Game(std::uint32_t seed)
@@ -364,7 +366,9 @@ Game::Game(std::uint32_t seed)
       setupInProgress(false),
       sabotageUnlockAnnounced(false),
       tutorialFlags(),
-      activeTraps() {
+      activeTraps(), 
+      windowsValid(false)
+      {
 }
 
 Game::~Game() {
@@ -417,6 +421,10 @@ bool Game::ensureMinSize() const {
         refresh();
 
         int ch = getch();
+        if (ch == KEY_RESIZE) {
+            // Terminal is being resized, continue loop to check again
+            continue;
+        }
         if (isCancelKey(ch)) {
             timeout(-1);
             return false;
@@ -424,14 +432,42 @@ bool Game::ensureMinSize() const {
     }
 }
 
+//TODO number 4 - redraw when size becomes valid again
+bool Game::recoverTerminalLayout(int currentPlayer, const std::string& msg, const std::string& detail) {
+    // Force a complete UI rebuild
+    destroyWindows();
+    
+    // Check if terminal is now valid
+    if (!ensureMinSize()) {
+        return false;
+    }
+    
+    // Recreate all windows
+    createWindows();
+    
+    // Redraw the current game state
+    renderGame(currentPlayer, msg, detail);
+    
+    return true;
+}
+
 void Game::destroyWindows() {
     if (titleWin) { delwin(titleWin); titleWin = nullptr; }
     if (boardWin) { delwin(boardWin); boardWin = nullptr; }
     if (infoWin) { delwin(infoWin); infoWin = nullptr; }
     if (msgWin) { delwin(msgWin); msgWin = nullptr; }
+    windowsValid = false;
 }
 
 void Game::createWindows() {
+    // Don't early return - always recreate windows when called
+    // But mark them as invalid first to ensure clean creation
+    
+    // Clean up any existing windows first
+    if (titleWin || boardWin || infoWin || msgWin) {
+        destroyWindows();  // This sets windowsValid = false
+    }
+
     int termH, termW;
     getmaxyx(stdscr, termH, termW);
     const UILayout layout = calculateUILayout(termH, termW);
@@ -897,14 +933,14 @@ bool Game::loadSavedGame() {
 }
 
 Game::StartChoice Game::showStartScreen() {
-    const char* lines[] = {
-        "  ________         .__       .___                       .__      ",
-        " /  _____/    ____ |  |    __| _/______ __ __     _____ |  |__   ",
-        "/   \\  ___  /  _\\|  |   / __ |\\_  __ \\  |  \\/  ___/|     \\ ",
-        "\\   \\_\\  (  <_> )  |__/ /_/ |  |  | \\/  |  /\\___ \\|   Y  \\",
-        " \\______  /\\____/|____/\\____|  |__|   |____/  /____  >___|  / ",
-        "        \\/                  \\/                     \\/    \\/  "
-    };
+    //const char* lines[] = {
+    //  "  ________         .__       .___                       .__      ",
+    //  " /  _____/    ____ |  |    __| _/______ __ __     _____ |  |__   ",
+    //  "/   \\  ___  /  _\\|  |   / __ |\\_  __ \\  |  \\/  ___/|     \\ ",
+    //  "\\   \\_\\  (  <_> )  |__/ /_/ |  |  | \\/  |  /\\___ \\|   Y  \\",
+    //  " \\______  /\\____/|____/\\____|  |__|   |____/  /____  >___|  / ",
+    //  "        \\/                  \\/                     \\/    \\/  "
+    //};
     //const int artLines = static_cast<int>(sizeof(lines) / sizeof(lines[0]));
     //const int artW = 60;
     // The title screen is a two-step state machine: first choose new/load/quit,
@@ -1378,8 +1414,34 @@ void Game::maybeShowSabotageUnlock(int playerIndex) {
     if (sabotageUnlockAnnounced || !isSabotageUnlockedForPlayer(playerIndex)) {
         return;
     }
+    
+    const bool previousAutoAdvance = autoAdvanceUi;
+    autoAdvanceUi = isCpuPlayer(playerIndex);
+
     showSabotageUnlockAnimation(hasColor);
     showSabotageTutorial(hasColor);
+    
+    //TODO number 1 - fix blackscreen
+    // Force refresh all existing windows
+    if (titleWin) { touchwin(titleWin); wrefresh(titleWin); }
+    if (boardWin) { touchwin(boardWin); wrefresh(boardWin); }
+    if (infoWin) { touchwin(infoWin); wrefresh(infoWin); }
+    if (msgWin) { touchwin(msgWin); wrefresh(msgWin); }
+
+
+    // Force a redraw
+    renderGame(playerIndex,
+               players[playerIndex].name + "'s turn - Sabotage Unlocked!",
+               "Press ENTER to continue...");
+    
+    if (!autoAdvanceUi && msgWin) {
+        int msgH, msgW;
+        getmaxyx(msgWin, msgH, msgW);
+        waitForEnterPrompt(msgWin, msgH - 2, 2, "Press ENTER to continue...");
+    }
+
+    autoAdvanceUi = previousAutoAdvance;
+
     tutorialFlagForTopic(tutorialFlags, TutorialTopic::Sabotage) = true;
     sabotageUnlockAnnounced = true;
     addHistory("Sabotage unlocked from Turn " + std::to_string(std::max(1, settings.sabotageUnlockTurn)));
@@ -2357,7 +2419,14 @@ int Game::waitForTurnCommand(int currentPlayer) {
 
     while (true) {
         int ch = wgetch(infoWin);
+
         if (ch == KEY_RESIZE) {
+            if (!recoverTerminalLayout(currentPlayer, 
+                                       players[currentPlayer].name + "'s turn", 
+                                       turnPromptText())) {
+                return 27;  // Quit if can't recover
+            }
+
             if (!ensureMinSize()) {
                 return 27;
             }
@@ -2630,6 +2699,19 @@ int Game::showBranchPopup(const std::string& title,
             wrefresh(msgWin);
 
             const int ch = wgetch(msgWin);
+            //if (ch == KEY_RESIZE) {
+                // Recreate the popup
+            //    delwin(popup);
+            //   popup = createCenteredWindow(popupH, popupW, startY, startX);
+            //    if (!popup) return MENU_CANCELLED;
+            //    keypad(popup, TRUE);
+                // Redraw content
+            //    continue;
+            //}
+
+            if (ch == KEY_RESIZE) {
+                return MENU_CANCELLED;
+            }
             if (ch == KEY_UP) {
                 highlighted = highlighted == 0 ? static_cast<int>(lines.size()) - 1 : highlighted - 1;
             } else if (ch == KEY_DOWN) {
@@ -4221,11 +4303,11 @@ bool Game::run() {
             }
 
             if (startChoice == START_LOAD_GAME) {
-                createWindows();
+                createWindows(); //Very heavy duty function
                 if (loadSavedGame()) {
                     break;
                 }
-                destroyWindows();
+                destroyWindows(); //Very heavy duty function
                 continue;
             }
 
@@ -4247,8 +4329,11 @@ bool Game::run() {
 
         while (!allPlayersRetired()) {
             if (!ensureMinSize()) return false;
-            destroyWindows();
-            createWindows();
+            
+            if (!windowsValid){
+                destroyWindows(); //TODO number 3 - avoid lag by only triggreing destroy/create when actually needed, not every turn after a resize
+                createWindows();  
+            }
 
             if (players[currentPlayerIndex].retired) {
                 currentPlayerIndex = (currentPlayerIndex + 1) % static_cast<int>(players.size());
@@ -4334,31 +4419,47 @@ bool Game::run() {
             }
         }
 
-        const int winnerHouse = players[winner].finalHouseSaleValue > 0
-            ? players[winner].finalHouseSaleValue
-            : players[winner].houseValue;
-        const int winnerActionScore = static_cast<int>(players[winner].actionCards.size()) * 100000;
-        const int winnerPetScore = static_cast<int>(players[winner].petCards.size()) * 100000;
-        const int winnerFamilyScore = players[winner].kids * 50000;
-        const int winnerLoanPenalty = bank.totalLoanDebt(players[winner]);
+        // TODO number 2: final score breakdown
+
+        //const int winnerHouse = players[winner].finalHouseSaleValue > 0
+        //    ? players[winner].finalHouseSaleValue
+        //    : players[winner].houseValue;
+
+        // Build ranked order by final worth
+        std::vector<std::size_t> ranked;
+        for (std::size_t i = 0; i < players.size(); ++i) {
+            ranked.push_back(i);
+        }
+        std::sort(ranked.begin(), ranked.end(), [&](std::size_t a, std::size_t b) {
+            return calculateFinalWorth(players[a]) > calculateFinalWorth(players[b]);
+        });
 
         std::vector<std::string> endgameLines;
         endgameLines.push_back(players[winner].name + " reaches the finish with the highest final score: $" +
                                std::to_string(best) + ".");
         endgameLines.push_back("");
-        endgameLines.push_back("FINAL SCORES");
-        for (std::size_t i = 0; i < players.size(); ++i) {
-            endgameLines.push_back(players[i].name + ": $" + std::to_string(calculateFinalWorth(players[i])));
+
+        // Per-player breakdown, ranked 1st to last
+        for (std::size_t rank = 0; rank < ranked.size(); ++rank) {
+            const Player& p = players[ranked[rank]];
+            const int house = p.finalHouseSaleValue > 0 ? p.finalHouseSaleValue : p.houseValue;
+            const int actionScore  = static_cast<int>(p.actionCards.size()) * 100000;
+            const int petScore     = static_cast<int>(p.petCards.size()) * 100000;
+            const int familyScore  = p.kids * 50000;
+            const int loanPenalty  = bank.totalLoanDebt(p);
+            const int finalWorth   = calculateFinalWorth(p);
+            const std::string medal = (rank == 0) ? "1st" : (rank == 1) ? "2nd" : (rank == 2) ? "3rd" : "4th";
+
+            endgameLines.push_back(medal + " " + p.name + "  TOTAL: $" + std::to_string(finalWorth));
+            endgameLines.push_back("  Cash $" + std::to_string(p.cash) +
+                                   "  House $" + std::to_string(house) +
+                                   "  Actions $" + std::to_string(actionScore));
+            endgameLines.push_back("  Pets $" + std::to_string(petScore) +
+                                   "  Family $" + std::to_string(familyScore) +
+                                   "  Retire bonus $" + std::to_string(p.retirementBonus));
+            endgameLines.push_back("  Loans -$" + std::to_string(loanPenalty));
+            endgameLines.push_back("");
         }
-        endgameLines.push_back("");
-        endgameLines.push_back("WINNER BREAKDOWN");
-        endgameLines.push_back("Cash: $" + std::to_string(players[winner].cash));
-        endgameLines.push_back("House sale: $" + std::to_string(winnerHouse));
-        endgameLines.push_back("Action cards: $" + std::to_string(winnerActionScore));
-        endgameLines.push_back("Pet cards: $" + std::to_string(winnerPetScore));
-        endgameLines.push_back("Children/family bonus: $" + std::to_string(winnerFamilyScore));
-        endgameLines.push_back("Retirement bonus: $" + std::to_string(players[winner].retirementBonus));
-        endgameLines.push_back("Loan penalty: -$" + std::to_string(winnerLoanPenalty));
         endgameLines.push_back("Press ENTER to return to the main menu.");
 
         appendCompletedGameHistoryEntry(winner, best);

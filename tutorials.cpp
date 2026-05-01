@@ -194,6 +194,7 @@ void showPagedGuide(const std::string& title,
         if (!popup) {
             return;
         }
+
         int height = 0;
         int width = 0;
         getmaxyx(popup, height, width);
@@ -224,7 +225,11 @@ void showPagedGuide(const std::string& title,
         const int ch = wgetch(popup);
         delwin(popup);
         if (ch == KEY_RESIZE) {
-            continue;
+            delwin(popup);
+            // Clear screen and continue - will recreate popup on next iteration
+            clear();
+            refresh();
+            continue;  // Don't change page, just redraw
         }
         if (isCancelKey(ch)) {
             break;

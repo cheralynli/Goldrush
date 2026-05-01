@@ -145,29 +145,10 @@ PongMinigameResult playPongMinigame(const std::string& playerName, bool hasColor
     nodelay(overlay, TRUE);
     wbkgd(overlay, COLOR_PAIR(GOLDRUSH_GOLD_BLACK));
 
-    const int arenaWidth = 78;
-    const int arenaHeight = 24;
-    const int arenaLeft = (screenW - arenaWidth) / 2;
-    const int arenaTop = 8;
-    const int arenaRight = arenaLeft + arenaWidth - 1;
-    const int arenaBottom = arenaTop + arenaHeight - 1;
-    const int paddleHalfHeight = 2;
-    const int leftPaddleX = arenaLeft + 2;
-    const int rightPaddleX = arenaRight - 2;
-    const int topWall = arenaTop + 1;
-    const int bottomWall = arenaBottom - 1;
-    const int centerLineX = arenaLeft + arenaWidth / 2;
-
     Paddle playerPaddle;
     Paddle cpuPaddle;
-    playerPaddle.centerY = static_cast<float>((arenaTop + arenaBottom) / 2);
-    cpuPaddle.centerY = playerPaddle.centerY;
-
     Ball ball;
-    resetBall(ball,
-              static_cast<float>(arenaLeft + arenaWidth / 2),
-              static_cast<float>((arenaTop + arenaBottom) / 2),
-              1);
+    bool initialized = false;
 
     bool waitingForServe = true;
     bool gameOver = false;
@@ -175,9 +156,50 @@ PongMinigameResult playPongMinigame(const std::string& playerName, bool hasColor
     int feedbackFrames = 0;
     bool feedbackPositive = true;
 
-    while (true) {
-        werase(overlay);
 
+    while (true) {
+        // STEP 1: Get current screen size
+        int screenH, screenW;
+        getmaxyx(stdscr, screenH, screenW);
+        
+        // STEP 2: Recalculate ALL positions based on NEW screen size
+        const int arenaWidth = 78;
+        const int arenaHeight = 24;
+        const int arenaLeft = (screenW - arenaWidth) / 2;
+        const int arenaTop = 8;
+        const int arenaRight = arenaLeft + arenaWidth - 1;
+        const int arenaBottom = arenaTop + arenaHeight - 1;
+        const int paddleHalfHeight = 2;
+        const int leftPaddleX = arenaLeft + 2;
+        const int rightPaddleX = arenaRight - 2;
+        const int topWall = arenaTop + 1;
+        const int bottomWall = arenaBottom - 1;
+        const int centerLineX = arenaLeft + arenaWidth / 2;
+
+        if (!initialized) {
+            playerPaddle.centerY = static_cast<float>((arenaTop + arenaBottom) / 2);
+            cpuPaddle.centerY = playerPaddle.centerY;
+            resetBall(ball,
+                    static_cast<float>(arenaLeft + arenaWidth / 2),
+                    static_cast<float>((arenaTop + arenaBottom) / 2),
+                    1);
+            initialized = true;
+        }
+
+        // Also clamp paddle positions after arena calculations:
+        playerPaddle.centerY = clampFloat(playerPaddle.centerY,
+                                static_cast<float>(topWall + paddleHalfHeight + 1),
+                                static_cast<float>(bottomWall - paddleHalfHeight - 1));
+        cpuPaddle.centerY = clampFloat(cpuPaddle.centerY,
+                               static_cast<float>(topWall + paddleHalfHeight + 1),
+                               static_cast<float>(bottomWall - paddleHalfHeight - 1));
+        
+        // STEP 3: Resize overlay to match new screen size
+        wresize(overlay, screenH, screenW);
+        mvwin(overlay, 0, 0);
+
+        // STEP 4: Clear and redraw everything based on new positions
+        werase(overlay);
         drawAsciiTitle(overlay, screenW, hasColor);
 
         const std::string statusLine =
@@ -250,6 +272,14 @@ PongMinigameResult playPongMinigame(const std::string& playerName, bool hasColor
         wrefresh(overlay);
 
         int ch = wgetch(overlay);
+        // Resize handling here
+        if (ch == KEY_RESIZE) {
+            int newH, newW;
+            getmaxyx(stdscr, newH, newW);
+            wresize(overlay, newH, newW);
+            mvwin(overlay, 0, 0);
+            continue;  // Redraw on next iteration
+        }
         const InputAction action = getInputAction(ch, ControlScheme::SinglePlayer);
 
         if (waitingForServe) {
