@@ -5,6 +5,7 @@
 #include <ctime>
 #include <string>
 #include <vector>
+#include <set>
 
 #include "bank.hpp"
 #include "board.hpp"
@@ -129,6 +130,7 @@ private:
     void checkTrapTrigger(int playerIndex);
     void setupRules();
     bool setupPlayers();
+    char showCharacterCustomisationPopup(const std::vector<char>& unavailable, const std::string& name, int index, PlayerType type);
     void setupInvestments();
     int waitForTurnCommand(int currentPlayer);
     void renderGame(int currentPlayer, const std::string& msg, const std::string& detail) const;

@@ -2229,6 +2229,7 @@ bool Game::setupPlayers() {
     refresh();
     drawSetupTitle();
     int numPlayers = 0;
+    std::vector<char> used;
     while (numPlayers < 2 || numPlayers > 4) {
         werase(msgWin);
         drawBoxSafe(msgWin);
@@ -2348,7 +2349,8 @@ bool Game::setupPlayers() {
                 ? "CPU " + std::to_string(i + 1)
                 : "Player " + std::to_string(i + 1);
         }
-        p.token = tokenForName(p.name, i);
+        p.token = showCharacterCustomisationPopup(used, p.name, i, playerType); //tokenForName(p.name, i);
+        used.push_back(p.token);
         p.tile = 0;
         p.cash = settings.startingCash;
         p.job = "Unemployed";
@@ -2399,6 +2401,244 @@ bool Game::setupPlayers() {
     noecho();
     curs_set(0);
     return true;
+}
+
+char Game::showCharacterCustomisationPopup(const std::vector<char>& unavailableVec,const std::string& name, int index, PlayerType type) {
+    std::vector<char> special = {
+        '@', '#', '$', '%', '&', '*', '+', '=', '?', '!', '~', '^', '/'
+    };
+
+    std::vector<char> upper;
+    std::vector<char> lower;
+
+    for (char c = 'A'; c <= 'Z'; c++) upper.push_back(c);
+    for (char c = 'a'; c <= 'z'; c++) lower.push_back(c);
+
+    std::vector<char> symbols;
+    symbols.insert(symbols.end(), special.begin(), special.end());
+    symbols.insert(symbols.end(), upper.begin(), upper.end());
+    symbols.insert(symbols.end(), lower.begin(), lower.end());
+
+    std::set<char> unavailable(unavailableVec.begin(), unavailableVec.end());
+
+    int selected = 0;
+
+    const int cols = 13;
+    const int cellW = 4;
+
+    while (true) {
+        clear();
+        refresh();
+
+        int screenH = 0;
+        int screenW = 0;
+        getmaxyx(stdscr, screenH, screenW);
+
+        const int popupH = 27;
+        const int popupW = 90;
+        const int popupY = std::max(0, (screenH - popupH) / 2);
+        const int popupX = std::max(0, (screenW - popupW) / 2);
+
+        if (screenH < popupH || screenW < popupW) {
+            showTerminalSizeWarning(popupH, popupW, hasColor);
+            continue;
+        }
+
+        WINDOW* popup = newwin(popupH, popupW, popupY, popupX);
+        if (!popup) {
+            return '@';
+        }
+
+        keypad(popup, TRUE);
+        apply_ui_background(popup);
+        werase(popup);
+        drawBoxSafe(popup);
+
+        // ----- Title -----
+        if (hasColor) {
+            wattron(popup, COLOR_PAIR(GOLDRUSH_GOLD_SAND) | A_BOLD);
+        }
+
+        const std::string title = "CHARACTER CUSTOMISATION";
+        const std::string subtitle = "Choose your trail marker";
+
+        mvwprintw(popup, 1, (popupW - title.length()) / 2, "%s", title.c_str());
+        mvwprintw(popup, 2, (popupW - subtitle.length()) / 2, "%s", subtitle.c_str());
+
+        if (hasColor) {
+            wattroff(popup, COLOR_PAIR(GOLDRUSH_GOLD_SAND) | A_BOLD);
+        }
+
+        // ----- Layout positions -----
+        const int previewX = 5;
+        const int previewY = 5;
+
+        const int gridX = 28;
+        const int gridY = 5;
+
+        // ----- Preview panel -----
+        const int boxW = 18;
+
+        mvwprintw(popup, previewY, previewX, "+--------------+");
+
+        std::string displayName = name.substr(0, boxW - 4);
+        mvwprintw(popup, previewY + 1, previewX, "| %-12s |", displayName.c_str());
+
+        wattron(popup, A_BOLD);
+        mvwprintw(popup, previewY + 2, previewX, "|              |", symbols[selected]);
+        wattroff(popup, A_BOLD);
+
+        std::string playerTypeText = (type == PlayerType::CPU) ? "CPU" : "HUMAN";
+        std::string info = "P" + std::to_string(index + 1) +
+                        " [" + std::string(1, symbols[selected]) + "] " +
+                        playerTypeText;
+
+        info = info.substr(0, boxW - 4);
+        mvwprintw(popup, previewY + 3, previewX, "| %-12s |", info.c_str());
+
+        mvwprintw(popup, previewY + 4, previewX, "+--------------+");
+
+        if (hasColor) {
+            wattroff(popup, COLOR_PAIR(GOLDRUSH_GOLD_SAND) | A_BOLD);
+        }
+
+        mvwprintw(popup, previewY + 7, previewX, "Status:");
+
+        if (unavailable.count(symbols[selected]) > 0) {
+            if (hasColor) {
+                wattron(popup, COLOR_PAIR(GOLDRUSH_GOLD_TERRA) | A_BOLD);
+            }
+
+            mvwprintw(popup, previewY + 8, previewX, "Taken");
+
+            if (hasColor) {
+                wattroff(popup, COLOR_PAIR(GOLDRUSH_GOLD_TERRA) | A_BOLD);
+            }
+        } else {
+            if (hasColor) {
+                wattron(popup, COLOR_PAIR(GOLDRUSH_BLACK_FOREST) | A_BOLD);
+            }
+
+            mvwprintw(popup, previewY + 8, previewX, "Available");
+
+            if (hasColor) {
+                wattroff(popup, COLOR_PAIR(GOLDRUSH_BLACK_FOREST) | A_BOLD);
+            }
+        }
+
+        // ----- Helper lambda to draw one section -----
+        auto drawSection = [&](const std::string& title,
+                               const std::vector<char>& section,
+                               int startIndex,
+                               int& y) {
+            if (hasColor) {
+                wattron(popup, COLOR_PAIR(GOLDRUSH_GOLD_SAND) | A_BOLD);
+            }
+
+            mvwprintw(popup, y, gridX, "%s", title.c_str());
+
+            if (hasColor) {
+                wattroff(popup, COLOR_PAIR(GOLDRUSH_GOLD_SAND) | A_BOLD);
+            }
+
+            y += 2;
+
+            for (size_t i = 0; i < section.size(); i++) {
+                int row = static_cast<int>(i) / cols;
+                int col = static_cast<int>(i) % cols;
+
+                int drawY = y + row * 2;
+                int drawX = gridX + col * cellW;
+
+                int globalIndex = startIndex + static_cast<int>(i);
+                char current = symbols[globalIndex];
+
+                bool taken = unavailable.count(current) > 0;
+                bool cursor = globalIndex == selected;
+
+                if (cursor) {
+                    wattron(popup, A_REVERSE);
+                }
+
+                if (taken) {
+                    wattron(popup, A_DIM);
+                    mvwprintw(popup, drawY, drawX, "[%c]", current);
+                    wattroff(popup, A_DIM);
+                } else {
+                    mvwprintw(popup, drawY, drawX, " %c ", current);
+                }
+
+                if (cursor) {
+                    wattroff(popup, A_REVERSE);
+                }
+            }
+
+            int rowsUsed = (static_cast<int>(section.size()) + cols - 1) / cols;
+            y += rowsUsed * 2;
+        };
+
+        // ----- Draw grouped grid -----
+        int y = gridY;
+
+        drawSection("[ SYMBOLS ]", special, 0, y);
+
+        drawSection("[ UPPERCASE ]",
+                    upper,
+                    static_cast<int>(special.size()),
+                    y);
+
+        drawSection("[ LOWERCASE ]",
+                    lower,
+                    static_cast<int>(special.size() + upper.size()),
+                    y);
+
+        // ----- Controls -----
+        mvwprintw(popup, popupH - 5, 5, "Controls:");
+        mvwprintw(popup, popupH - 4, 5, "Arrow keys / WASD  - move cursor");
+        mvwprintw(popup, popupH - 3, 5, "ENTER              - choose symbol");
+        mvwprintw(popup, popupH - 2, 5, "ESC                - cancel");
+
+        wrefresh(popup);
+
+        int ch = wgetch(popup);
+
+        werase(popup);
+        wrefresh(popup);
+        delwin(popup);
+
+        if (ch == KEY_RESIZE) {
+            clear();
+            touchwin(stdscr);
+            refresh();
+            continue;
+        }
+
+        if (ch == KEY_LEFT || ch == 'a' || ch == 'A') {
+            selected = (selected - 1 + static_cast<int>(symbols.size())) %
+                       static_cast<int>(symbols.size());
+        } else if (ch == KEY_RIGHT || ch == 'd' || ch == 'D') {
+            selected = (selected + 1) % static_cast<int>(symbols.size());
+        } else if (ch == KEY_UP || ch == 'w' || ch == 'W') {
+            selected = (selected - cols + static_cast<int>(symbols.size())) %
+                       static_cast<int>(symbols.size());
+        } else if (ch == KEY_DOWN || ch == 's' || ch == 'S') {
+            selected = (selected + cols) % static_cast<int>(symbols.size());
+        } else if (ch == '\n' || ch == '\r' || ch == KEY_ENTER) {
+            char chosen = symbols[selected];
+
+            if (unavailable.count(chosen) == 0) {
+                clear();
+                touchwin(stdscr);
+                refresh();
+                return chosen;
+            }
+        } else if (ch == 27) {
+            clear();
+            touchwin(stdscr);
+            refresh();
+            return tokenForName(name,index);
+        }
+    }
 }
 
 void Game::setupInvestments() {
