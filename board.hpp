@@ -8,8 +8,10 @@
 
 #define BOARD_ROWS 11
 #define BOARD_COLS 11
-#define CELL_H 5
-#define CELL_W 10
+#define CELL_H 3
+#define CELL_W 6
+#define BOARD_PAD_X 1
+#define BOARD_PAD_Y 1
 #define INNER_MARGIN_Y 1
 #define INNER_MARGIN_X 2
 

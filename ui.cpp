@@ -210,10 +210,10 @@ void initGameColors() {
     init_pair(GOLDRUSH_BROWN_CREAM, brown, COLOR_BLACK);
     init_pair(GOLDRUSH_CHARCOAL_BLACK, COLOR_WHITE, COLOR_BLACK);
     init_pair(GOLDRUSH_GOLD_SAND, gold, COLOR_BLACK);
-    init_pair(GOLDRUSH_PLAYER_ONE, gold, COLOR_BLACK);
+    init_pair(GOLDRUSH_PLAYER_ONE, COLOR_MAGENTA, COLOR_BLACK);
     init_pair(GOLDRUSH_PLAYER_TWO, forest, COLOR_BLACK);
-    init_pair(GOLDRUSH_PLAYER_THREE, terra, COLOR_BLACK);
-    init_pair(GOLDRUSH_PLAYER_FOUR, COLOR_CYAN, COLOR_BLACK);
+    init_pair(GOLDRUSH_PLAYER_THREE, gold, COLOR_BLACK);
+    init_pair(GOLDRUSH_PLAYER_FOUR, COLOR_BLUE, COLOR_BLACK);
     init_pair(GOLDRUSH_BLACK_FOREST, forest, COLOR_BLACK);
     init_pair(GOLDRUSH_BLACK_CREAM, brown, COLOR_BLACK);
     init_pair(GOLDRUSH_GOLD_TERRA, terra, COLOR_BLACK);
@@ -572,6 +572,16 @@ int getTileColorPair(const Tile& tile) {
 }
 
 void draw_title_banner_ui(WINDOW* titleWin) {
+    static const char* const kTitleArt[] = {
+        "   ________        .__       .___                    .__     ",
+        "  /  _____/  ____  |  |    __| _/______ __ __  _____|  |__  ",
+        " /   \\  ___ /  _ \\ |  |   / __ |\\_  __ \\  |  \\/  ___/  |  \\ ",
+        " \\    \\_\\  (  <_> )|  |__/ /_/ | |  | \\/  |  /\\___ \\|   Y  \\",
+        "  \\______  /\\____/ |____/\\____ | |__|  |____//____  >___|  /",
+        "         \\/                   \\/                  \\/     \\/ "
+    };
+    static const int kTitleLines = static_cast<int>(sizeof(kTitleArt) / sizeof(kTitleArt[0]));
+    static const int kTitleWidth = 62;
     int height = 0;
     int width = 0;
     getmaxyx(titleWin, height, width);
@@ -585,21 +595,12 @@ void draw_title_banner_ui(WINDOW* titleWin) {
             mvwprintw(titleWin, 1, titleX, "%s",
                       clipPanelText(title, static_cast<std::size_t>(std::max(1, width - 4))).c_str());
         }
-        if (height >= 4) {
-            const std::string subtitle = "Retire with the highest net worth";
-            mvwprintw(titleWin,
-                      2,
-                      std::max(2, (width - static_cast<int>(subtitle.size())) / 2),
-                      "%s",
-                      clipPanelText(subtitle, static_cast<std::size_t>(std::max(8, width - 4))).c_str());
-        }
     } else {
-        mvwprintw(titleWin, 1, 2, "   ________        .__       .___                    .__     ");
-        mvwprintw(titleWin, 2, 2, "  /  _____/  ____  |  |    __| _/______ __ __  _____|  |__  ");
-        mvwprintw(titleWin, 3, 2, " /   \\  ___ /  _ \\ |  |   / __ |\\_  __ \\  |  \\/  ___/  |  \\ ");
-        mvwprintw(titleWin, 4, 2, " \\    \\_\\  (  <_> )|  |__/ /_/ | |  | \\/  |  /\\___ \\|   Y  \\");
-        mvwprintw(titleWin, 5, 2, "  \\______  /\\____/ |____/\\____ | |__|  |____//____  >___|  /");
-        mvwprintw(titleWin, 6, 2, "         \\/                   \\/                  \\/     \\/ ");
+        const int startX = std::max(2, (width - kTitleWidth) / 2);
+        const int startY = std::max(1, (height - kTitleLines) / 2);
+        for (int i = 0; i < kTitleLines && (startY + i) < height - 1; ++i) {
+            mvwprintw(titleWin, startY + i, startX, "%s", kTitleArt[i]);
+        }
     }
     wattroff(titleWin, COLOR_PAIR(GOLDRUSH_GOLD_BLACK) | A_BOLD);
     wrefresh(titleWin);
@@ -699,15 +700,9 @@ void drawPlayerPanel(WINDOW* sideWin,
             roster << " RET";
         }
 
-        if (static_cast<int>(i) == currentPlayerIndex) {
-            wattron(sideWin, COLOR_PAIR(colorPair) | A_BOLD | A_REVERSE);
-            mvwprintw(sideWin, row, 2, "%-*s", rosterWidth, clipPanelText(roster.str(), static_cast<std::size_t>(rosterWidth)).c_str());
-            wattroff(sideWin, COLOR_PAIR(colorPair) | A_BOLD | A_REVERSE);
-        } else {
-            wattron(sideWin, COLOR_PAIR(colorPair) | A_BOLD);
-            mvwprintw(sideWin, row, 2, "%-*s", rosterWidth, clipPanelText(roster.str(), static_cast<std::size_t>(rosterWidth)).c_str());
-            wattroff(sideWin, COLOR_PAIR(colorPair) | A_BOLD);
-        }
+        wattron(sideWin, COLOR_PAIR(colorPair) | A_BOLD);
+        mvwprintw(sideWin, row, 2, "%-*s", rosterWidth, clipPanelText(roster.str(), static_cast<std::size_t>(rosterWidth)).c_str());
+        wattroff(sideWin, COLOR_PAIR(colorPair) | A_BOLD);
     }
 
     if (compact) {

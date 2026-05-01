@@ -41,7 +41,7 @@ std::pair<int, int> chooseCellSize(int availableHeight, int availableWidth) {
     const std::array<std::pair<int, int>, 3> presets = {{
         {CELL_H, CELL_W},
         {4, 8},
-        {3, 6}
+        {5, 10}
     }};
 
     for (std::size_t i = 0; i < presets.size(); ++i) {
@@ -75,23 +75,6 @@ void safeAddCh(WINDOW* win, int y, int x, chtype ch) {
     if (isInsideWindow(win, y, x)) {
         mvwaddch(win, y, x, ch);
     }
-}
-
-void safePrint(WINDOW* win, int y, int x, const std::string& text) {
-    if (!win || text.empty()) {
-        return;
-    }
-    int maxY = 0;
-    int maxX = 0;
-    getmaxyx(win, maxY, maxX);
-    if (y < 0 || y >= maxY || x >= maxX) {
-        return;
-    }
-    const int available = std::max(0, maxX - x);
-    if (available <= 0) {
-        return;
-    }
-    mvwprintw(win, y, x, "%s", text.substr(0, static_cast<std::size_t>(available)).c_str());
 }
 
 void fillRect(WINDOW* win, int y, int x, int height, int width, int colorPair) {
@@ -152,66 +135,42 @@ void fillInnerRect(WINDOW* win, int y, int x, int height, int width, int colorPa
     fillRect(win, y, x, height, width, colorPair);
 }
 
-int defaultInnerPair() {
-    return PAIR_UI_YELLOW_BG;
-}
-
-bool defaultTileUsesYellow(int screenRow, int screenCol) {
-    return ((screenRow + screenCol) % 2) == 1;
-}
-
-int accentPairForTile(int tileType) {
-    switch (tileType) {
-        case TILE_START:
-            return PAIR_GREEN_BG;
-        case TILE_COLLEGE:
-        case TILE_CAREER:
-        case TILE_GRADUATION:
-            return PAIR_CYAN_BG;
-        case TILE_SAFE:
-            return PAIR_GREEN_BG;
-        case TILE_CAREER_2:
-        case TILE_RISKY:
-            return PAIR_RED_BG;
-        case TILE_MARRIAGE:
-        case TILE_FAMILY:
-        case TILE_BLACK:
-            return PAIR_MAGENTA_BG;
-        case TILE_RETIREMENT:
-            return PAIR_PURPLE_BG;
-        case TILE_EMPTY:
-            return defaultInnerPair();
-        default:
-            return defaultInnerPair();
+void drawOutlineRect(WINDOW* win, int y, int x, int height, int width, int colorPair) {
+    if (!win || height < 2 || width < 2) {
+        return;
+    }
+    const chtype edge = ' ' | COLOR_PAIR(colorPair);
+    for (int dx = 0; dx < width; ++dx) {
+        safeAddCh(win, y, x + dx, edge);
+        safeAddCh(win, y + height - 1, x + dx, edge);
+    }
+    for (int dy = 0; dy < height; ++dy) {
+        safeAddCh(win, y + dy, x, edge);
+        safeAddCh(win, y + dy, x + width - 1, edge);
     }
 }
 
-std::string labelForTileType(int tileType) {
+int labelColorForTile(int tileType) {
     switch (tileType) {
-        case TILE_START:
-            return "START";
         case TILE_COLLEGE:
-            return "C";
+            return GOLDRUSH_TILE_WHITE;
         case TILE_CAREER:
-            return "C";
         case TILE_GRADUATION:
-            return "G";
+            return GOLDRUSH_TILE_WHITE;
         case TILE_MARRIAGE:
-            return "M";
-        case TILE_FAMILY:
-            return "F";
-        case TILE_CAREER_2:
-            return "W";
-        case TILE_SAFE:
-            return "$";
         case TILE_RISKY:
-            return "!";
-        case TILE_RETIREMENT:
-            return "R";
+            return GOLDRUSH_TILE_WHITE;
+        case TILE_FAMILY:
         case TILE_BLACK:
-            return "c";
+            return GOLDRUSH_TILE_WHITE;
+        case TILE_CAREER_2:
+        case TILE_SAFE:
+            return GOLDRUSH_TILE_WHITE;
+        case TILE_START:
+        case TILE_RETIREMENT:
+            return GOLDRUSH_GOLD_SAND;
         default:
-            return "";
+            return GOLDRUSH_GOLD_SAND;
     }
 }
 
@@ -338,33 +297,55 @@ void draw_tile(WINDOW *win, int screen_row, int screen_col, int tile_type, int s
 
     const int y = start_y + (screen_row * gCellH);
     const int x = start_x + (screen_col * gCellW);
-    const int marginY = std::min(INNER_MARGIN_Y, std::max(0, (gCellH - 2) / 2));
-    const int marginX = std::min(INNER_MARGIN_X, std::max(0, (gCellW - 2) / 2));
-    const int innerY = y + marginY;
-    const int innerX = x + marginX;
-    const int innerH = std::max(1, gCellH - (2 * marginY));
-    const int innerW = std::max(1, gCellW - (2 * marginX));
+    const bool isYellowCell = ((screen_row + screen_col) % 2) == 1;
 
-    int innerPair = 0;
-    if (tile_type == TILE_EMPTY) {
-        if (defaultTileUsesYellow(screen_row, screen_col)) {
-            innerPair = defaultInnerPair();
-        }
-    } else {
-        innerPair = accentPairForTile(tile_type);
+    if (isYellowCell) {
+        fillInnerRect(win, y + 1, x + 1, std::max(1, gCellH - 1), std::max(1, gCellW - 1), PAIR_UI_YELLOW_BG);
+        return;
     }
 
-    if (innerPair != 0) {
-        fillInnerRect(win, innerY, innerX, innerH, innerW, innerPair);
+    const int specialPair =
+        tile_type == TILE_COLLEGE ? PAIR_CYAN_BG :
+        tile_type == TILE_CAREER ? PAIR_PURPLE_BG :
+        tile_type == TILE_MARRIAGE ? PAIR_RED_BG :
+        tile_type == TILE_FAMILY ? PAIR_MAGENTA_BG :
+        tile_type == TILE_CAREER_2 ? PAIR_GREEN_BG :
+        tile_type == TILE_SAFE ? PAIR_GREEN_BG :
+        tile_type == TILE_RISKY ? PAIR_RED_BG :
+        tile_type == TILE_GRADUATION ? PAIR_CYAN_BG :
+        0;
+
+    const std::string label =
+        tile_type == TILE_START ? "START" :
+        tile_type == TILE_RETIREMENT ? "END" :
+        tile_type == TILE_COLLEGE ? "C" :
+        tile_type == TILE_CAREER ? "CA" :
+        tile_type == TILE_MARRIAGE ? "M" :
+        tile_type == TILE_FAMILY ? "F" :
+        tile_type == TILE_CAREER_2 ? "W" :
+        tile_type == TILE_SAFE ? "$" :
+        tile_type == TILE_RISKY ? "!" :
+        tile_type == TILE_GRADUATION ? "G" :
+        "";
+
+    const int marginY = std::min(1, std::max(0, (gCellH - 2) / 2));
+    const int marginX = std::min(1, std::max(0, (gCellW - 4) / 2));
+    const int innerY = y + 1 + marginY;
+    const int innerX = x + 1 + marginX;
+    const int innerH = std::max(2, gCellH - 2 - (2 * marginY));
+    const int innerW = std::max(4, gCellW - 2 - (2 * marginX));
+
+    if (specialPair != 0) {
+        drawOutlineRect(win, innerY, innerX, innerH, innerW, specialPair);
     }
 
-    const std::string label = labelForTileType(tile_type);
-    if (!label.empty() && innerPair != 0) {
-        const int labelY = innerY + (innerH / 2);
-        const int labelX = innerX + std::max(0, (innerW - static_cast<int>(label.size())) / 2);
-        wattron(win, COLOR_PAIR(innerPair) | A_BOLD);
-        safePrint(win, labelY, labelX, label);
-        wattroff(win, COLOR_PAIR(innerPair) | A_BOLD);
+    if (!label.empty()) {
+        const int labelY = y + (gCellH / 2);
+        const int labelX = x + std::max(1, (gCellW - static_cast<int>(label.size())) / 2);
+        const int labelPair = labelColorForTile(tile_type);
+        wattron(win, COLOR_PAIR(labelPair) | A_BOLD);
+        mvwprintw(win, labelY, labelX, "%s", label.c_str());
+        wattroff(win, COLOR_PAIR(labelPair) | A_BOLD);
     }
 }
 
@@ -530,9 +511,9 @@ void Board::render(WINDOW* boardWin,
         init_board_colors();
     }
 
-    const int contentTop = 3;
-    const int contentBottomMargin = 2;
-    const int contentSideMargin = 2;
+    const int contentTop = 1 + BOARD_PAD_Y;
+    const int contentBottomMargin = 1 + BOARD_PAD_Y;
+    const int contentSideMargin = 1 + BOARD_PAD_X;
     const int availableHeight = std::max(1, height - contentTop - contentBottomMargin);
     const int availableWidth = std::max(1, width - (2 * contentSideMargin));
     const std::pair<int, int> cellSize = chooseCellSize(availableHeight, availableWidth);
@@ -541,17 +522,8 @@ void Board::render(WINDOW* boardWin,
 
     const int boardWidth = BOARD_COLS * gCellW + 1;
     const int boardHeight = BOARD_ROWS * gCellH + 1;
-    const int startY = contentTop + std::max(0, (availableHeight - boardHeight) / 2);
-    const int startX = contentSideMargin + std::max(0, (availableWidth - boardWidth) / 2);
-
-    if (hasColor) {
-        wattron(boardWin, COLOR_PAIR(GOLDRUSH_GOLD_SAND) | A_BOLD);
-    }
-    const std::string title = "G O L D R U S H";
-    safePrint(boardWin, 1, std::max(2, (width - static_cast<int>(title.size())) / 2), title);
-    if (hasColor) {
-        wattroff(boardWin, COLOR_PAIR(GOLDRUSH_GOLD_SAND) | A_BOLD);
-    }
+    const int startY = contentTop;
+    const int startX = contentSideMargin;
 
     fillRect(boardWin, startY, startX, boardHeight, boardWidth, PAIR_TILE_BLACK_BG);
     drawContinuousGrid(boardWin, startY, startX, BOARD_ROWS, BOARD_COLS, gCellH, gCellW, GOLDRUSH_GOLD_SAND);
@@ -595,7 +567,7 @@ void Board::render(WINDOW* boardWin,
             const std::size_t playerIndex = indices.front();
             marker = players[playerIndex].token;
             markerPair = static_cast<int>(playerIndex) == focusPlayerIndex ? GOLDRUSH_TILE_WHITE :
-                (players[playerIndex].token == 'J' ? GOLDRUSH_PLAYER_TWO : GOLDRUSH_PLAYER_ONE);
+                ui_player_color_pair(static_cast<int>(playerIndex));
         }
         drawCenteredMarker(boardWin, gameRow, gameCol, startY, startX, marker, markerPair);
     }

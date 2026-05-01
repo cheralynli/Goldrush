@@ -1788,12 +1788,12 @@ void Game::setupPlayers() {
     refresh();
     drawSetupTitle();
     int numPlayers = 0;
-    while (numPlayers < 1 || numPlayers > 2) {
+    while (numPlayers < 2 || numPlayers > 4) {
         werase(msgWin);
         drawBoxSafe(msgWin);
         const int msgW = getmaxx(msgWin);
         const int contentW = std::max(1, msgW - 4);
-        const std::string title = clipUiText("Players (1-2):", static_cast<std::size_t>(contentW));
+        const std::string title = clipUiText("Players (2-4):", static_cast<std::size_t>(contentW));
         const std::string prompt = clipUiText("Enter number of players: ", static_cast<std::size_t>(contentW));
         mvwprintw(msgWin, 1, 2, "%s", title.c_str());
         mvwprintw(msgWin, 3, 2, "%s", prompt.c_str());
@@ -1812,7 +1812,7 @@ void Game::setupPlayers() {
         noecho();
         curs_set(0);
 
-        if (inputBuf[0] >= '1' && inputBuf[0] <= '2' && inputBuf[1] == '\0') {
+        if (inputBuf[0] >= '2' && inputBuf[0] <= '4' && inputBuf[1] == '\0') {
             numPlayers = inputBuf[0] - '0';
             break;
         }
@@ -1820,7 +1820,7 @@ void Game::setupPlayers() {
         werase(msgWin);
         drawBoxSafe(msgWin);
         mvwprintw(msgWin, 1, 2, "%s",
-                  clipUiText("Invalid input. Please enter 1 or 2.",
+                  clipUiText("Invalid input. Please enter 2, 3, or 4.",
                              static_cast<std::size_t>(contentW)).c_str());
         mvwprintw(msgWin, 2, 2, "%s",
                   clipUiText("Press any key to try again.", static_cast<std::size_t>(contentW)).c_str());
@@ -1860,9 +1860,11 @@ void Game::setupPlayers() {
         Player p;
         p.name = nameBuf;
         if (p.name.empty()) {
-            p.name = i == 0 ? "Player A" : "Player J";
+            static const char* const fallbackNames[] = {"Player A", "Player J", "Player K", "Player L"};
+            p.name = fallbackNames[std::min(i, 3)];
         }
-        p.token = i == 0 ? 'A' : 'J';
+        static const char tokens[] = {'A', 'J', 'K', 'L'};
+        p.token = tokens[std::min(i, 3)];
         p.tile = 0;
         p.cash = 10000;
         p.job = "Starting Out";
