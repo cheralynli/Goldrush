@@ -12,28 +12,34 @@ struct TutorialFlags {
     bool automaticLoan = false;
     bool manualLoan = false;
     bool investment = false;
+    bool job = false;
     bool baby = false;
     bool pet = false;
     bool marriage = false;
+    bool house = false;
     bool insurance = false;
     bool shield = false;
     bool actionCard = false;
     bool minigame = false;
     bool sabotage = false;
+    bool endgameScoring = false;
 };
 
 enum class TutorialTopic {
     AutomaticLoan,
     ManualLoan,
     Investment,
+    Job,
     Baby,
     Pet,
     Marriage,
+    House,
     Insurance,
     Shield,
     ActionCard,
     Minigame,
-    Sabotage
+    Sabotage,
+    EndgameScoring
 };
 
 bool& tutorialFlagForTopic(TutorialFlags& flags, TutorialTopic topic);

@@ -1079,6 +1079,132 @@ void debugClassicFullBoardMode() {
                      BoardViewMode::ClassicFull);
 }
 
+void debug1860BoardMode() {
+    RuleSet rules = makeNormalRules();
+    Board board;
+    std::vector<Player> players = makeBoardPreviewPlayers();
+    players[0].tile = board.mode1860StartTileId();
+    players[1].tile = board.mode1860TileIdAt(20, 5);
+    players[2].tile = board.mode1860TileIdAt(10, 11);
+    players[3].tile = board.mode1860RetirementTileId();
+    showBoardPreview("1860 Free Movement Board",
+                     "The main board should follow the active player while the 25x25 checkered board remains available through the minimap.",
+                     players,
+                     0,
+                     std::vector<std::string>{
+                         "Infancy / Start is near the bottom-left.",
+                         "Happy Old Age / Retirement is near the top-right.",
+                         "Players can choose any valid orthogonal landing space after spinning."
+                     },
+                     rules,
+                     BoardViewMode::Mode1860);
+}
+
+void debug1860FreeMovementRules() {
+    std::cout << "\n===== 1860 FREE MOVEMENT DEBUG =====\n";
+    Board board;
+    const int startTile = board.mode1860StartTileId();
+    const Tile& start = board.tileAt(startTile);
+    const int steps = readInt("Movement steps to inspect", 1, 10, 5);
+    const std::vector<int> reachable = board.reachable1860Tiles(startTile, steps);
+
+    bool allValid = true;
+    for (std::size_t i = 0; i < reachable.size(); ++i) {
+        allValid = allValid && board.isValid1860Move(startTile, reachable[i], steps);
+    }
+
+    std::cout << "Board size: " << board.mode1860Rows() << "x" << board.mode1860Cols() << "\n";
+    std::cout << "Start tile: " << startTile << " at row " << start.mode1860Y
+              << ", col " << start.mode1860X << "\n";
+    std::cout << "Retirement tile: " << board.mode1860RetirementTileId() << "\n";
+    std::cout << "Reachable destinations at exactly " << steps << " steps: "
+              << reachable.size() << "\n";
+    std::cout << "Validation: " << (allValid ? "all destinations are exact-distance moves" : "FAILED") << "\n";
+    std::cout << "Sample destinations:\n";
+    for (std::size_t i = 0; i < reachable.size() && i < 10; ++i) {
+        const Tile& tile = board.tileAt(reachable[i]);
+        std::cout << "  " << reachable[i] << " row " << tile.mode1860Y
+                  << ", col " << tile.mode1860X << " -> "
+                  << getTileFullName(tile) << " (zone "
+                  << board.mode1860LifeZone(tile.mode1860Y, tile.mode1860X) << ")\n";
+    }
+    pauseForEnter();
+}
+
+void debugBoardModeParsing() {
+    std::cout << "\n===== BOARD MODE PARSING DEBUG =====\n";
+    const std::vector<std::string> samples{
+        "classic-full",
+        "Classic Full Board",
+        "follow-camera",
+        "Follow Camera",
+        "1860",
+        "Mode1860",
+        "Checkered1860"
+    };
+
+    for (std::size_t i = 0; i < samples.size(); ++i) {
+        const BoardViewMode mode = boardViewModeFromName(samples[i]);
+        std::cout << samples[i] << " -> " << boardViewModeName(mode) << "\n";
+    }
+    pauseForEnter();
+}
+
+void debugBoardModeSaveLoad() {
+    std::cout << "\n===== BOARD MODE SAVE/LOAD DEBUG =====\n";
+    SaveManager manager;
+    std::string error;
+    if (!manager.ensureSaveDirectory(error)) {
+        std::cout << "Save directory check failed: " << error << "\n";
+        pauseForEnter();
+        return;
+    }
+
+    initialize_game_ui();
+    Game game(20260502);
+    game.boardViewMode = BoardViewMode::Mode1860;
+    game.rules = makeNormalRules();
+    game.settings = createLifeModeSettings();
+    game.bank.configure(game.rules);
+    game.players.clear();
+    Player player = makeDebugPlayer("Mode Tester", 0);
+    player.tile = game.board.mode1860StartTileId();
+    game.players.push_back(player);
+    Player other = makeDebugPlayer("Second", 1);
+    other.tile = game.board.mode1860TileIdAt(20, 5);
+    game.players.push_back(other);
+    game.currentPlayerIndex = 0;
+    game.gameId = "DEBUG_BOARD_MODE_1860";
+    game.assignedSaveFilename = "debug_board_mode_1860.sav";
+    destroy_game_ui();
+
+    const std::string filename = "debug_board_mode_1860.sav";
+    if (!manager.saveGame(game, filename, error)) {
+        std::cout << "Save failed: " << error << "\n";
+        pauseForEnter();
+        return;
+    }
+
+    initialize_game_ui();
+    Game loaded(20260503);
+    destroy_game_ui();
+    if (!manager.loadGame(loaded, filename, error)) {
+        std::cout << "Load failed: " << error << "\n";
+        pauseForEnter();
+        return;
+    }
+
+    std::cout << "Saved mode: " << boardViewModeName(game.boardViewMode) << "\n";
+    std::cout << "Loaded mode: " << boardViewModeName(loaded.boardViewMode) << "\n";
+    std::cout << "Loaded players: " << loaded.players.size() << "\n";
+    std::cout << "Loaded 1860 size: " << loaded.board.mode1860Rows()
+              << "x" << loaded.board.mode1860Cols() << "\n";
+    if (!loaded.players.empty()) {
+        std::cout << "First player tile: " << loaded.players.front().tile << "\n";
+    }
+    pauseForEnter();
+}
+
 void debugMinimapSupport() {
     initialize_game_ui();
     Board board;
@@ -1152,11 +1278,15 @@ void debugBoardUi() {
                   << "10. Test event message panel\n"
                   << "11. Test follow camera board mode\n"
                   << "12. Test classic/full board mode\n"
-                  << "13. Test minimap support\n"
-                  << "14. Test popup over follow-camera mode\n"
-                  << "15. Return\n";
+                  << "13. Test 1860 checkered board mode\n"
+                  << "14. Test board mode parsing\n"
+                  << "15. Test board mode save/load\n"
+                  << "16. Test 1860 free movement rules\n"
+                  << "17. Test minimap support\n"
+                  << "18. Test popup over follow-camera mode\n"
+                  << "19. Return\n";
 
-        const int choice = readMenuChoice(1, 15);
+        const int choice = readMenuChoice(1, 19);
         if (choice == 1) {
             debugTileColorsAndSymbols();
         } else if (choice == 2) {
@@ -1182,8 +1312,16 @@ void debugBoardUi() {
         } else if (choice == 12) {
             debugClassicFullBoardMode();
         } else if (choice == 13) {
-            debugMinimapSupport();
+            debug1860BoardMode();
         } else if (choice == 14) {
+            debugBoardModeParsing();
+        } else if (choice == 15) {
+            debugBoardModeSaveLoad();
+        } else if (choice == 16) {
+            debug1860FreeMovementRules();
+        } else if (choice == 17) {
+            debugMinimapSupport();
+        } else if (choice == 18) {
             debugPopupOverFollowCamera();
         } else {
             return;

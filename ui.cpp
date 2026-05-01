@@ -10,6 +10,7 @@
 #include <sstream>
 #include <vector>
 
+#include "input_helpers.h"
 #include "tile_display.h"
 #include "ui_helpers.h"
 
@@ -20,8 +21,6 @@ const short UI_COLOR_TERRA = 26;
 const short UI_COLOR_FOREST = 27;
 const short UI_COLOR_STEEL = 28;
 const short UI_COLOR_MAUVE = 29;
-const short UI_COLOR_BOARD_LIGHT = 30;
-const short UI_COLOR_BOARD_DARK = 31;
 const int UI_ESC_DELAY_MS = 25;
 
 short earthyOr(short custom, short fallback) {
@@ -108,29 +107,26 @@ std::string playerLifePhase(const Board& board, const Player& player) {
     if (player.retired || board.tileAt(player.tile).kind == TILE_RETIREMENT) {
         return "Retired";
     }
-    const Tile& tile = board.tileAt(player.tile);
-    if (tile.kind == TILE_START) {
+    if (player.tile == 0) {
         return "Starting Out";
     }
-    switch (tile.kind) {
-        case TILE_COLLEGE:
-        case TILE_GRADUATION:
-            return "College Years";
-        case TILE_CAREER:
-        case TILE_CAREER_2:
-            return "Career Years";
-        case TILE_MARRIAGE:
-            return "Married Life";
-        case TILE_FAMILY:
-            return "Family Life";
-        case TILE_SAFE:
-            return "Safe Trail";
-        case TILE_RISKY:
-            return "Risk Trail";
-        case TILE_BLACK:
-            return "Minigame Stop";
-        default:
-            break;
+    if (player.tile >= 13 && player.tile <= 37) {
+        return player.startChoice == 0 ? "College Years" : "Career Launch";
+    }
+    if (player.tile >= 1 && player.tile <= 58) {
+        if (board.tileAt(player.tile).kind == TILE_MARRIAGE) {
+            return "Marriage Stop";
+        }
+        return "Early Adult Life";
+    }
+    if (player.tile >= 59 && player.tile <= 68) {
+        return "Family Years";
+    }
+    if (player.tile >= 69 && player.tile <= 78) {
+        return "Work Years";
+    }
+    if (player.tile >= 79 && player.tile <= 86) {
+        return player.riskChoice == 1 ? "Risk Route" : "Safe Route";
     }
     return board.regionNameForTile(player.tile);
 }
@@ -149,7 +145,7 @@ int previewNextTile(const Board& board, const Player& player, int tileIndex) {
     return current.next;
 }
 
-[[maybe_unused]] int distanceToNextTileKind(const Board& board, const Player& player, TileKind kind, int maxDistance) {
+int distanceToNextTileKind(const Board& board, const Player& player, TileKind kind, int maxDistance) {
     int tileIndex = player.tile;
     for (int distance = 1; distance <= maxDistance; ++distance) {
         tileIndex = previewNextTile(board, player, tileIndex);
@@ -189,8 +185,6 @@ void initGameColors() {
         init_color(UI_COLOR_FOREST, 133, 545, 133);
         init_color(UI_COLOR_STEEL, 447, 549, 788);
         init_color(UI_COLOR_MAUVE, 694, 509, 882);
-        init_color(UI_COLOR_BOARD_LIGHT, 941, 851, 710);
-        init_color(UI_COLOR_BOARD_DARK, 710, 533, 388);
     }
 
     const short gold = earthyOr(UI_COLOR_GOLD, COLOR_YELLOW);
@@ -199,8 +193,6 @@ void initGameColors() {
     const short forest = earthyOr(UI_COLOR_FOREST, COLOR_GREEN);
     const short steel = earthyOr(UI_COLOR_STEEL, COLOR_CYAN);
     const short mauve = earthyOr(UI_COLOR_MAUVE, COLOR_MAGENTA);
-    const short boardLight = earthyOr(UI_COLOR_BOARD_LIGHT, COLOR_YELLOW);
-    const short boardDark = earthyOr(UI_COLOR_BOARD_DARK, COLOR_RED);
 
     init_pair(GOLDRUSH_GOLD_BLACK, gold, COLOR_BLACK);
     init_pair(GOLDRUSH_BROWN_SAND, brown, COLOR_BLACK);
@@ -210,10 +202,10 @@ void initGameColors() {
     init_pair(GOLDRUSH_BROWN_CREAM, brown, COLOR_BLACK);
     init_pair(GOLDRUSH_CHARCOAL_BLACK, COLOR_WHITE, COLOR_BLACK);
     init_pair(GOLDRUSH_GOLD_SAND, gold, COLOR_BLACK);
-    init_pair(GOLDRUSH_PLAYER_ONE, COLOR_MAGENTA, COLOR_BLACK);
+    init_pair(GOLDRUSH_PLAYER_ONE, gold, COLOR_BLACK);
     init_pair(GOLDRUSH_PLAYER_TWO, forest, COLOR_BLACK);
-    init_pair(GOLDRUSH_PLAYER_THREE, gold, COLOR_BLACK);
-    init_pair(GOLDRUSH_PLAYER_FOUR, COLOR_BLUE, COLOR_BLACK);
+    init_pair(GOLDRUSH_PLAYER_THREE, terra, COLOR_BLACK);
+    init_pair(GOLDRUSH_PLAYER_FOUR, COLOR_CYAN, COLOR_BLACK);
     init_pair(GOLDRUSH_BLACK_FOREST, forest, COLOR_BLACK);
     init_pair(GOLDRUSH_BLACK_CREAM, brown, COLOR_BLACK);
     init_pair(GOLDRUSH_GOLD_TERRA, terra, COLOR_BLACK);
@@ -225,9 +217,6 @@ void initGameColors() {
     init_pair(GOLDRUSH_TILE_CAREER, steel, COLOR_BLACK);
     init_pair(GOLDRUSH_TILE_HOME, brown, COLOR_BLACK);
     init_pair(GOLDRUSH_TILE_ROUTE, gold, COLOR_BLACK);
-    init_pair(GOLDRUSH_BOARD_LIGHT, COLOR_BLACK, boardLight);
-    init_pair(GOLDRUSH_BOARD_DARK, COLOR_WHITE, boardDark);
-    init_pair(GOLDRUSH_TILE_WHITE, COLOR_WHITE, COLOR_BLACK);
 }
 
 void draw_menu_border(bool is_active, int x, int y, int width, int height) {
@@ -547,24 +536,31 @@ int ui_player_color_pair(int playerIndex) {
 
 int getTileColorPair(const Tile& tile) {
     switch (tile.kind) {
+        case TILE_PAYDAY:
         case TILE_SAFE:
-            return GOLDRUSH_BLACK_FOREST;
-        case TILE_START:
-            return GOLDRUSH_TILE_ROUTE;
-        case TILE_COLLEGE:
-        case TILE_CAREER:
-        case TILE_GRADUATION:
-        case TILE_CAREER_2:
-            return GOLDRUSH_TILE_CAREER;
-        case TILE_MARRIAGE:
-        case TILE_RISKY:
-            return GOLDRUSH_TILE_RISK;
-        case TILE_FAMILY:
-        case TILE_HOUSE:
-            return GOLDRUSH_TILE_HOME;
+            return GOLDRUSH_TILE_PAYDAY;
         case TILE_BLACK:
+            return tile.value >= 3 ? GOLDRUSH_TILE_MINIGAME : GOLDRUSH_TILE_ACTION;
+        case TILE_RISKY:
+        case TILE_MARRIAGE:
+            return GOLDRUSH_TILE_RISK;
+        case TILE_CAREER:
+        case TILE_CAREER_2:
+        case TILE_COLLEGE:
+        case TILE_GRADUATION:
+        case TILE_NIGHT_SCHOOL:
+            return GOLDRUSH_TILE_CAREER;
+        case TILE_HOUSE:
+        case TILE_FAMILY:
+        case TILE_BABY:
+        case TILE_SPLIT_FAMILY:
+            return GOLDRUSH_TILE_HOME;
+        case TILE_START:
+        case TILE_SPLIT_START:
+        case TILE_SPLIT_RISK:
+        case TILE_SPIN_AGAIN:
         case TILE_RETIREMENT:
-            return GOLDRUSH_TILE_MINIGAME;
+            return GOLDRUSH_TILE_ROUTE;
         case TILE_EMPTY:
         default:
             return GOLDRUSH_TILE_BASIC;
@@ -572,16 +568,6 @@ int getTileColorPair(const Tile& tile) {
 }
 
 void draw_title_banner_ui(WINDOW* titleWin) {
-    static const char* const kTitleArt[] = {
-        "   ________        .__       .___                    .__     ",
-        "  /  _____/  ____  |  |    __| _/______ __ __  _____|  |__  ",
-        " /   \\  ___ /  _ \\ |  |   / __ |\\_  __ \\  |  \\/  ___/  |  \\ ",
-        " \\    \\_\\  (  <_> )|  |__/ /_/ | |  | \\/  |  /\\___ \\|   Y  \\",
-        "  \\______  /\\____/ |____/\\____ | |__|  |____//____  >___|  /",
-        "         \\/                   \\/                  \\/     \\/ "
-    };
-    static const int kTitleLines = static_cast<int>(sizeof(kTitleArt) / sizeof(kTitleArt[0]));
-    static const int kTitleWidth = 62;
     int height = 0;
     int width = 0;
     getmaxyx(titleWin, height, width);
@@ -595,12 +581,21 @@ void draw_title_banner_ui(WINDOW* titleWin) {
             mvwprintw(titleWin, 1, titleX, "%s",
                       clipPanelText(title, static_cast<std::size_t>(std::max(1, width - 4))).c_str());
         }
-    } else {
-        const int startX = std::max(2, (width - kTitleWidth) / 2);
-        const int startY = std::max(1, (height - kTitleLines) / 2);
-        for (int i = 0; i < kTitleLines && (startY + i) < height - 1; ++i) {
-            mvwprintw(titleWin, startY + i, startX, "%s", kTitleArt[i]);
+        if (height >= 4) {
+            const std::string subtitle = "Retire with the highest net worth";
+            mvwprintw(titleWin,
+                      2,
+                      std::max(2, (width - static_cast<int>(subtitle.size())) / 2),
+                      "%s",
+                      clipPanelText(subtitle, static_cast<std::size_t>(std::max(8, width - 4))).c_str());
         }
+    } else {
+        mvwprintw(titleWin, 1, 2, "   ________        .__       .___                    .__     ");
+        mvwprintw(titleWin, 2, 2, "  /  _____/  ____  |  |    __| _/______ __ __  _____|  |__  ");
+        mvwprintw(titleWin, 3, 2, " /   \\  ___ /  _ \\ |  |   / __ |\\_  __ \\  |  \\/  ___/  |  \\ ");
+        mvwprintw(titleWin, 4, 2, " \\    \\_\\  (  <_> )|  |__/ /_/ | |  | \\/  |  /\\___ \\|   Y  \\");
+        mvwprintw(titleWin, 5, 2, "  \\______  /\\____/ |____/\\____ | |__|  |____//____  >___|  /");
+        mvwprintw(titleWin, 6, 2, "         \\/                   \\/                  \\/     \\/ ");
     }
     wattroff(titleWin, COLOR_PAIR(GOLDRUSH_GOLD_BLACK) | A_BOLD);
     wrefresh(titleWin);
@@ -621,10 +616,10 @@ void drawBoardLegend(WINDOW* win) {
     }
 
     Board legendBoard;
-    drawLegendEntry(win, 0, 0, legendBoard.tileAt(0), "Start");
-    drawLegendEntry(win, 0, 18, legendBoard.tileAt(4), "College");
-    drawLegendEntry(win, 1, 0, legendBoard.tileAt(17), "Black tile");
-    drawLegendEntry(win, 1, 18, legendBoard.tileAt(98), "Retirement");
+    drawLegendEntry(win, 0, 0, legendBoard.tileAt(20), "Payday");
+    drawLegendEntry(win, 0, 18, legendBoard.tileAt(39), "Action");
+    drawLegendEntry(win, 1, 0, legendBoard.tileAt(84), "Minigame");
+    drawLegendEntry(win, 1, 18, legendBoard.tileAt(83), "Risk");
 }
 
 void drawCurrentHintBox(WINDOW* win, const Board& board, const Player& player, const RuleSet& rules) {
@@ -638,11 +633,22 @@ void drawCurrentHintBox(WINDOW* win, const Board& board, const Player& player, c
     werase(win);
     if (height <= 3) {
         std::string secondLine;
-        secondLine = "Tile: " + board.regionNameForTile(player.tile) + ".";
+        if (player.loans >= 4) {
+            secondLine = "Debt warning: " + std::to_string(player.loans) + " loans.";
+        } else if (player.cash < 30000) {
+            secondLine = "Low cash: avoid a big penalty.";
+        } else if (!player.actionCards.empty()) {
+            secondLine = "Hint: " + std::to_string(player.actionCards.size()) + " action card(s) ready.";
+        } else {
+            secondLine = "Region: " + board.regionNameForTile(player.tile) + ".";
+        }
 
-        mvwprintw(win, 0, 0, "%s", clipPanelText("GOAL: reach Retirement first, then compare wealth.", static_cast<std::size_t>(std::max(8, width - 1))).c_str());
+        mvwprintw(win, 0, 0, "%s", clipPanelText("GOAL: Retire with the highest net worth.", static_cast<std::size_t>(std::max(8, width - 1))).c_str());
         mvwprintw(win, 1, 0, "%s", clipPanelText(secondLine, static_cast<std::size_t>(std::max(8, width - 1))).c_str());
-        const std::string thirdLine = "Black tiles launch a random minigame.";
+        const int paydayDistance = distanceToNextTileKind(board, player, TILE_PAYDAY, 8);
+        const std::string thirdLine = paydayDistance > 0
+            ? "Next payday in " + std::to_string(paydayDistance) + " space" + (paydayDistance == 1 ? "." : "s.")
+            : "No payday nearby.";
         mvwprintw(win, 2, 0, "%s", clipPanelText(thirdLine, static_cast<std::size_t>(std::max(8, width - 1))).c_str());
         wrefresh(win);
         return;
@@ -657,13 +663,30 @@ void drawCurrentHintBox(WINDOW* win, const Board& board, const Player& player, c
     if (framed) {
         drawBoxSafe(win);
     }
-    (void)rules;
     drawPanelHeader(win, headerY, "CURRENT GOAL");
-    mvwprintw(win, line1Y, textX, "%s", clipPanelText("Reach Retirement before the other players.", static_cast<std::size_t>(std::max(8, width - textX - 1))).c_str());
+    mvwprintw(win, line1Y, textX, "%s", clipPanelText("Reach retirement with the highest net worth.", static_cast<std::size_t>(std::max(8, width - textX - 1))).c_str());
 
-    std::string secondLine = "Current tile: " + board.regionNameForTile(player.tile) + ".";
+    std::string secondLine;
+    if (player.loans >= 4) {
+        secondLine = "Warning: " + std::to_string(player.loans) + " loans make penalties sting.";
+    } else if (player.cash < 30000) {
+        secondLine = "Low cash: avoid big losses or more loans may trigger.";
+    } else if (!player.actionCards.empty()) {
+        secondLine = "Hint: you have " + std::to_string(player.actionCards.size()) + " action card(s) ready.";
+    } else if (rules.toggles.investmentEnabled && player.investedNumber > 0) {
+        secondLine = "Investment: spin " + std::to_string(player.investedNumber) + " pays $" +
+                     std::to_string(player.investPayout) + ".";
+    } else {
+        secondLine = "Region: " + board.regionNameForTile(player.tile) + ".";
+    }
     mvwprintw(win, line2Y, textX, "%s", clipPanelText(secondLine, static_cast<std::size_t>(std::max(8, width - textX - 1))).c_str());
-    mvwprintw(win, line3Y, textX, "%s", clipPanelText("Black c spaces trigger a random minigame.", static_cast<std::size_t>(std::max(8, width - textX - 1))).c_str());
+
+    const int paydayDistance = distanceToNextTileKind(board, player, TILE_PAYDAY, 8);
+    if (paydayDistance > 0) {
+        mvwprintw(win, line3Y, textX, "Next payday in %d space%s.", paydayDistance, paydayDistance == 1 ? "" : "s");
+    } else {
+        mvwprintw(win, line3Y, textX, "%s", clipPanelText("No payday is nearby on the visible route.", static_cast<std::size_t>(std::max(8, width - textX - 1))).c_str());
+    }
     wrefresh(win);
 }
 
@@ -700,15 +723,22 @@ void drawPlayerPanel(WINDOW* sideWin,
             roster << " RET";
         }
 
-        wattron(sideWin, COLOR_PAIR(colorPair) | A_BOLD);
-        mvwprintw(sideWin, row, 2, "%-*s", rosterWidth, clipPanelText(roster.str(), static_cast<std::size_t>(rosterWidth)).c_str());
-        wattroff(sideWin, COLOR_PAIR(colorPair) | A_BOLD);
+        if (static_cast<int>(i) == currentPlayerIndex) {
+            wattron(sideWin, COLOR_PAIR(colorPair) | A_BOLD | A_REVERSE);
+            mvwprintw(sideWin, row, 2, "%-*s", rosterWidth, clipPanelText(roster.str(), static_cast<std::size_t>(rosterWidth)).c_str());
+            wattroff(sideWin, COLOR_PAIR(colorPair) | A_BOLD | A_REVERSE);
+        } else {
+            wattron(sideWin, COLOR_PAIR(colorPair) | A_BOLD);
+            mvwprintw(sideWin, row, 2, "%-*s", rosterWidth, clipPanelText(roster.str(), static_cast<std::size_t>(rosterWidth)).c_str());
+            wattroff(sideWin, COLOR_PAIR(colorPair) | A_BOLD);
+        }
     }
 
     if (compact) {
         drawPanelHeader(sideWin, 6, "STATUS");
         drawLabeledValue(sideWin, 7, "Cash:", "$" + std::to_string(player.cash), GOLDRUSH_TILE_PAYDAY);
-        drawLabeledValue(sideWin, 8, "Loans:", std::to_string(player.loans),
+        drawLabeledValue(sideWin, 8, "Loans:", std::to_string(player.loans) + " | Inv " +
+            (player.investedNumber > 0 ? std::to_string(player.investedNumber) : "None"),
             player.loans > 0 ? GOLDRUSH_TILE_RISK : GOLDRUSH_BROWN_CREAM);
         drawLabeledValue(sideWin, 9, "Job:", clipPanelText(player.job, static_cast<std::size_t>(valueWidth)));
         drawLabeledValue(sideWin, 10, "Space:", std::to_string(player.tile) + " / " +
@@ -717,28 +747,46 @@ void drawPlayerPanel(WINDOW* sideWin,
         drawPanelHeader(sideWin, 12, "LIFE");
         drawLabeledValue(sideWin, 13, "Family:", std::string(player.married ? "Married" : "Single") +
             " | Kids " + std::to_string(player.kids));
-        drawLabeledValue(sideWin, 14, "House:", player.hasHouse ? "Yes" : "No");
-        drawLabeledValue(sideWin, 15, "Salary:", "$" + std::to_string(player.salary));
+        drawLabeledValue(sideWin, 14, "Home:", clipPanelText(player.retirementHome.empty()
+            ? (player.houseName.empty() ? "None" : player.houseName)
+            : player.retirementHome, static_cast<std::size_t>(valueWidth)));
+        drawLabeledValue(sideWin, 15, "Pets:", std::to_string(static_cast<int>(player.petCards.size())));
 
-        drawPanelHeader(sideWin, 17, "TURN");
-        drawLabeledValue(sideWin, 18, "Phase:", playerLifePhase(board, player));
+        drawPanelHeader(sideWin, 17, "DEFENSE");
+        if (player.type == PlayerType::CPU) {
+            drawLabeledValue(sideWin, 18, "CPU:", cpuDifficultyLabel(player.cpuDifficulty) +
+                " | Sab " + std::to_string(player.sabotageCooldown),
+                ui_player_color_pair(currentPlayerIndex));
+        } else {
+            drawLabeledValue(sideWin, 18, "Defense:", "Sh " + std::to_string(player.shieldCards) +
+                " | In " + std::to_string(player.insuranceUses) +
+                " | Sab " + std::to_string(player.sabotageCooldown));
+        }
     } else {
         drawPanelHeader(sideWin, 6, "STATUS");
         drawLabeledValue(sideWin, 7, "Cash:", "$" + std::to_string(player.cash), GOLDRUSH_TILE_PAYDAY);
         drawLabeledValue(sideWin, 8, "Loans:", std::to_string(player.loans), player.loans > 0 ? GOLDRUSH_TILE_RISK : GOLDRUSH_BROWN_CREAM);
         drawLabeledValue(sideWin, 9, "Job:", clipPanelText(player.job, static_cast<std::size_t>(valueWidth)));
-        drawLabeledValue(sideWin, 10, "Salary:", "$" + std::to_string(player.salary));
+        drawLabeledValue(sideWin, 10, "Invest:", player.investedNumber > 0
+            ? (std::to_string(player.investedNumber) + " -> $" + std::to_string(player.investPayout))
+            : "None");
         drawLabeledValue(sideWin, 11, "Space:", std::to_string(player.tile) + " / " + clipPanelText(board.regionNameForTile(player.tile), static_cast<std::size_t>(regionWidth)));
 
         drawPanelHeader(sideWin, 13, "LIFE");
         drawLabeledValue(sideWin, 14, "Married:", std::string(player.married ? "Yes" : "No") + "  Kids: " + std::to_string(player.kids));
-        drawLabeledValue(sideWin, 15, "House:", player.hasHouse ? "Yes" : "No");
-        drawLabeledValue(sideWin, 16, "Token:", std::string(1, player.token));
+        drawLabeledValue(sideWin, 15, "Pets:", std::to_string(static_cast<int>(player.petCards.size())));
+        drawLabeledValue(sideWin, 16, "Home:", clipPanelText(player.retirementHome.empty()
+            ? (player.houseName.empty() ? "None" : player.houseName)
+            : player.retirementHome, static_cast<std::size_t>(valueWidth)));
 
-        drawPanelHeader(sideWin, 18, "TURN");
-        drawLabeledValue(sideWin, 19, "Phase:", playerLifePhase(board, player));
-        drawLabeledValue(sideWin, 20, "Goal:", "Reach Retirement first");
-        drawLabeledValue(sideWin, 21, "Wealth:", "$" + std::to_string(totalWorth(player)));
+        drawPanelHeader(sideWin, 18, "DEFENSE");
+        if (player.type == PlayerType::CPU) {
+            drawLabeledValue(sideWin, 19, "CPU:", cpuDifficultyLabel(player.cpuDifficulty), ui_player_color_pair(currentPlayerIndex));
+        } else {
+            drawLabeledValue(sideWin, 19, "Shields:", std::to_string(player.shieldCards));
+            drawLabeledValue(sideWin, 20, "Insurance:", std::to_string(player.insuranceUses));
+        }
+        drawLabeledValue(sideWin, 21, "Sab CD:", std::to_string(player.sabotageCooldown));
     }
 }
 
@@ -783,16 +831,128 @@ void drawEventMessage(WINDOW* messageWin, const std::string& title, const std::s
     wrefresh(messageWin);
 }
 
+char minimap1860Glyph(const Tile& tile) {
+    switch (tile.kind) {
+        case TILE_START: return 'S';
+        case TILE_RETIREMENT: return 'R';
+        case TILE_PAYDAY: return '$';
+        case TILE_BLACK: return tile.value >= 3 ? 'M' : 'A';
+        case TILE_RISKY:
+        case TILE_SPLIT_RISK: return '!';
+        case TILE_SAFE: return '+';
+        case TILE_CAREER:
+        case TILE_CAREER_2:
+        case TILE_COLLEGE:
+        case TILE_GRADUATION:
+        case TILE_NIGHT_SCHOOL: return 'J';
+        case TILE_MARRIAGE:
+        case TILE_SPLIT_FAMILY:
+        case TILE_FAMILY:
+        case TILE_BABY:
+        case TILE_HOUSE: return 'F';
+        case TILE_EMPTY:
+        default: return '.';
+    }
+}
+
+void draw1860MiniChar(WINDOW* panelWin, int y, int x, char glyph, int colorPair, bool highlight) {
+    const int attrs = A_BOLD | (highlight ? A_REVERSE : A_NORMAL);
+    wattron(panelWin, COLOR_PAIR(colorPair) | attrs);
+    mvwaddch(panelWin, y, x, glyph);
+    wattroff(panelWin, COLOR_PAIR(colorPair) | attrs);
+}
+
+void draw1860MinimapPanel(WINDOW* panelWin,
+                          const Board& board,
+                          const std::vector<Player>& players,
+                          int currentPlayer,
+                          const std::vector<int>* reachableTiles,
+                          int cursorTile) {
+    const int panelHeight = getmaxy(panelWin);
+    const int panelWidth = getmaxx(panelWin);
+    const int mapTop = 2;
+    const int mapLeft = std::max(2, (panelWidth - board.mode1860Cols()) / 2);
+    const int maxRows = std::min(board.mode1860Rows(), std::max(0, panelHeight - mapTop - 2));
+    const std::set<int> reachable = reachableTiles
+        ? std::set<int>(reachableTiles->begin(), reachableTiles->end())
+        : std::set<int>();
+    const int cameraCenter = cursorTile >= 0
+        ? cursorTile
+        : (!players.empty() && currentPlayer >= 0 && currentPlayer < static_cast<int>(players.size())
+            ? players[static_cast<std::size_t>(currentPlayer)].tile
+            : board.mode1860StartTileId());
+    const BoardRect camera = board.mode1860CameraViewport(cameraCenter, 11, 11);
+
+    for (int row = 0; row < maxRows; ++row) {
+        for (int col = 0; col < board.mode1860Cols() && mapLeft + col < panelWidth - 1; ++col) {
+            const int tileId = board.mode1860TileIdAt(row, col);
+            const Tile& tile = board.tileAt(tileId);
+            int occupants = 0;
+            int firstPlayer = -1;
+            for (std::size_t p = 0; p < players.size(); ++p) {
+                if (players[p].tile == tileId) {
+                    if (firstPlayer < 0) {
+                        firstPlayer = static_cast<int>(p);
+                    }
+                    ++occupants;
+                }
+            }
+
+            char glyph = minimap1860Glyph(tile);
+            int color = getTileColorPair(tile);
+            if (reachable.count(tileId) != 0) {
+                glyph = '*';
+                color = GOLDRUSH_GOLD_TERRA;
+            }
+            if (occupants > 1) {
+                glyph = '@';
+                color = GOLDRUSH_GOLD_TERRA;
+            } else if (occupants == 1) {
+                glyph = firstPlayer == currentPlayer ? 'P' : 'o';
+                color = ui_player_color_pair(firstPlayer);
+            }
+            if (tileId == cursorTile) {
+                glyph = 'X';
+                color = GOLDRUSH_GOLD_TERRA;
+            }
+
+            const bool cameraEdge =
+                (row == camera.row || row == camera.row + camera.rows - 1 ||
+                 col == camera.col || col == camera.col + camera.cols - 1) &&
+                row >= camera.row && row < camera.row + camera.rows &&
+                col >= camera.col && col < camera.col + camera.cols;
+            draw1860MiniChar(panelWin, mapTop + row, mapLeft + col, glyph, color, cameraEdge);
+        }
+    }
+
+    const int legendY = mapTop + maxRows;
+    if (legendY < panelHeight - 1) {
+        mvwprintw(panelWin, legendY, 2, "%-.34s", "P current o player @ stack * reach");
+    }
+    if (legendY + 1 < panelHeight - 1) {
+        mvwprintw(panelWin, legendY + 1, 2, "%-.34s", "S start R retire X cursor box camera");
+    }
+}
+
 void drawMinimapPanel(WINDOW* panelWin,
                       const Board& board,
                       const std::vector<Player>& players,
-                      int currentPlayer) {
+                      int currentPlayer,
+                      BoardViewMode viewMode,
+                      const std::vector<int>* reachableTiles,
+                      int cursorTile) {
     werase(panelWin);
     drawBoxSafe(panelWin);
 
     wattron(panelWin, COLOR_PAIR(GOLDRUSH_GOLD_BLACK) | A_BOLD);
     mvwprintw(panelWin, 1, 2, "MINIMAP");
     wattroff(panelWin, COLOR_PAIR(GOLDRUSH_GOLD_BLACK) | A_BOLD);
+
+    if (viewMode == BoardViewMode::Mode1860) {
+        draw1860MinimapPanel(panelWin, board, players, currentPlayer, reachableTiles, cursorTile);
+        wrefresh(panelWin);
+        return;
+    }
 
     const int panelHeight = getmaxy(panelWin);
     const int mapTop = 3;
@@ -1093,20 +1253,21 @@ int selector_component(char* prompt_text,
             }
         }
 
-        if (number_of_options > visibleOptions) {
-            mvwprintw(popup, popupH - 2, 2, "Up/Down scroll  Enter select");
-        }
+        mvwprintw(popup, popupH - 2, 2, "%s",
+                  number_of_options > visibleOptions
+                      ? "Up/Down scroll  Enter select  ESC cancel"
+                      : "Enter select  ESC cancel");
 
         wrefresh(popup);
         const int input_character = wgetch(popup);
-        if (input_character == KEY_UP) {
-            highlighted_option = highlighted_option == 0 ? number_of_options - 1 : highlighted_option - 1;
-        } else if (input_character == KEY_DOWN) {
-            highlighted_option = highlighted_option == number_of_options - 1 ? 0 : highlighted_option + 1;
-        } else if (input_character == '\n' || input_character == '\r' || input_character == KEY_ENTER) {
+        MenuInputResult menuResult =
+            menuSelectOrCancel(input_character, highlighted_option, number_of_options, false, false);
+        if (menuResult == MenuInputResult::Selected) {
             chosen_option_value = option_values[highlighted_option];
             break;
-        } else if (input_character == 27) {
+        }
+        if (menuResult == MenuInputResult::Cancelled) {
+            chosen_option_value = MENU_CANCELLED;
             break;
         }
     }

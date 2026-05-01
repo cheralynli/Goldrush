@@ -4,11 +4,15 @@
 #include "ui.h"
 
 int main() {
-    initialize_game_ui();
+    //sets up ncurses environment, colors, and UI state
+    initialize_game_ui(); 
 
-    Game game;
-    game.run();
+    //constructs the Game object
+    Game game; 
+    //enters the main game loop
+    game.run(); 
 
-    destroy_game_ui();
+    //cleans up ncurses resources before exiting
+    destroy_game_ui(); 
     return 0;
 }

@@ -32,10 +32,7 @@ enum GoldrushUiColorPair {
     GOLDRUSH_TILE_RISK = 20,
     GOLDRUSH_TILE_CAREER = 21,
     GOLDRUSH_TILE_HOME = 22,
-    GOLDRUSH_TILE_ROUTE = 23,
-    GOLDRUSH_BOARD_LIGHT = 24,
-    GOLDRUSH_BOARD_DARK = 25,
-    GOLDRUSH_TILE_WHITE = 26
+    GOLDRUSH_TILE_ROUTE = 23
 };
 
 struct GoldrushUiPosition {
@@ -68,7 +65,10 @@ void drawEventMessage(WINDOW* messageWin, const std::string& title, const std::s
 void drawMinimapPanel(WINDOW* panelWin,
                       const Board& board,
                       const std::vector<Player>& players,
-                      int currentPlayer);
+                      int currentPlayer,
+                      BoardViewMode viewMode = BoardViewMode::FollowCamera,
+                      const std::vector<int>* reachableTiles = nullptr,
+                      int cursorTile = -1);
 void draw_sidebar_ui(WINDOW* panelWin,
                      const Board& board,
                      const std::vector<Player>& players,

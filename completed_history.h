@@ -9,9 +9,13 @@ struct CompletedGameEntry {
     std::string winner;
     int winnerScore = 0;
     int winnerCash = 0;
+    int winnerNetWorth = 0;
     int rounds = 0;
     std::string players;
+    std::string playerDetails;
+    std::vector<std::string> detailLines;
     std::string mode;
+    std::string settings;
 };
 
 bool appendCompletedGameHistory(const CompletedGameEntry& entry, std::string& error);

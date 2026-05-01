@@ -24,6 +24,10 @@ const std::vector<std::string> BATTLESHIP_TITLE = {
     "                                                                      "
 };
 
+//Input: ncurses window, screen width, color flag
+//Output: none (prints ASCII art title)
+//Purpose: draws the Battleship ASCII banner centered on screen
+//Relation: called at the start of each frame in the main loop to render the title.
 void drawAsciiTitle(WINDOW* win, int screenW, bool hasColor) {
     if (hasColor) {
         wattron(win, COLOR_PAIR(GOLDRUSH_GOLD_SAND) | A_BOLD);
@@ -37,18 +41,28 @@ void drawAsciiTitle(WINDOW* win, int screenW, bool hasColor) {
     }
 }
 
+//Fields: x, y, alive
+//Purpose: represents each enemy ship?s position and state
+//Relation: stored in vector, updated when hit by player shots.
 struct EnemyShip {
     int x;
     int y;
     bool alive;
 };
 
+//Fields: x, y, dy (direction)
+//Purpose: represents bullets fired by player or enemies
+//Relation: updated each frame, checked for collisions.
 struct Shot {
     int x;
     int y;
     int dy;
 };
 
+//Input: integer value, min, max
+//Output: clamped integer
+//Purpose: ensures player ship stays within arena bounds
+//Relation: used after player movement to prevent leaving the play area.
 int clampInt(int value, int minValue, int maxValue) {
     if (value < minValue) {
         return minValue;
@@ -59,6 +73,10 @@ int clampInt(int value, int minValue, int maxValue) {
     return value;
 }
 
+//Input: vector of shots, min/max Y bounds
+//Output: modifies vector (removes shots outside bounds)
+//Purpose: cleans up bullets that leave the arena
+//Relation: called each frame for both player and enemy shots.
 void removeInactiveShots(std::vector<Shot>& shots, int minY, int maxY) {
     shots.erase(
         std::remove_if(
@@ -68,6 +86,10 @@ void removeInactiveShots(std::vector<Shot>& shots, int minY, int maxY) {
         shots.end());
 }
 
+//Input: ncurses window, coordinates, color flag
+//Output: none (prints enemy ship symbol <$>)
+//Purpose: renders enemy ships
+//Relation: used in main loop to draw all alive enemies.
 void drawEnemyShip(WINDOW* win, int y, int x, bool hasColor) {
     if (hasColor) {
         wattron(win, COLOR_PAIR(GOLDRUSH_GOLD_TERRA) | A_BOLD);
@@ -78,6 +100,10 @@ void drawEnemyShip(WINDOW* win, int y, int x, bool hasColor) {
     }
 }
 
+//Input: ncurses window, coordinates, color flag
+//Output: none (prints player ship /^\ and /_\)
+//Purpose: renders player ship
+//Relation: called once per frame to show player position.
 void drawPlayerShip(WINDOW* win, int y, int x, bool hasColor) {
     if (hasColor) {
         wattron(win, COLOR_PAIR(GOLDRUSH_BLACK_FOREST) | A_BOLD);
@@ -89,6 +115,10 @@ void drawPlayerShip(WINDOW* win, int y, int x, bool hasColor) {
     }
 }
 
+//Input: ncurses window, position, arena dimensions, text, positive/negative flag, color flag
+//Output: none (prints banner message)
+//Purpose: shows feedback messages (reload, hit, etc.)
+//Relation: triggered by events (out of ammo, hit enemy, reload complete).
 void drawFeedbackBanner(WINDOW* win,
                         int y,
                         int arenaLeft,
@@ -120,6 +150,17 @@ void drawFeedbackBanner(WINDOW* win,
 }
 }
 
+//Input: player name, color flag
+//Output: BattleshipMinigameResult (shipsDestroyed, clearedWave, abandoned)
+//Purpose: runs the entire Battleship minigame loop
+//Relation:
+//Calls tutorials (showMinigameTutorial) and warnings (showTerminalSizeWarning)
+//Uses drawing functions (drawAsciiTitle, drawEnemyShip, drawPlayerShip, drawFeedbackBanner)
+//Uses utility functions (clampInt, removeInactiveShots)
+//Updates EnemyShip and Shot vectors each frame
+//Handles input actions (move, fire, reload, cancel)
+//Tracks game state (waitingForStart, gameOver, feedback messages)
+//Ends when player quits, is hit, or clears all ships.
 BattleshipMinigameResult playBattleshipMinigame(const std::string& playerName, bool hasColor) {
     BattleshipMinigameResult result;
     result.shipsDestroyed = 0;
@@ -188,7 +229,7 @@ BattleshipMinigameResult playBattleshipMinigame(const std::string& playerName, b
     std::string feedbackText;
     int feedbackFrames = 0;
     bool feedbackPositive = true;
-    const int maxAmmo = 3;
+    const int maxAmmo = 10;
     int ammo = maxAmmo;
 
     std::vector<Shot> playerShots;
@@ -267,7 +308,7 @@ BattleshipMinigameResult playBattleshipMinigame(const std::string& playerName, b
                       "Each ship destroyed earns $100. Max payout: $1000. Press X to start.");
         } else if (gameOver) {
             mvwprintw(overlay, arenaBottom + 4, arenaLeft,
-                      "Wave over. Destroyed %d/%d ships, payout $%d. Press ENTER.",
+                      "Wave over. Destroyed %d/%d ships, payout $%d. Press ENTER or ESC.",
                       result.shipsDestroyed,
                       maxShips,
                       result.shipsDestroyed * 100);
@@ -280,12 +321,12 @@ BattleshipMinigameResult playBattleshipMinigame(const std::string& playerName, b
 
         int ch = wgetch(overlay);
         const InputAction action = getInputAction(ch, ControlScheme::SinglePlayer);
-        if (action == InputAction::Cancel) {
-            result.abandoned = true;
-            break;
-        }
 
         if (waitingForStart) {
+            if (action == InputAction::Cancel) {
+                result.abandoned = true;
+                break;
+            }
             if (action == InputAction::Start) {
                 waitingForStart = false;
             } else {
@@ -295,11 +336,16 @@ BattleshipMinigameResult playBattleshipMinigame(const std::string& playerName, b
         }
 
         if (gameOver) {
-            if (ch == '\n' || ch == '\r' || ch == KEY_ENTER) {
+            if (isConfirmKey(ch) || action == InputAction::Cancel) {
                 break;
             }
             napms(20);
             continue;
+        }
+
+        if (action == InputAction::Cancel) {
+            result.abandoned = true;
+            break;
         }
 
         if (action == InputAction::Left) {

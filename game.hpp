@@ -31,6 +31,7 @@ public:
 
 private:
     friend class SaveManager;
+    friend void debugBoardModeSaveLoad();
 
     enum StartChoice {
         START_NEW_GAME,
@@ -103,6 +104,7 @@ private:
     void showGuidePopup() const;
     void resetTutorialFlags();
     void maybeShowFirstTimeTutorial(TutorialTopic topic);
+    void maybeShowLoanTutorial(int playerIndex, const PaymentResult& payment);
     bool isSabotageUnlockedForPlayer(int playerIndex) const;
     void maybeShowSabotageUnlock(int playerIndex);
     void showControlsPopup() const;
@@ -125,7 +127,7 @@ private:
     void placeTrap(int attackerIndex, int tileId, SabotageType type);
     void checkTrapTrigger(int playerIndex);
     void setupRules();
-    void setupPlayers();
+    bool setupPlayers();
     void setupInvestments();
     int waitForTurnCommand(int currentPlayer);
     void renderGame(int currentPlayer, const std::string& msg, const std::string& detail) const;
@@ -144,6 +146,10 @@ private:
                         const std::vector<std::string>& lines,
                         char a,
                         char b);
+    int showRequiredBranchPopup(const std::string& title,
+                                const std::vector<std::string>& lines,
+                                char a,
+                                char b);
     void playBlackTileMinigame(int playerIndex);
     int chooseRandomOpponentIndex(int currentPlayer);
     int simulateDuelMinigameScore(const Player& player);
@@ -174,10 +180,16 @@ private:
     void maybeAwardSpinToWin(Player& player, int spinnerValue);
     void maybeAwardPetCard(Player& player, const std::string& reason);
     int chooseNextTile(Player& player, const Tile& tile);
-    bool animateMove(int currentPlayer, int deltaRow, int deltaCol, int steps);
+    bool animateMove(int currentPlayer, int steps);
+    int choose1860Destination(int currentPlayer, int steps);
+    int chooseCPU1860Destination(const Player& player, const std::vector<int>& reachableTiles);
+    bool animate1860Move(int currentPlayer, int destinationTile, int steps);
+    void take1860MovementSpin(int currentPlayer, const std::string& reason);
+    bool canRetire1860(const Player& player) const;
     void takeMovementSpin(int currentPlayer, const std::string& reason);
     bool allPlayersRetired() const;
     void finalizeScoring();
+    void appendCompletedGameHistoryEntry(int winnerIndex, int winnerScore);
     int calculateFinalWorth(const Player& player) const;
 
     int minRewardForTier(int tier) const;
