@@ -27,6 +27,10 @@ std::string displayNameFromPath(const std::string& path);
 std::string trimCopy(const std::string& text);
 std::string displayNameFromPath(const std::string& path);
 
+//Input: A string text.
+//Output: A trimmed copy of the string (leading and trailing whitespace removed).
+//Purpose: Cleans up user input or text before parsing.
+//Relation: Used by parseStrictInt to ensure integers are parsed correctly without whitespace issues.
 std::string trimCopy(const std::string& text) {
     std::size_t begin = 0;
     while (begin < text.size() && std::isspace(static_cast<unsigned char>(text[begin]))) {
@@ -39,6 +43,10 @@ std::string trimCopy(const std::string& text) {
     return text.substr(begin, end - begin);
 }
 
+//Input: A string text, reference to an integer value.
+//Output: Boolean (true if parsing succeeded, false otherwise). On success, value is set.
+//Purpose: Strictly validates and converts a string into an integer.
+//Relation: Relies on trimCopy. Used wherever integer input must be validated (e.g., user input, file parsing).
 bool parseStrictInt(const std::string& text, int& value) {
     const std::string trimmed = trimCopy(text);
     if (trimmed.empty()) {
@@ -65,12 +73,24 @@ bool parseStrictInt(const std::string& text, int& value) {
     return true;
 }
 
+//Input: None.
+//Output: A fixed string with instructions for turn commands.
+//Purpose: Provides UI prompt text for players.
+//Relation: Displayed in waitForTurnCommand and renderGame
 std::string turnPromptText() {
     return "ENTER begin turn | B sabotage | TAB scores+map | G guide | K keys | S save | ESC menu";
 }
 
+//Input: A Tile object.
+//Output: A string describing the effect of the tile.
+//Purpose: Maps tile types to human-readable descriptions.
+//Relation: Used in showTurnSummaryPopup and trap handling to explain tile effects.
 std::string describeTileEffectText(const Tile& tile);
 
+//Input: Constructor, optionally a seed.
+//Output: A new Game object.
+//Purpose: Initializes game state, rules, RNG, players, windows, and history.
+//Relation: Core setup for the game engine.
 Game::Game()
     : boardViewMode(BoardViewMode::FollowCamera),
       rules(makeNormalRules()),
@@ -101,6 +121,10 @@ Game::Game()
       {
 }
 
+//Input: Constructor, optionally a seed.
+//Output: A new Game object.
+//Purpose: Initializes game state, rules, RNG, players, windows, and history.
+//Relation: Core setup for the game engine.
 Game::Game(std::uint32_t seed)
     : boardViewMode(BoardViewMode::FollowCamera),
       rules(makeNormalRules()),
@@ -131,14 +155,26 @@ Game::Game(std::uint32_t seed)
       {
 }
 
+//Input: None.
+//Output: None.
+//Purpose: Cleans up resources (destroys windows).
+//Relation: Ensures proper cleanup when a game ends.
 Game::~Game() {
     destroyWindows();
 }
 
+//Input: A string entry.
+//Output: None.
+//Purpose: Adds a line to the game’s history log.
+//Relation: Used throughout gameplay to record events.
 void Game::addHistory(const std::string& entry) {
     history.add(entry);
 }
 
+//Input: None.
+//Output: Boolean (true if saved successfully).
+//Purpose: Saves the current game state to a file.
+//Relation: Uses SaveManager, updates history, manages duplicate saves.
 bool Game::saveCurrentGame() {
     SaveManager saveManager;
     std::string filename = assignedSaveFilename;
@@ -193,6 +229,10 @@ bool Game::saveCurrentGame() {
     return true;
 }
 
+//Input: None.
+//Output: Boolean (true if loaded successfully).
+//Purpose: Loads a saved game from disk.
+//Relation: Uses SaveManager, updates history, handles duplicate saves.
 bool Game::loadSavedGame() {
     SaveManager saveManager;
     while (true) {
@@ -222,12 +262,20 @@ bool Game::loadSavedGame() {
     }
 }
 
+//Input: Player index.
+//Output: Boolean (true if player is CPU).
+//Purpose: Checks if a given player is controlled by CPU.
+//Relation: Used in sabotage, traps, and turn handling.
 bool Game::isCpuPlayer(int playerIndex) const {
     return playerIndex >= 0 &&
            playerIndex < static_cast<int>(players.size()) &&
            players[static_cast<std::size_t>(playerIndex)].type == PlayerType::CPU;
 }
 
+//Input: A Player reference.
+//Output: None.
+//Purpose: Decreases temporary status effects (movement penalty, salary reduction, cooldowns).
+//Relation: Called after turns or sabotage resolution
 void Game::decrementTurnStatuses(Player& player) {
     if (player.movementPenaltyTurns > 0) {
         --player.movementPenaltyTurns;
@@ -249,6 +297,10 @@ void Game::decrementTurnStatuses(Player& player) {
     }
 }
 
+//Input: Player index.
+//Output: Boolean (true if turn was skipped).
+//Purpose: Handles sabotage effect where a player skips a turn.
+//Relation: Updates history, UI, and player statuses.
 bool Game::resolveSkipTurn(int playerIndex) {
     Player& player = players[static_cast<std::size_t>(playerIndex)];
     if (!player.skipNextTurn) {
@@ -264,6 +316,7 @@ bool Game::resolveSkipTurn(int playerIndex) {
     decrementTurnStatuses(player);
     return true;
 }
+
 
 std::string describeTileEffectText(const Tile& tile) {
     switch (tile.kind) {
@@ -311,6 +364,10 @@ std::string describeTileEffectText(const Tile& tile) {
     }
 }
 
+//Input: Attacker index, tile ID, sabotage type.
+//Output: None.
+//Purpose: Places a trap on the board.
+//Relation: Updates history, charges attacker, adds trap to active list
 void Game::placeTrap(int attackerIndex, int tileId, SabotageType type) {
     if (attackerIndex < 0 ||
         attackerIndex >= static_cast<int>(players.size()) ||
@@ -341,6 +398,10 @@ void Game::placeTrap(int attackerIndex, int tileId, SabotageType type) {
     showInfoPopup("Trap Tile", detail);
 }
 
+//Input: Attacker index, target index, sabotage type.
+//Output: None.
+//Purpose: Executes sabotage action (lawsuit, minigame, direct sabotage).
+//Relation: Uses RNG, shields, bank, tutorials, updates history.
 void Game::executeSabotage(int attackerIndex, int targetIndex, SabotageType type) {
     if (attackerIndex < 0 ||
         targetIndex < 0 ||
@@ -435,6 +496,10 @@ void Game::executeSabotage(int attackerIndex, int targetIndex, SabotageType type
     showInfoPopup(card.name, detail);
 }
 
+//Input: Player index.
+//Output: None.
+//Purpose: Checks if a player triggered a trap and applies effects.
+//Relation: Moves player back, triggers minigames, updates history.
 void Game::checkTrapTrigger(int playerIndex) {
     Player& player = players[static_cast<std::size_t>(playerIndex)];
     for (size_t i = 0; i < activeTraps.size(); ++i) {
@@ -487,6 +552,10 @@ void Game::checkTrapTrigger(int playerIndex) {
     }
 }
 
+//Input: None.
+//Output: None.
+//Purpose: Configures rules and resets game state.
+//Relation: Called at game start or reset.
 void Game::setupRules() {
     SaveManager saveManager;
     validateGameSettings(settings);
@@ -506,6 +575,10 @@ void Game::setupRules() {
     addHistory("Mode: " + rules.editionName);
 }
 
+//Input: Current player index.
+//Output: Key code (int).
+//Purpose: Waits for player input during their turn.
+//Relation: Handles UI commands (save, sabotage, guide, controls).
 int Game::waitForTurnCommand(int currentPlayer) {
     if (isCpuPlayer(currentPlayer)) {
         showCpuThinking(currentPlayer, "CPU is planning its turn...");
@@ -560,6 +633,10 @@ int Game::waitForTurnCommand(int currentPlayer) {
     }
 }
 
+//Input: None.
+//Output: None.
+//Purpose: Draws the title banner.
+//Relation: Called in renderGame
 void Game::renderHeader() const {
     if (!titleWin) {
         return;
@@ -567,6 +644,10 @@ void Game::renderHeader() const {
     draw_title_banner_ui(titleWin);
 }
 
+//Input: Current player index, message, detail.
+//Output: None.
+//Purpose: Renders the board, sidebar, and message UI.
+//Relation: Central rendering function.
 void Game::renderGame(int currentPlayer, const std::string& msg, const std::string& detail) const {
     renderHeader();
     draw_board_ui(boardWin, board, players, currentPlayer, players[currentPlayer].tile, boardViewMode);
@@ -574,18 +655,30 @@ void Game::renderGame(int currentPlayer, const std::string& msg, const std::stri
     draw_message_ui(msgWin, msg, detail);
 }
 
+//Input: Tier number.
+//Output: Minimum/maximum reward.
+//Purpose: Defines reward ranges by tier.
+//Relation: Used in payouts.
 int Game::minRewardForTier(int tier) const {
     if (tier == 2) return 3000;
     if (tier >= 3) return 5000;
     return 1000;
 }
 
+//Input: Tier number.
+//Output: Minimum/maximum reward.
+//Purpose: Defines reward ranges by tier.
+//Relation: Used in payouts.
 int Game::maxRewardForTier(int tier) const {
     if (tier == 2) return 5000;
     if (tier >= 3) return 10000;
     return 2000;
 }
 
+//Input: Two strings.
+//Output: None.
+//Purpose: Displays a popup message.
+//Relation: Used throughout gameplay for feedback
 void Game::showInfoPopup(const std::string& line1, const std::string& line2) const {
     if (titleWin) { touchwin(titleWin); wrefresh(titleWin); }
     if (boardWin) { touchwin(boardWin); wrefresh(boardWin); }
@@ -598,6 +691,10 @@ void Game::showInfoPopup(const std::string& line1, const std::string& line2) con
     if (msgWin) { touchwin(msgWin); wrefresh(msgWin); }
 }
 
+//Input: Player index, rolled value, movement, start/end tiles, starting cash/loans, reason.
+//Output: None.
+//Purpose: Shows a detailed summary of a player’s turn.
+//Relation: Uses describeTileEffectText, updates UI, creates TurnSummary
 void Game::showTurnSummaryPopup(int playerIndex,
                                 int rolledValue,
                                 int movementValue,
@@ -674,6 +771,10 @@ void Game::showTurnSummaryPopup(int playerIndex,
     if (msgWin) touchwin(msgWin);
 }
 
+//Input: Title and detail strings.
+//Output: Integer (spin result 1–10).
+//Purpose: Simulates spinner roll with UI animation.
+//Relation: Used in sabotage, traps, and minigames
 int Game::rollSpinner(const std::string& title, const std::string& detail) {
     int msgH = 0;
     int msgW = 0;
@@ -748,6 +849,10 @@ int Game::rollSpinner(const std::string& title, const std::string& detail) {
     return value;
 }
 
+//Input: Current player index.
+//Output: Opponent index or -1.
+//Purpose: Selects a random opponent who is not retired.
+//Relation: Used in sabotage targeting
 int Game::chooseRandomOpponentIndex(int currentPlayer) {
     std::vector<int> candidates;
     for (size_t i = 0; i < players.size(); ++i) {
@@ -761,6 +866,10 @@ int Game::chooseRandomOpponentIndex(int currentPlayer) {
     return candidates[static_cast<std::size_t>(rng.uniformInt(0, static_cast<int>(candidates.size()) - 1))];
 }
 
+//Input: Player reference.
+//Output: Integer score.
+//Purpose: Simulates CPU minigame performance.
+//Relation: Used in duels when CPU plays.
 int Game::simulateDuelMinigameScore(const Player& player) {
     if (player.type != PlayerType::CPU) {
         return rng.uniformInt(40, 85);
@@ -777,6 +886,10 @@ int Game::simulateDuelMinigameScore(const Player& player) {
     }
 }
 
+//Input: Player index, minigame choice.
+//Output: Integer score.
+//Purpose: Plays or simulates duel minigame.
+//Relation: Calls specific minigame functions (Pong, Battleship, Hangman, etc.)
 int Game::playDuelMinigameScore(int playerIndex, int minigameChoice) {
     Player& player = players[static_cast<std::size_t>(playerIndex)];
     static const char* names[] = {
