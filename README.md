@@ -131,11 +131,11 @@ Tutorials appear once when you first encounter each mechanic:
 
 | Minigame | Controls | Payout |
 |----------|----------|--------|
-| Pong | W/S or arrows move, X serves | $100 per paddle return |
-| Battleship | A/D or arrows move, Space/Enter fire, R reload | $100 per ship destroyed |
-| Hangman | Type A-Z to guess, ESC exits | $100 per letter revealed |
-| Memory Match | WASD/arrows move, Enter/Space select, help | $100 per pair + $200 bonus |
-| Minesweeper | WASD/arrows move, Enter/Space reveal | $100 per safe tile |
+| Pong | W/S or arrows move, X serves | $2000 per paddle return |
+| Battleship | A/D or arrows move, Space/Enter fire, R reload | $2000 per ship destroyed |
+| Hangman | Type A-Z to guess, ESC exits | $2000 per letter revealed |
+| Memory Match | WASD/arrows move, Enter/Space select, help | $2000 per pair + $4000 bonus |
+| Minesweeper | WASD/arrows move, Enter/Space reveal | $2000 per safe tile |
 
 ## Memory Match Countdown
 
