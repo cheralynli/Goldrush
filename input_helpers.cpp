@@ -5,14 +5,26 @@
 
 #include <ncurses.h>
 
+//Input: integer key code
+//Output: true if key is ESC (27)
+//Purpose: detects cancel/exit input
+//Relation: used across menus and minigames to allow early exit.
 bool isCancelKey(int ch) {
     return ch == 27;
 }
 
+//Input: integer key code, flag to allow spacebar
+//Output: true if Enter/Return/KEY_ENTER pressed, or space if allowed
+//Purpose: detects confirmation input
+//Relation: used in menus and minigames for confirming actions.
 bool isConfirmKey(int ch, bool allowSpace) {
     return ch == '\n' || ch == '\r' || ch == KEY_ENTER || (allowSpace && ch == ' ');
 }
 
+//Input: ncurses window, optional spacebar flag
+//Output: true if confirm pressed, false if cancel pressed
+//Purpose: blocks until user confirms or cancels
+//Relation: used in tutorials or prompts where explicit user choice is required.
 bool waitForConfirmOrCancel(WINDOW* win, bool allowSpace) {
     if (!win) {
         return false;
@@ -29,6 +41,10 @@ bool waitForConfirmOrCancel(WINDOW* win, bool allowSpace) {
     }
 }
 
+//Input: ncurses window, buffer pointer, maximum length
+//Output: true if line read successfully, false if cancelled
+//Purpose: reads user text input with cancel and backspace handling
+//Relation: used for name entry or text prompts in menus.
 bool readLineOrCancel(WINDOW* win, char* buffer, int maxLen) {
     if (!win || !buffer || maxLen <= 0) {
         return false;
@@ -73,6 +89,10 @@ bool readLineOrCancel(WINDOW* win, char* buffer, int maxLen) {
     }
 }
 
+//Input: key code, reference to selected index, option count, flags for input styles
+//Output: MenuInputResult (None, Selected, Cancelled)
+//Purpose: interprets menu navigation input (up/down/left/right, WASD, confirm/cancel)
+//Relation: used in menus to move selection and confirm/cancel choices.
 MenuInputResult menuSelectOrCancel(int ch,
                                    int& selected,
                                    int optionCount,
@@ -107,6 +127,10 @@ MenuInputResult menuSelectOrCancel(int ch,
     return MenuInputResult::None;
 }
 
+//Input: key code, control scheme (SinglePlayer, DuelLeftPlayer, DuelRightPlayer)
+//Output: InputAction enum (Up, Down, Left, Right, Confirm, Cancel, Start, Reload, Fire, None)
+//Purpose: maps raw key input to gameplay actions depending on scheme
+//Relation: core function for translating keystrokes into actions in minigames (Pong, Battleship, etc.).
 InputAction getInputAction(int ch, ControlScheme scheme) {
     if (isCancelKey(ch)) {
         return InputAction::Cancel;
