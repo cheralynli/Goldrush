@@ -28,10 +28,6 @@ const std::vector<std::string> BATTLESHIP_TITLE = {
 //Output: none (prints ASCII art title)
 //Purpose: draws the Battleship ASCII banner centered on screen
 //Relation: called at the start of each frame in the main loop to render the title.
-//Input: ncurses window, screen width, color flag
-//Output: none (prints ASCII art title)
-//Purpose: draws the Battleship ASCII banner centered on screen
-//Relation: called at the start of each frame in the main loop to render the title.
 void drawAsciiTitle(WINDOW* win, int screenW, bool hasColor) {
     if (hasColor) {
         wattron(win, COLOR_PAIR(GOLDRUSH_GOLD_SAND) | A_BOLD);
@@ -46,9 +42,6 @@ void drawAsciiTitle(WINDOW* win, int screenW, bool hasColor) {
 }
 
 //Fields: x, y, alive
-//Purpose: represents each enemy ship’s position and state
-//Relation: stored in vector, updated when hit by player shots.
-//Fields: x, y, alive
 //Purpose: represents each enemy ship?s position and state
 //Relation: stored in vector, updated when hit by player shots.
 struct EnemyShip {
@@ -57,9 +50,7 @@ struct EnemyShip {
     bool alive;
 };
 
-//Fields: x, y, dy (direction)
-//Purpose: represents bullets fired by player or enemies
-//Relation: updated each frame, checked for collisions.
+
 //Fields: x, y, dy (direction)
 //Purpose: represents bullets fired by player or enemies
 //Relation: updated each frame, checked for collisions.
@@ -69,10 +60,7 @@ struct Shot {
     int dy;
 };
 
-//Input: integer value, min, max
-//Output: clamped integer
-//Purpose: ensures player ship stays within arena bounds
-//Relation: used after player movement to prevent leaving the play area.
+
 //Input: integer value, min, max
 //Output: clamped integer
 //Purpose: ensures player ship stays within arena bounds
@@ -91,10 +79,6 @@ int clampInt(int value, int minValue, int maxValue) {
 //Output: modifies vector (removes shots outside bounds)
 //Purpose: cleans up bullets that leave the arena
 //Relation: called each frame for both player and enemy shots.
-//Input: vector of shots, min/max Y bounds
-//Output: modifies vector (removes shots outside bounds)
-//Purpose: cleans up bullets that leave the arena
-//Relation: called each frame for both player and enemy shots.
 void removeInactiveShots(std::vector<Shot>& shots, int minY, int maxY) {
     shots.erase(
         std::remove_if(
@@ -104,10 +88,6 @@ void removeInactiveShots(std::vector<Shot>& shots, int minY, int maxY) {
         shots.end());
 }
 
-//Input: ncurses window, coordinates, color flag
-//Output: none (prints enemy ship symbol <$>)
-//Purpose: renders enemy ships
-//Relation: used in main loop to draw all alive enemies.
 //Input: ncurses window, coordinates, color flag
 //Output: none (prints enemy ship symbol <$>)
 //Purpose: renders enemy ships
@@ -122,10 +102,7 @@ void drawEnemyShip(WINDOW* win, int y, int x, bool hasColor) {
     }
 }
 
-//Input: ncurses window, coordinates, color flag
-//Output: none (prints player ship /^\ and /_\)
-//Purpose: renders player ship
-//Relation: called once per frame to show player position.
+
 //Input: ncurses window, coordinates, color flag
 //Output: none (prints player ship /^\ and /_\)
 //Purpose: renders player ship
@@ -226,19 +203,19 @@ BattleshipMinigameResult playBattleshipMinigame(const std::string& playerName, b
     wbkgd(overlay, COLOR_PAIR(GOLDRUSH_GOLD_BLACK));
 
     std::vector<EnemyShip> enemies;
-    //enemies.reserve(static_cast<std::size_t>(maxShips));
-    //const int formationStartX = arenaLeft + 12;
-    //for (int row = 0; row < enemyRows; ++row) {
-    //    for (int col = 0; col < enemyCols; ++col) {
-    //        EnemyShip ship;
-    //        ship.x = formationStartX + (col * enemySpacingX);
-    //        ship.y = enemyTopY + (row * enemySpacingY);
-    //        ship.alive = true;
-    //        enemies.push_back(ship);
-    //    }
-    //}
+      enemies.reserve(static_cast<std::size_t>(maxShips));
+      const int formationStartX = arenaLeft + 12;
+      for (int row = 0; row < enemyRows; ++row) {
+          for (int col = 0; col < enemyCols; ++col) {
+              EnemyShip ship;
+              ship.x = formationStartX + (col * enemySpacingX);
+              ship.y = enemyTopY + (row * enemySpacingY);
+              ship.alive = true;
+              enemies.push_back(ship);
+          }
+      }
 
-    //int playerX = arenaLeft + arenaWidth / 2;
+    int playerX = arenaLeft + arenaWidth / 2;
 
     int playerX = 0; // Will be initialized in the loop after calculating arena dimensions
     
