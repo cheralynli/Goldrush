@@ -28,6 +28,10 @@ const std::vector<std::string> BATTLESHIP_TITLE = {
 //Output: none (prints ASCII art title)
 //Purpose: draws the Battleship ASCII banner centered on screen
 //Relation: called at the start of each frame in the main loop to render the title.
+//Input: ncurses window, screen width, color flag
+//Output: none (prints ASCII art title)
+//Purpose: draws the Battleship ASCII banner centered on screen
+//Relation: called at the start of each frame in the main loop to render the title.
 void drawAsciiTitle(WINDOW* win, int screenW, bool hasColor) {
     if (hasColor) {
         wattron(win, COLOR_PAIR(GOLDRUSH_GOLD_SAND) | A_BOLD);
@@ -44,6 +48,9 @@ void drawAsciiTitle(WINDOW* win, int screenW, bool hasColor) {
 //Fields: x, y, alive
 //Purpose: represents each enemy ship’s position and state
 //Relation: stored in vector, updated when hit by player shots.
+//Fields: x, y, alive
+//Purpose: represents each enemy ship?s position and state
+//Relation: stored in vector, updated when hit by player shots.
 struct EnemyShip {
     int x;
     int y;
@@ -53,12 +60,19 @@ struct EnemyShip {
 //Fields: x, y, dy (direction)
 //Purpose: represents bullets fired by player or enemies
 //Relation: updated each frame, checked for collisions.
+//Fields: x, y, dy (direction)
+//Purpose: represents bullets fired by player or enemies
+//Relation: updated each frame, checked for collisions.
 struct Shot {
     int x;
     int y;
     int dy;
 };
 
+//Input: integer value, min, max
+//Output: clamped integer
+//Purpose: ensures player ship stays within arena bounds
+//Relation: used after player movement to prevent leaving the play area.
 //Input: integer value, min, max
 //Output: clamped integer
 //Purpose: ensures player ship stays within arena bounds
@@ -77,6 +91,10 @@ int clampInt(int value, int minValue, int maxValue) {
 //Output: modifies vector (removes shots outside bounds)
 //Purpose: cleans up bullets that leave the arena
 //Relation: called each frame for both player and enemy shots.
+//Input: vector of shots, min/max Y bounds
+//Output: modifies vector (removes shots outside bounds)
+//Purpose: cleans up bullets that leave the arena
+//Relation: called each frame for both player and enemy shots.
 void removeInactiveShots(std::vector<Shot>& shots, int minY, int maxY) {
     shots.erase(
         std::remove_if(
@@ -86,6 +104,10 @@ void removeInactiveShots(std::vector<Shot>& shots, int minY, int maxY) {
         shots.end());
 }
 
+//Input: ncurses window, coordinates, color flag
+//Output: none (prints enemy ship symbol <$>)
+//Purpose: renders enemy ships
+//Relation: used in main loop to draw all alive enemies.
 //Input: ncurses window, coordinates, color flag
 //Output: none (prints enemy ship symbol <$>)
 //Purpose: renders enemy ships
@@ -100,6 +122,10 @@ void drawEnemyShip(WINDOW* win, int y, int x, bool hasColor) {
     }
 }
 
+//Input: ncurses window, coordinates, color flag
+//Output: none (prints player ship /^\ and /_\)
+//Purpose: renders player ship
+//Relation: called once per frame to show player position.
 //Input: ncurses window, coordinates, color flag
 //Output: none (prints player ship /^\ and /_\)
 //Purpose: renders player ship
@@ -225,6 +251,7 @@ BattleshipMinigameResult playBattleshipMinigame(const std::string& playerName, b
     int feedbackFrames = 0;
     bool feedbackPositive = true;
     const int maxAmmo = 10;
+    const int maxAmmo = 10;
     int ammo = maxAmmo;
 
     std::vector<Shot> playerShots;
@@ -342,6 +369,7 @@ BattleshipMinigameResult playBattleshipMinigame(const std::string& playerName, b
         } else if (gameOver) {
             mvwprintw(overlay, arenaBottom + 4, arenaLeft,
                       "Wave over. Destroyed %d/%d ships, payout $%d. Press ENTER or ESC.",
+                      "Wave over. Destroyed %d/%d ships, payout $%d. Press ENTER or ESC.",
                       result.shipsDestroyed,
                       maxShips,
                       result.shipsDestroyed * 100);
@@ -368,6 +396,12 @@ BattleshipMinigameResult playBattleshipMinigame(const std::string& playerName, b
                 result.abandoned = true;
                 break;
             }
+
+        if (waitingForStart) {
+            if (action == InputAction::Cancel) {
+                result.abandoned = true;
+                break;
+            }
             if (action == InputAction::Start) {
                 waitingForStart = false;
             } else {
@@ -378,10 +412,16 @@ BattleshipMinigameResult playBattleshipMinigame(const std::string& playerName, b
 
         if (gameOver) {
             if (isConfirmKey(ch) || action == InputAction::Cancel) {
+            if (isConfirmKey(ch) || action == InputAction::Cancel) {
                 break;
             }
             napms(20);
             continue;
+        }
+
+        if (action == InputAction::Cancel) {
+            result.abandoned = true;
+            break;
         }
 
         if (action == InputAction::Cancel) {
@@ -530,3 +570,4 @@ BattleshipMinigameResult playBattleshipMinigame(const std::string& playerName, b
     refresh();
     return result;
 }
+    }
