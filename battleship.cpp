@@ -251,7 +251,6 @@ BattleshipMinigameResult playBattleshipMinigame(const std::string& playerName, b
     int feedbackFrames = 0;
     bool feedbackPositive = true;
     const int maxAmmo = 10;
-    const int maxAmmo = 10;
     int ammo = maxAmmo;
 
     std::vector<Shot> playerShots;
@@ -369,7 +368,6 @@ BattleshipMinigameResult playBattleshipMinigame(const std::string& playerName, b
         } else if (gameOver) {
             mvwprintw(overlay, arenaBottom + 4, arenaLeft,
                       "Wave over. Destroyed %d/%d ships, payout $%d. Press ENTER or ESC.",
-                      "Wave over. Destroyed %d/%d ships, payout $%d. Press ENTER or ESC.",
                       result.shipsDestroyed,
                       maxShips,
                       result.shipsDestroyed * 100);
@@ -397,12 +395,7 @@ BattleshipMinigameResult playBattleshipMinigame(const std::string& playerName, b
                 break;
             }
 
-        if (waitingForStart) {
-            if (action == InputAction::Cancel) {
-                result.abandoned = true;
-                break;
-            }
-            if (action == InputAction::Start) {
+            if (action == InputAction::Start || ch == 'x' || ch == 'X') {
                 waitingForStart = false;
             } else {
                 napms(20);
@@ -412,9 +405,9 @@ BattleshipMinigameResult playBattleshipMinigame(const std::string& playerName, b
 
         if (gameOver) {
             if (isConfirmKey(ch) || action == InputAction::Cancel) {
-            if (isConfirmKey(ch) || action == InputAction::Cancel) {
                 break;
             }
+
             napms(20);
             continue;
         }
@@ -423,12 +416,6 @@ BattleshipMinigameResult playBattleshipMinigame(const std::string& playerName, b
             result.abandoned = true;
             break;
         }
-
-        if (action == InputAction::Cancel) {
-            result.abandoned = true;
-            break;
-        }
-
         if (action == InputAction::Left) {
             playerX -= 2;
         } else if (action == InputAction::Right) {
@@ -570,4 +557,3 @@ BattleshipMinigameResult playBattleshipMinigame(const std::string& playerName, b
     refresh();
     return result;
 }
-    }
