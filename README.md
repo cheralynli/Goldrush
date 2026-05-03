@@ -219,6 +219,12 @@ make run        # Run main game
 make run-debug  # Run debug suite
 make clean      # Clean build files
 
+## How to play
+- cd Goldrush
+- make clean
+- make gameoflife
+- ./gameoflife
+
 ## Save / Load
 
 Save files stored in saves/ (relative to executable). Preserves rules, player state, turn counter, history, decks, RNG state, and board view mode.
