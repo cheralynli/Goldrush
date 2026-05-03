@@ -29,7 +29,6 @@ debug: $(DEBUG_OBJS)
 
 clean:
 	rm -f *.o gameoflife debug
-	rm -f saves/*.sav # Remove save files
 
 run: gameoflife
 	./gameoflife
