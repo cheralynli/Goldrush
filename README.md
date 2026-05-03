@@ -325,4 +325,4 @@ This project was made with the assitance of Artificial Intelligence as a tools t
 
 ---
 
-## **Enjoy! May the best life win! 🎉**
+**Enjoy! May the best life win! 🎉**
