@@ -1,6 +1,10 @@
 #include "rules.hpp"
 
 namespace {
+//Input:name → string label for the edition (e.g., "Normal Mode", "Custom Mode")
+//Output:RuleSet object fully initialized with default toggles, components, and loan/investment parameters
+//Purpose:Provides a reusable baseline configuration of game rules with all features enabled and standard component counts
+//Relation:Called by makeNormalRules and makeCustomRules to generate specific editions, centralizes rule initialization so changes only need to be made in one place.
 RuleSet makeBaseRules(const std::string& name) {
     RuleSet rules;
     rules.editionName = name;
@@ -31,10 +35,18 @@ RuleSet makeBaseRules(const std::string& name) {
 }
 }
 
+//Input: none
+//Output: RuleSet configured with "Normal Mode" edition name
+//Purpose: returns a standard ruleset for the default game mode
+//Relation: wraps makeBaseRules("Normal Mode").
 RuleSet makeNormalRules() {
     return makeBaseRules("Normal Mode");
 }
 
+//Input: none
+//Output: RuleSet configured with "Custom Mode" edition name
+//Purpose: returns a ruleset for custom gameplay mode
+//Relation: wraps makeBaseRules("Custom Mode").
 RuleSet makeCustomRules() {
     return makeBaseRules("Custom Mode");
 }
