@@ -990,6 +990,9 @@ Game::StartChoice Game::showStartScreen() {
             if (ch == 'n' || ch == 'N' || ch == 's' || ch == 'S') {
                 settings = createLifeModeSettings();
                 rules = makeNormalRules();
+                if (!chooseBoardViewMode()) {
+                    continue;
+                }
                 return START_NEW_GAME;
             }
             if (ch == 'l' || ch == 'L') return START_LOAD_GAME;
@@ -1039,16 +1042,23 @@ Game::StartChoice Game::showStartScreen() {
 }
 
 bool Game::chooseBoardViewMode() {
-    int selected = boardViewMode == BoardViewMode::ClassicFull ? 1 : 0;
+    int selected = 0;
+    if (boardViewMode == BoardViewMode::ClassicFull) {
+        selected = 1;
+    } else if (boardViewMode == BoardViewMode::Mode1860) {
+        selected = 2;
+    }
 
     if (!msgWin || !titleWin) {
         const char* names[] = {
             "Follow Camera Mode",
-            "Classic / Full Board Mode"
+            "Classic / Full Board Mode",
+            "1860s Board"
         };
         const char* descriptions[] = {
             "Zoomed route view centered on the current player.",
-            "Shows the whole route with the classic board layout."
+            "Shows the whole route with the classic board layout.",
+            "Use the 1860-inspired checkered board and movement view."
         };
 
         while (true) {
@@ -1076,7 +1086,7 @@ bool Game::chooseBoardViewMode() {
             const int contentW = std::max(8, boxW - 4);
             mvwprintw(box, 1, 2, "%s",
                       clipUiText("Choose Board Display", static_cast<std::size_t>(contentW)).c_str());
-            for (int i = 0; i < 2; ++i) {
+            for (int i = 0; i < 3; ++i) {
                 if (selected == i) {
                     wattron(box, A_REVERSE | A_BOLD);
                 }
@@ -1103,13 +1113,19 @@ bool Game::chooseBoardViewMode() {
                 ch == KEY_UP || ch == KEY_DOWN ||
                 ch == 'a' || ch == 'A' || ch == 'd' || ch == 'D' ||
                 ch == 'w' || ch == 'W' || ch == 's' || ch == 'S') {
-                selected = selected == 0 ? 1 : 0;
-            } else if (ch == '1' || ch == '2') {
+                if (ch == KEY_LEFT || ch == KEY_UP || ch == 'a' || ch == 'A' || ch == 'w' || ch == 'W') {
+                    selected = (selected + 2) % 3;
+                } else {
+                    selected = (selected + 1) % 3;
+                }
+            } else if (ch == '1' || ch == '2' || ch == '3') {
                 selected = ch - '1';
             } else if (ch == 27) {
                 return false;
             } else if (ch == '\n' || ch == '\r' || ch == KEY_ENTER) {
-                boardViewMode = selected == 0 ? BoardViewMode::FollowCamera : BoardViewMode::ClassicFull;
+                boardViewMode = selected == 0
+                    ? BoardViewMode::FollowCamera
+                    : (selected == 1 ? BoardViewMode::ClassicFull : BoardViewMode::Mode1860);
                 return true;
             }
         }
@@ -1130,11 +1146,13 @@ bool Game::chooseBoardViewMode() {
 
         const char* names[] = {
             "Follow Camera Mode",
-            "Classic / Full Board Mode"
+            "Classic / Full Board Mode",
+            "1860s Board"
         };
         const char* descriptions[] = {
             "Zoomed route view centered on the current player.",
-            "Shows the whole route with the classic board layout."
+            "Shows the whole route with the classic board layout.",
+            "Use the 1860-inspired checkered board and movement view."
         };
 
         while (true) {
@@ -1149,7 +1167,7 @@ bool Game::chooseBoardViewMode() {
             mvwprintw(msgWin, 1, 2, "%s",
                       clipUiText("Choose Board Display", static_cast<std::size_t>(contentW)).c_str());
 
-            for (int i = 0; i < 2; ++i) {
+            for (int i = 0; i < 3; ++i) {
                 if (selected == i) {
                     wattron(msgWin, A_REVERSE | A_BOLD);
                 }
@@ -1180,15 +1198,19 @@ bool Game::chooseBoardViewMode() {
                 ch == 'd' || ch == 'D' ||
                 ch == 'w' || ch == 'W' ||
                 ch == 's' || ch == 'S') {
-                selected = selected == 0 ? 1 : 0;
-            } else if (ch == '1' || ch == '2') {
+                if (ch == KEY_LEFT || ch == KEY_UP || ch == 'a' || ch == 'A' || ch == 'w' || ch == 'W') {
+                    selected = (selected + 2) % 3;
+                } else {
+                    selected = (selected + 1) % 3;
+                }
+            } else if (ch == '1' || ch == '2' || ch == '3') {
                 selected = ch - '1';
             } else if (ch == 27) {
                 return false;
             } else if (ch == '\n' || ch == '\r' || ch == KEY_ENTER) {
                 boardViewMode = selected == 0
                     ? BoardViewMode::FollowCamera
-                    : BoardViewMode::ClassicFull;
+                    : (selected == 1 ? BoardViewMode::ClassicFull : BoardViewMode::Mode1860);
                 return true;
             }
         }
@@ -1220,14 +1242,16 @@ bool Game::chooseBoardViewMode() {
 
             const char* names[] = {
                 "Follow Camera Mode",
-                "Classic / Full Board Mode"
+                "Classic / Full Board Mode",
+                "1860s Board"
             };
             const char* descriptions[] = {
                 "Zoomed route view centered on the current player. Minimap stays in the side panel.",
-                "Full route overview using the classic board symbols, regions, and landmarks."
+                "Full route overview using the classic board symbols, regions, and landmarks.",
+                "Use the 1860-inspired checkered board and movement view."
             };
 
-            for (int i = 0; i < 2; ++i) {
+            for (int i = 0; i < 3; ++i) {
                 const int row = 4 + (i * 3);
                 if (selected == i) wattron(popup, A_REVERSE | A_BOLD);
                 mvwprintw(popup, row, 4, "%s",
@@ -1263,8 +1287,12 @@ bool Game::chooseBoardViewMode() {
                 ch == 'd' || ch == 'D' ||
                 ch == 'w' || ch == 'W' ||
                 ch == 's' || ch == 'S') {
-                selected = selected == 0 ? 1 : 0;
-            } else if (ch == '1' || ch == '2') {
+                if (ch == KEY_LEFT || ch == KEY_UP || ch == 'a' || ch == 'A' || ch == 'w' || ch == 'W') {
+                    selected = (selected + 2) % 3;
+                } else {
+                    selected = (selected + 1) % 3;
+                }
+            } else if (ch == '1' || ch == '2' || ch == '3') {
                 selected = ch - '1';
             } else if (isCancelKey(ch)) {
                 delwin(popup);
@@ -1272,7 +1300,7 @@ bool Game::chooseBoardViewMode() {
             } else if (isConfirmKey(ch)) {
                 boardViewMode = selected == 0
                     ? BoardViewMode::FollowCamera
-                    : BoardViewMode::ClassicFull;
+                    : (selected == 1 ? BoardViewMode::ClassicFull : BoardViewMode::Mode1860);
                 delwin(popup);
                 return true;
             }

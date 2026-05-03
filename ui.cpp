@@ -834,7 +834,13 @@ void drawEventMessage(WINDOW* messageWin, const std::string& title, const std::s
 void drawMinimapPanel(WINDOW* panelWin,
                       const Board& board,
                       const std::vector<Player>& players,
-                      int currentPlayer) {
+                      int currentPlayer,
+                      BoardViewMode viewMode,
+                      const std::vector<int>* reachableTiles,
+                      int cursorTile) {
+    (void)viewMode;
+    (void)reachableTiles;
+    (void)cursorTile;
     werase(panelWin);
     drawBoxSafe(panelWin);
 

@@ -3,7 +3,9 @@
 #include "ui.h"
 
 #include <algorithm>
+#include <array>
 #include <cctype>
+#include <cstdlib>
 #include <set>
 #include <utility>
 #include <string>
@@ -67,6 +69,32 @@ const int TILE_W = 12;
 const int TILE_H = 5;
 const int TILE_GAP_X = 1;
 const int TILE_GAP_Y = 1;
+const int MODE1860_ROWS = 25;
+const int MODE1860_COLS = 25;
+const int MODE1860_CELL_W = 6;
+const int MODE1860_CELL_H = 2;
+const int MODE1860_BASE_TILE_ID = TILE_COUNT;
+const short MODE1860_PAIR_CHECKER_LIGHT = 24;
+const short MODE1860_PAIR_CHECKER_DARK = 25;
+const short MODE1860_PAIR_TILE_ROUTE = 26;
+const short MODE1860_PAIR_TILE_PAYDAY = 27;
+const short MODE1860_PAIR_TILE_ACTION = 28;
+const short MODE1860_PAIR_TILE_MINIGAME = 29;
+const short MODE1860_PAIR_TILE_RISK = 30;
+const short MODE1860_PAIR_TILE_CAREER = 31;
+const short MODE1860_PAIR_TILE_FAMILY = 32;
+const short MODE1860_PAIR_TILE_BASIC = 33;
+const short MODE1860_PAIR_TILE_MARRIAGE = 34;
+const short MODE1860_PAIR_TILE_WORK = 35;
+const short MODE1860_PAIR_TILE_COLLEGE = 36;
+const short MODE1860_COLOR_MUSTARD = 34;
+const short MODE1860_COLOR_TEAL_LIGHT = 35;
+const short MODE1860_COLOR_TEAL_DARK = 36;
+const short MODE1860_COLOR_BRICK = 37;
+const short MODE1860_COLOR_MAUVE = 38;
+const short MODE1860_COLOR_OLIVE = 39;
+const short MODE1860_COLOR_PAYDAY = 40;
+const short MODE1860_COLOR_DARK_WARM = 41;
 
 //Input: areaLeft (left boundary), areaWidth (width of area), textWidth (width of text)->(all integer)
 //Output: integer x-coordinate
@@ -224,7 +252,7 @@ std::set<int> reachableTiles(const std::vector<Tile>& tiles) {
 
 //Input: vector of Tile objects, Player reference, tileId
 //Output: integer next tile index
-//Purpose: determines next tile based on player’s choices (start, family, risk)
+//Purpose: determines next tile based on player?s choices (start, family, risk)
 //Relation: used in buildVisibleTrail to navigate forward
 int nextTileForView(const std::vector<Tile>& tiles, const Player& player, int tileId) {
     const Tile& tile = tiles[static_cast<std::size_t>(tileId)];
@@ -702,6 +730,703 @@ void drawClassicTokens(WINDOW* boardWin,
     }
 }
 
+std::string mode1860FlavorName(const Tile& tile) {
+    switch (tile.kind) {
+        case TILE_START:
+            return "Infancy / Start";
+        case TILE_CAREER:
+            return "Industry / Job";
+        case TILE_CAREER_2:
+            return "Industry / Work";
+        case TILE_PAYDAY:
+            return "Prosperity / Payday";
+        case TILE_BLACK:
+            return tile.value >= 3 ? "Contest / Minigame" : "Fate / Action";
+        case TILE_RISKY:
+            return "Misfortune / Risk";
+        case TILE_SAFE:
+            return "Virtue / Safe";
+        case TILE_MARRIAGE:
+            return "Matrimony / Marriage";
+        case TILE_FAMILY:
+        case TILE_BABY:
+            return "Family";
+        case TILE_COLLEGE:
+            return "Schooling / College";
+        case TILE_GRADUATION:
+            return "Graduation";
+        case TILE_NIGHT_SCHOOL:
+            return "Night School";
+        case TILE_SPLIT_START:
+            return "Choice / College-Career";
+        case TILE_SPLIT_FAMILY:
+            return "Choice / Family-Life";
+        case TILE_SPLIT_RISK:
+            return "Choice / Safe-Risk";
+        case TILE_SPIN_AGAIN:
+            return "Second Spin";
+        case TILE_HOUSE:
+            return "Homestead / House";
+        case TILE_RETIREMENT:
+            return "Happy Old Age / Retirement";
+        case TILE_EMPTY:
+        default:
+            return "Open Road";
+    }
+}
+
+std::string mode1860Abbreviation(const Tile& tile) {
+    switch (tile.kind) {
+        case TILE_START:
+            return "IN";
+        case TILE_CAREER:
+            return "JB";
+        case TILE_CAREER_2:
+            return "PR";
+        case TILE_PAYDAY:
+            return "SP";
+        case TILE_BLACK:
+            return tile.value >= 3 ? "MG" : "FT";
+        case TILE_RISKY:
+            return "MS";
+        case TILE_SAFE:
+            return "VT";
+        case TILE_MARRIAGE:
+            return "MT";
+        case TILE_FAMILY:
+            return "FM";
+        case TILE_BABY:
+            return "FE";
+        case TILE_COLLEGE:
+            return "SC";
+        case TILE_GRADUATION:
+            return "GR";
+        case TILE_SPLIT_START:
+            return "CH";
+        case TILE_SPLIT_FAMILY:
+            return "FL";
+        case TILE_SPLIT_RISK:
+            return "SR";
+        case TILE_RETIREMENT:
+            return tile.label == "CA" ? "CA" : "HO";
+        case TILE_HOUSE:
+            return "HS";
+        default:
+            return getTileAbbreviation(tile);
+    }
+}
+
+int mode1860CellTop(int top, const Tile& tile) {
+    return top + (tile.mode1860Y * MODE1860_CELL_H);
+}
+
+int mode1860CellLeft(int left, const Tile& tile) {
+    return left + (tile.mode1860X * MODE1860_CELL_W);
+}
+
+bool tileHasMode1860Position(const Tile& tile) {
+    return tile.mode1860Y >= 0 &&
+           tile.mode1860Y < MODE1860_ROWS &&
+           tile.mode1860X >= 0 &&
+           tile.mode1860X < MODE1860_COLS;
+}
+
+bool initMode1860ColorPairs(bool hasColor) {
+    if (!hasColor || COLOR_PAIRS <= MODE1860_PAIR_TILE_COLLEGE) {
+        return false;
+    }
+
+    short mustard = COLOR_YELLOW;
+    short darkWarm = COLOR_BLACK;
+    short tealLight = COLOR_CYAN;
+    short tealDark = COLOR_BLUE;
+    short brick = COLOR_RED;
+    short mauve = COLOR_MAGENTA;
+    short olive = COLOR_GREEN;
+    short payday = COLOR_GREEN;
+
+    if (can_change_color() && COLORS > MODE1860_COLOR_DARK_WARM) {
+        init_color(MODE1860_COLOR_MUSTARD, 980, 792, 471);
+        init_color(MODE1860_COLOR_TEAL_LIGHT, 408, 780, 757);
+        init_color(MODE1860_COLOR_TEAL_DARK, 102, 224, 251);
+        init_color(MODE1860_COLOR_BRICK, 867, 325, 255);
+        init_color(MODE1860_COLOR_MAUVE, 706, 510, 608);
+        init_color(MODE1860_COLOR_OLIVE, 333, 322, 149);
+        init_color(MODE1860_COLOR_PAYDAY, 329, 506, 275);
+        init_color(MODE1860_COLOR_DARK_WARM, 80, 60, 40);
+        mustard = MODE1860_COLOR_MUSTARD;
+        darkWarm = MODE1860_COLOR_DARK_WARM;
+        tealLight = MODE1860_COLOR_TEAL_LIGHT;
+        tealDark = MODE1860_COLOR_TEAL_DARK;
+        brick = MODE1860_COLOR_BRICK;
+        mauve = MODE1860_COLOR_MAUVE;
+        olive = MODE1860_COLOR_OLIVE;
+        payday = MODE1860_COLOR_PAYDAY;
+    }
+
+    init_pair(MODE1860_PAIR_CHECKER_LIGHT, COLOR_BLACK, mustard);
+    init_pair(MODE1860_PAIR_CHECKER_DARK, COLOR_WHITE, darkWarm);
+    init_pair(MODE1860_PAIR_TILE_ROUTE, COLOR_BLACK, mustard);
+    init_pair(MODE1860_PAIR_TILE_PAYDAY, COLOR_BLACK, payday);
+    init_pair(MODE1860_PAIR_TILE_ACTION, COLOR_BLACK, tealLight);
+    init_pair(MODE1860_PAIR_TILE_MINIGAME, COLOR_BLACK, mauve);
+    init_pair(MODE1860_PAIR_TILE_RISK, COLOR_WHITE, brick);
+    init_pair(MODE1860_PAIR_TILE_CAREER, COLOR_WHITE, tealDark);
+    init_pair(MODE1860_PAIR_TILE_FAMILY, COLOR_BLACK, mauve);
+    init_pair(MODE1860_PAIR_TILE_BASIC, COLOR_BLACK, mustard);
+    init_pair(MODE1860_PAIR_TILE_MARRIAGE, COLOR_WHITE, brick);
+    init_pair(MODE1860_PAIR_TILE_WORK, COLOR_BLACK, olive);
+    init_pair(MODE1860_PAIR_TILE_COLLEGE, COLOR_BLACK, tealLight);
+    return true;
+}
+
+int mode1860CheckerColorPair(int row, int col) {
+    return ((row + col) % 2) == 0 ? MODE1860_PAIR_CHECKER_LIGHT
+                                  : MODE1860_PAIR_CHECKER_DARK;
+}
+
+int mode1860TileColorPair(const Tile& tile) {
+    switch (tile.kind) {
+        case TILE_PAYDAY:
+        case TILE_SAFE:
+            return MODE1860_PAIR_TILE_PAYDAY;
+        case TILE_BLACK:
+            return tile.value >= 3 ? MODE1860_PAIR_TILE_MINIGAME : MODE1860_PAIR_TILE_ACTION;
+        case TILE_RISKY:
+        case TILE_SPLIT_RISK:
+            return MODE1860_PAIR_TILE_RISK;
+        case TILE_COLLEGE:
+        case TILE_GRADUATION:
+        case TILE_NIGHT_SCHOOL:
+            return MODE1860_PAIR_TILE_COLLEGE;
+        case TILE_CAREER:
+            return MODE1860_PAIR_TILE_CAREER;
+        case TILE_CAREER_2:
+            return MODE1860_PAIR_TILE_WORK;
+        case TILE_MARRIAGE:
+            return MODE1860_PAIR_TILE_MARRIAGE;
+        case TILE_SPLIT_FAMILY:
+        case TILE_FAMILY:
+        case TILE_BABY:
+        case TILE_HOUSE:
+            return MODE1860_PAIR_TILE_FAMILY;
+        case TILE_START:
+        case TILE_SPLIT_START:
+        case TILE_SPIN_AGAIN:
+        case TILE_RETIREMENT:
+            return MODE1860_PAIR_TILE_ROUTE;
+        case TILE_EMPTY:
+        default:
+            return MODE1860_PAIR_TILE_BASIC;
+    }
+}
+
+char mode1860FallbackFill(const Tile& tile) {
+    switch (tile.kind) {
+        case TILE_PAYDAY:
+        case TILE_SAFE:
+            return '+';
+        case TILE_BLACK:
+            return tile.value >= 3 ? '*' : '?';
+        case TILE_RISKY:
+        case TILE_SPLIT_RISK:
+            return '!';
+        case TILE_CAREER:
+        case TILE_CAREER_2:
+        case TILE_COLLEGE:
+        case TILE_GRADUATION:
+        case TILE_NIGHT_SCHOOL:
+            return '=';
+        case TILE_MARRIAGE:
+        case TILE_SPLIT_FAMILY:
+        case TILE_FAMILY:
+        case TILE_BABY:
+        case TILE_HOUSE:
+            return '@';
+        case TILE_START:
+        case TILE_SPLIT_START:
+        case TILE_SPIN_AGAIN:
+        case TILE_RETIREMENT:
+            return '#';
+        case TILE_EMPTY:
+        default:
+            return ' ';
+    }
+}
+
+std::string mode1860TileSymbol(const Tile& tile) {
+    switch (tile.kind) {
+        case TILE_START:
+            return "S";
+        case TILE_RETIREMENT:
+            return "R";
+        case TILE_BLACK:
+            return tile.value >= 3 ? "M" : "A";
+        case TILE_RISKY:
+        case TILE_SPLIT_RISK:
+            return "!";
+        case TILE_SAFE:
+            return "+";
+        case TILE_CAREER:
+        case TILE_CAREER_2:
+        case TILE_COLLEGE:
+        case TILE_GRADUATION:
+        case TILE_NIGHT_SCHOOL:
+            return "J";
+        case TILE_MARRIAGE:
+        case TILE_SPLIT_FAMILY:
+        case TILE_FAMILY:
+        case TILE_BABY:
+        case TILE_HOUSE:
+            return "F";
+        case TILE_PAYDAY:
+        case TILE_SPLIT_START:
+        case TILE_SPIN_AGAIN:
+        case TILE_EMPTY:
+        default:
+            return "";
+    }
+}
+
+std::string mode1860EffectHint(const Tile& tile) {
+    switch (tile.kind) {
+        case TILE_START:
+            return "Choose college or career path.";
+        case TILE_COLLEGE:
+            return "Begin the college path.";
+        case TILE_CAREER:
+            return "Choose or draw a career.";
+        case TILE_CAREER_2:
+            return "Work and career event.";
+        case TILE_GRADUATION:
+            return "Graduate and enter the main route.";
+        case TILE_PAYDAY:
+            return "Receive salary.";
+        case TILE_BLACK:
+            return tile.value >= 3 ? "Play a minigame." : "Resolve an action or life event.";
+        case TILE_RISKY:
+            return "Resolve a risk event.";
+        case TILE_SAFE:
+            return "Take the safer route reward.";
+        case TILE_MARRIAGE:
+            return "Resolve marriage.";
+        case TILE_SPLIT_FAMILY:
+            return "Choose family or life route.";
+        case TILE_FAMILY:
+        case TILE_BABY:
+            return "Resolve a family event.";
+        case TILE_NIGHT_SCHOOL:
+            return "Improve career options.";
+        case TILE_SPLIT_RISK:
+            return "Choose safe or risky route.";
+        case TILE_SPIN_AGAIN:
+            return "Spin again.";
+        case TILE_HOUSE:
+            return "Resolve a house event.";
+        case TILE_RETIREMENT:
+            return "Retire and prepare final scoring.";
+        case TILE_SPLIT_START:
+            return "Choose a starting route.";
+        case TILE_EMPTY:
+        default:
+            return "Advance along the path.";
+    }
+}
+
+void fillMode1860Rect(WINDOW* boardWin,
+                      int y,
+                      int x,
+                      int height,
+                      int width,
+                      chtype fill) {
+    const int maxY = getmaxy(boardWin);
+    const int maxX = getmaxx(boardWin);
+    for (int dy = 0; dy < height; ++dy) {
+        for (int dx = 0; dx < width; ++dx) {
+            const int drawY = y + dy;
+            const int drawX = x + dx;
+            if (drawY > 0 && drawY < maxY - 1 && drawX > 0 && drawX < maxX - 1) {
+                mvwaddch(boardWin, drawY, drawX, fill);
+            }
+        }
+    }
+}
+
+void drawMode1860Tile(WINDOW* boardWin,
+                      const Tile& tile,
+                      int top,
+                      int left,
+                      bool highlighted,
+                      bool reachable,
+                      bool hasColor) {
+    if (!tileHasMode1860Position(tile)) {
+        return;
+    }
+
+    const int cellTop = mode1860CellTop(top, tile);
+    const int cellLeft = mode1860CellLeft(left, tile);
+    const int colorPair = mode1860TileColorPair(tile);
+    const int fillAttrs = highlighted ? (A_BOLD | A_REVERSE) : (reachable ? A_BOLD : A_NORMAL);
+    const chtype fill = hasColor
+        ? (' ' | COLOR_PAIR(colorPair) | fillAttrs)
+        : (mode1860FallbackFill(tile) |
+           (highlighted ? (A_BOLD | A_REVERSE) : (reachable ? A_BOLD : A_DIM)));
+
+    fillMode1860Rect(boardWin, cellTop, cellLeft, MODE1860_CELL_H, MODE1860_CELL_W, fill);
+
+    const std::string symbol = mode1860TileSymbol(tile);
+    if (symbol.empty()) {
+        return;
+    }
+
+    const int labelY = cellTop + (MODE1860_CELL_H / 2);
+    const int labelX = cellLeft + std::max(0, (MODE1860_CELL_W - static_cast<int>(symbol.size())) / 2);
+    const int labelAttrs = A_BOLD | (highlighted ? A_REVERSE : (reachable ? A_UNDERLINE : A_NORMAL));
+    if (hasColor) {
+        wattron(boardWin, COLOR_PAIR(colorPair) | labelAttrs);
+    } else {
+        wattron(boardWin, labelAttrs);
+    }
+    mvwprintw(boardWin, labelY, labelX, "%s", symbol.c_str());
+    if (hasColor) {
+        wattroff(boardWin, COLOR_PAIR(colorPair) | labelAttrs);
+    } else {
+        wattroff(boardWin, labelAttrs);
+    }
+}
+
+std::string mode1860PlayerMarker(const std::vector<int>& occupants) {
+    if (occupants.empty()) {
+        return "";
+    }
+
+    if (occupants.size() == 1U) {
+        return "P" + std::to_string(occupants.front() + 1);
+    }
+
+    std::string marker = "P";
+    for (std::size_t i = 0; i < occupants.size(); ++i) {
+        marker += std::to_string(occupants[i] + 1);
+    }
+    return clipText(marker, MODE1860_CELL_W - 1);
+}
+
+void drawMode1860PlayerMarker(WINDOW* boardWin,
+                              int y,
+                              int x,
+                              const std::string& marker,
+                              int colorPlayer,
+                              bool containsFocusPlayer,
+                              bool hasColor) {
+    const int attrs = A_BOLD | A_REVERSE | (containsFocusPlayer ? A_UNDERLINE : A_NORMAL);
+    if (hasColor) {
+        wattron(boardWin, COLOR_PAIR(PLAYER_PAIR_BASE + (colorPlayer % 4)) | attrs);
+    } else {
+        wattron(boardWin, attrs);
+    }
+    mvwprintw(boardWin, y, x, "%s", marker.c_str());
+    if (hasColor) {
+        wattroff(boardWin, COLOR_PAIR(PLAYER_PAIR_BASE + (colorPlayer % 4)) | attrs);
+    } else {
+        wattroff(boardWin, attrs);
+    }
+}
+
+void drawMode1860Tokens(WINDOW* boardWin,
+                        const std::vector<Player>& players,
+                        const std::vector<Tile>& tiles,
+                        int top,
+                        int left,
+                        int focusPlayerIndex,
+                        bool hasColor) {
+    for (std::size_t tileIndex = 0; tileIndex < tiles.size(); ++tileIndex) {
+        const Tile& tile = tiles[tileIndex];
+        if (!tileHasMode1860Position(tile)) {
+            continue;
+        }
+
+        const std::vector<int> occupants = playersAtTile(players, tile.id);
+        if (occupants.empty()) {
+            continue;
+        }
+
+        std::string marker = mode1860PlayerMarker(occupants);
+        int colorPlayer = occupants.front();
+        bool containsFocusPlayer = occupants.front() == focusPlayerIndex;
+        for (std::size_t i = 0; i < occupants.size(); ++i) {
+            if (occupants[i] == focusPlayerIndex) {
+                colorPlayer = occupants[i];
+                containsFocusPlayer = true;
+                break;
+            }
+        }
+
+        const int y = mode1860CellTop(top, tile) + (MODE1860_CELL_H / 2);
+        const int x = mode1860CellLeft(left, tile) +
+                      std::max(0, (MODE1860_CELL_W - static_cast<int>(marker.size())) / 2);
+        drawMode1860PlayerMarker(boardWin, y, x, marker, colorPlayer, containsFocusPlayer, hasColor);
+    }
+}
+
+int drawMode1860LegendItem(WINDOW* boardWin,
+                           int y,
+                           int x,
+                           const std::string& label,
+                           int colorPair,
+                           char fallback,
+                           bool hasColor,
+                           int maxX) {
+    if (x >= maxX - 2) {
+        return x;
+    }
+
+    if (hasColor) {
+        wattron(boardWin, COLOR_PAIR(colorPair) | A_BOLD);
+        mvwprintw(boardWin, y, x, "  ");
+        wattroff(boardWin, COLOR_PAIR(colorPair) | A_BOLD);
+        x += 3;
+    } else {
+        const std::string swatch = std::string("[") + fallback + "]";
+        mvwprintw(boardWin, y, x, "%s", clipText(swatch, maxX - x - 1).c_str());
+        x += static_cast<int>(swatch.size()) + 1;
+    }
+
+    const std::string clipped = clipText(label, maxX - x - 1);
+    if (!clipped.empty()) {
+        mvwprintw(boardWin, y, x, "%s", clipped.c_str());
+    }
+    return x + static_cast<int>(clipped.size()) + 2;
+}
+
+void renderMode1860Legend(WINDOW* boardWin, int y, bool hasColor) {
+    const int maxX = getmaxx(boardWin);
+    int x = 2;
+
+    if (hasColor) {
+        wattron(boardWin, COLOR_PAIR(GOLDRUSH_GOLD_SAND) | A_BOLD);
+    } else {
+        wattron(boardWin, A_BOLD);
+    }
+    mvwprintw(boardWin, y, x, "Legend:");
+    if (hasColor) {
+        wattroff(boardWin, COLOR_PAIR(GOLDRUSH_GOLD_SAND) | A_BOLD);
+    } else {
+        wattroff(boardWin, A_BOLD);
+    }
+    x += 9;
+
+    x = drawMode1860LegendItem(boardWin, y, x, "Pay/Safe", MODE1860_PAIR_TILE_PAYDAY, '+', hasColor, maxX);
+    x = drawMode1860LegendItem(boardWin, y, x, "Action", MODE1860_PAIR_TILE_ACTION, '?', hasColor, maxX);
+    x = drawMode1860LegendItem(boardWin, y, x, "Mini", MODE1860_PAIR_TILE_MINIGAME, '*', hasColor, maxX);
+    x = drawMode1860LegendItem(boardWin, y, x, "Risk", MODE1860_PAIR_TILE_RISK, '!', hasColor, maxX);
+    x = drawMode1860LegendItem(boardWin, y, x, "Job", MODE1860_PAIR_TILE_CAREER, '=', hasColor, maxX);
+    drawMode1860LegendItem(boardWin, y, x, "Family", MODE1860_PAIR_TILE_FAMILY, '@', hasColor, maxX);
+}
+
+void renderMode1860SymbolLegend(WINDOW* boardWin, int y, bool hasColor) {
+    const int maxX = getmaxx(boardWin);
+    const std::string symbols = "Symbols: S Start  R Retire  A Action  M Mini  ! Risk  + Safe  J Job  F Family";
+    const std::string clipped = clipText(symbols, maxX - 4);
+    if (hasColor) {
+        wattron(boardWin, COLOR_PAIR(GOLDRUSH_BROWN_CREAM));
+    } else {
+        wattron(boardWin, A_DIM);
+    }
+    mvwprintw(boardWin,
+              y,
+              centeredX(1, maxX - 2, static_cast<int>(clipped.size())),
+              "%s",
+              clipped.c_str());
+    if (hasColor) {
+        wattroff(boardWin, COLOR_PAIR(GOLDRUSH_BROWN_CREAM));
+    } else {
+        wattroff(boardWin, A_DIM);
+    }
+}
+
+std::string mode1860PlayersAtTileText(const std::vector<Player>& players, int tileIndex) {
+    std::string text = "Players here:";
+    bool found = false;
+    for (std::size_t i = 0; i < players.size(); ++i) {
+        if (players[i].tile != tileIndex) {
+            continue;
+        }
+        text += found ? ", " : " ";
+        text += "P" + std::to_string(static_cast<int>(i) + 1) + " " + players[i].name;
+        found = true;
+    }
+    return found ? text : "Players here: none";
+}
+
+void renderMode1860TileDetails(WINDOW* boardWin,
+                               const std::vector<Tile>& tiles,
+                               const std::vector<Player>& players,
+                               int focusTile,
+                               int y,
+                               bool hasColor) {
+    const int maxY = getmaxy(boardWin);
+    const int maxX = getmaxx(boardWin);
+    const int localTile = focusTile - MODE1860_BASE_TILE_ID;
+    if (y <= 0 ||
+        y >= maxY - 1 ||
+        localTile < 0 ||
+        localTile >= static_cast<int>(tiles.size())) {
+        return;
+    }
+
+    const Tile& tile = tiles[static_cast<std::size_t>(localTile)];
+    const std::string current =
+        "Current Tile: " + getTileFullName(tile) + " (" + mode1860Abbreviation(tile) + ") - " +
+        mode1860EffectHint(tile);
+    const std::string occupants = mode1860PlayersAtTileText(players, focusTile);
+    const std::string flavor =
+        "1860 Style: " + mode1860FlavorName(tile) + " | Space " + std::to_string(focusTile) +
+        " | " + occupants;
+
+    if (hasColor) {
+        wattron(boardWin, COLOR_PAIR(GOLDRUSH_GOLD_SAND) | A_BOLD);
+    } else {
+        wattron(boardWin, A_BOLD);
+    }
+    mvwprintw(boardWin, y, 2, "%s", clipText(current, maxX - 4).c_str());
+    if (hasColor) {
+        wattroff(boardWin, COLOR_PAIR(GOLDRUSH_GOLD_SAND) | A_BOLD);
+    } else {
+        wattroff(boardWin, A_BOLD);
+    }
+
+    if (y + 1 < maxY - 1) {
+        mvwprintw(boardWin, y + 1, 2, "%s", clipText(flavor, maxX - 4).c_str());
+    }
+}
+
+void drawMode1860Board(WINDOW* boardWin,
+                       const std::vector<Tile>& tiles,
+                       const std::vector<Player>& players,
+                       int focusIndex,
+                       int focusTile,
+                       int cursorTile,
+                       const std::set<int>& reachableTiles,
+                       int movementSteps,
+                       bool hasColor) {
+    const int maxY = getmaxy(boardWin);
+    const int maxX = getmaxx(boardWin);
+    const bool useModeColors = initMode1860ColorPairs(hasColor);
+    const int visibleRows = maxY >= 31 ? 11 : 9;
+    const int visibleCols = maxX >= 82 ? 11 : 9;
+    const int fallbackTile = MODE1860_BASE_TILE_ID + ((MODE1860_ROWS - 1) * MODE1860_COLS);
+    if (focusTile < MODE1860_BASE_TILE_ID ||
+        focusTile >= MODE1860_BASE_TILE_ID + static_cast<int>(tiles.size())) {
+        focusTile = fallbackTile;
+    }
+    if (cursorTile >= 0 &&
+        (cursorTile < MODE1860_BASE_TILE_ID ||
+         cursorTile >= MODE1860_BASE_TILE_ID + static_cast<int>(tiles.size()))) {
+        cursorTile = -1;
+    }
+    const Tile& cameraTile = cursorTile >= 0 ? tiles[static_cast<std::size_t>(cursorTile - MODE1860_BASE_TILE_ID)]
+                                             : tiles[static_cast<std::size_t>(focusTile - MODE1860_BASE_TILE_ID)];
+    const int cameraRow = std::max(0, std::min(cameraTile.mode1860Y - (visibleRows / 2), MODE1860_ROWS - visibleRows));
+    const int cameraCol = std::max(0, std::min(cameraTile.mode1860X - (visibleCols / 2), MODE1860_COLS - visibleCols));
+    const int boardW = visibleCols * MODE1860_CELL_W;
+    const int boardH = visibleRows * MODE1860_CELL_H;
+    const int borderW = boardW + 2;
+    const bool roomy = maxY >= 31;
+    const int startY = roomy ? 5 : 4;
+    const int startX = std::max(2, ((maxX - borderW) / 2) + 1);
+
+    const std::string title = movementSteps > 0
+        ? "1860 Movement Selection"
+        : "1860 Free Movement Board";
+    mvwprintw(boardWin,
+              1,
+              centeredX(1, maxX - 2, static_cast<int>(title.size())),
+              "%s",
+              clipText(title, maxX - 4).c_str());
+    renderMode1860Legend(boardWin, 2, useModeColors);
+    if (roomy) {
+        renderMode1860SymbolLegend(boardWin, 3, useModeColors);
+    }
+
+    for (int row = 0; row < visibleRows; ++row) {
+        for (int col = 0; col < visibleCols; ++col) {
+            const int boardRow = cameraRow + row;
+            const int boardCol = cameraCol + col;
+            const bool light = ((boardRow + boardCol) % 2) == 0;
+            const chtype fill = useModeColors
+                ? (' ' | COLOR_PAIR(mode1860CheckerColorPair(boardRow, boardCol)))
+                : ((light ? '.' : ' ') | A_DIM);
+            fillMode1860Rect(boardWin,
+                             startY + (row * MODE1860_CELL_H),
+                             startX + (col * MODE1860_CELL_W),
+                             MODE1860_CELL_H,
+                             MODE1860_CELL_W,
+                             fill);
+        }
+    }
+
+    if (useModeColors) {
+        wattron(boardWin, COLOR_PAIR(GOLDRUSH_GOLD_SAND) | A_BOLD);
+    } else {
+        wattron(boardWin, A_BOLD);
+    }
+    drawBoxAtSafe(boardWin, startY - 1, startX - 1, boardH + 2, boardW + 2);
+    if (useModeColors) {
+        wattroff(boardWin, COLOR_PAIR(GOLDRUSH_GOLD_SAND) | A_BOLD);
+    } else {
+        wattroff(boardWin, A_BOLD);
+    }
+
+    for (std::size_t i = 0; i < tiles.size(); ++i) {
+        const Tile& tile = tiles[i];
+        if (!tileHasMode1860Position(tile) ||
+            tile.mode1860Y < cameraRow ||
+            tile.mode1860Y >= cameraRow + visibleRows ||
+            tile.mode1860X < cameraCol ||
+            tile.mode1860X >= cameraCol + visibleCols) {
+            continue;
+        }
+        Tile drawTile = tile;
+        drawTile.mode1860Y -= cameraRow;
+        drawTile.mode1860X -= cameraCol;
+        drawMode1860Tile(boardWin,
+                         drawTile,
+                         startY,
+                         startX,
+                         tile.id == focusTile || tile.id == cursorTile,
+                         reachableTiles.count(tile.id) != 0,
+                         useModeColors);
+    }
+    std::vector<Tile> visibleTiles = tiles;
+    for (std::size_t i = 0; i < visibleTiles.size(); ++i) {
+        if (visibleTiles[i].mode1860Y < cameraRow ||
+            visibleTiles[i].mode1860Y >= cameraRow + visibleRows ||
+            visibleTiles[i].mode1860X < cameraCol ||
+            visibleTiles[i].mode1860X >= cameraCol + visibleCols) {
+            visibleTiles[i].mode1860Y = -1;
+            visibleTiles[i].mode1860X = -1;
+        } else {
+            visibleTiles[i].mode1860Y -= cameraRow;
+            visibleTiles[i].mode1860X -= cameraCol;
+        }
+    }
+    drawMode1860Tokens(boardWin, players, visibleTiles, startY, startX, focusIndex, useModeColors);
+
+    const int detailsY = startY + boardH + 1;
+    if (detailsY < maxY - 1) {
+        const int detailTile = cursorTile >= 0 ? cursorTile : focusTile;
+        renderMode1860TileDetails(boardWin, tiles, players, detailTile, detailsY, useModeColors);
+    }
+
+    if (movementSteps > 0 && maxY > 4) {
+        const std::string instruction =
+            "Spin result: " + std::to_string(movementSteps) +
+            " | Choose a highlighted tile exactly " + std::to_string(movementSteps) +
+            " steps away. Arrows move cursor, Enter confirms, Esc cancels.";
+        mvwprintw(boardWin, maxY - 2, 2, "%s", clipText(instruction, maxX - 4).c_str());
+    }
+}
+
 }  // namespace
 
 //Input: BoardViewMode enum or string name
@@ -711,10 +1436,12 @@ void drawClassicTokens(WINDOW* boardWin,
 std::string boardViewModeName(BoardViewMode mode) {
     switch (mode) {
         case BoardViewMode::ClassicFull:
-            return "Classic Full Board";
+            return "classic-full";
+        case BoardViewMode::Mode1860:
+            return "1860";
         case BoardViewMode::FollowCamera:
         default:
-            return "Follow Camera";
+            return "follow-camera";
     }
 }
 
@@ -738,6 +1465,16 @@ BoardViewMode boardViewModeFromName(const std::string& name) {
         normalized == "fullboard") {
         return BoardViewMode::ClassicFull;
     }
+    if (normalized == "1860" ||
+        normalized == "mode1860" ||
+        normalized == "1860mode" ||
+        normalized == "checkered1860" ||
+        normalized == "1860checkered" ||
+        normalized == "1860checkeredboard" ||
+        normalized == "checkeredboardmode" ||
+        normalized == "checkeredlifemode") {
+        return BoardViewMode::Mode1860;
+    }
     return BoardViewMode::FollowCamera;
 }
 
@@ -755,7 +1492,88 @@ Board::Board() {
 //Purpose: retrieves tile by id
 //Relation: used throughout rendering and logic functions
 const Tile& Board::tileAt(int id) const {
-    return tiles[id];
+    if (id >= MODE1860_BASE_TILE_ID) {
+        const int index = id - MODE1860_BASE_TILE_ID;
+        if (index >= 0 && index < static_cast<int>(mode1860Tiles.size())) {
+            return mode1860Tiles[static_cast<std::size_t>(index)];
+        }
+    }
+    return tiles[std::max(0, std::min(id, static_cast<int>(tiles.size()) - 1))];
+}
+
+int Board::tileCount() const {
+    return MODE1860_BASE_TILE_ID + static_cast<int>(mode1860Tiles.size());
+}
+
+bool Board::isMode1860TileId(int id) const {
+    return id >= MODE1860_BASE_TILE_ID &&
+           id < MODE1860_BASE_TILE_ID + static_cast<int>(mode1860Tiles.size());
+}
+
+int Board::mode1860StartTileId() const {
+    return mode1860TileIdAt(MODE1860_ROWS - 1, 0);
+}
+
+int Board::mode1860RetirementTileId() const {
+    return mode1860TileIdAt(0, MODE1860_COLS - 1);
+}
+
+int Board::mode1860Rows() const {
+    return MODE1860_ROWS;
+}
+
+int Board::mode1860Cols() const {
+    return MODE1860_COLS;
+}
+
+int Board::mode1860TileIdAt(int row, int col) const {
+    if (row < 0 || row >= MODE1860_ROWS || col < 0 || col >= MODE1860_COLS) {
+        return -1;
+    }
+    return MODE1860_BASE_TILE_ID + (row * MODE1860_COLS) + col;
+}
+
+int Board::mode1860LifeZone(int row, int col) const {
+    const int fromStart = std::max(0, (MODE1860_ROWS - 1 - row) + col);
+    const int maxDistance = (MODE1860_ROWS - 1) + (MODE1860_COLS - 1);
+    return std::min(5, (fromStart * 6) / (maxDistance + 1));
+}
+
+BoardRect Board::mode1860CameraViewport(int centerTileId, int visibleRows, int visibleCols) const {
+    const Tile& center = tileAt(centerTileId);
+    const int rows = std::max(5, std::min(MODE1860_ROWS, visibleRows));
+    const int cols = std::max(5, std::min(MODE1860_COLS, visibleCols));
+    BoardRect rect;
+    rect.rows = rows;
+    rect.cols = cols;
+    rect.row = std::max(0, std::min(center.mode1860Y - (rows / 2), MODE1860_ROWS - rows));
+    rect.col = std::max(0, std::min(center.mode1860X - (cols / 2), MODE1860_COLS - cols));
+    return rect;
+}
+
+std::vector<int> Board::reachable1860Tiles(int startTileId, int steps) const {
+    std::vector<int> reachable;
+    if (!isMode1860TileId(startTileId) || steps < 0) {
+        return reachable;
+    }
+    const Tile& start = tileAt(startTileId);
+    for (int row = 0; row < MODE1860_ROWS; ++row) {
+        for (int col = 0; col < MODE1860_COLS; ++col) {
+            if (std::abs(row - start.mode1860Y) + std::abs(col - start.mode1860X) == steps) {
+                reachable.push_back(mode1860TileIdAt(row, col));
+            }
+        }
+    }
+    return reachable;
+}
+
+bool Board::isValid1860Move(int fromTileId, int toTileId, int steps) const {
+    if (!isMode1860TileId(fromTileId) || !isMode1860TileId(toTileId) || steps < 0) {
+        return false;
+    }
+    const Tile& from = tileAt(fromTileId);
+    const Tile& to = tileAt(toTileId);
+    return std::abs(from.mode1860Y - to.mode1860Y) + std::abs(from.mode1860X - to.mode1860X) == steps;
 }
 
 //Input: none
@@ -768,6 +1586,8 @@ void Board::initTiles() {
         tiles[i].id = i;
         tiles[i].y = 0;
         tiles[i].x = 0;
+        tiles[i].mode1860Y = -1;
+        tiles[i].mode1860X = -1;
         tiles[i].label = "  ";
         tiles[i].kind = TILE_EMPTY;
         tiles[i].next = (i < TILE_COUNT - 1) ? i + 1 : -1;
@@ -779,6 +1599,10 @@ void Board::initTiles() {
     const auto place = [&](int id, int col, int row) {
         tiles[id].x = col;
         tiles[id].y = row;
+    };
+    const auto place1860 = [&](int id, int row, int col) {
+        tiles[id].mode1860Y = row;
+        tiles[id].mode1860X = col;
     };
 
     place(0, 1, 0);
@@ -877,6 +1701,102 @@ void Board::initTiles() {
     place(86, 3, 10);
     place(87, 4, 10);
     place(88, 4, 10);
+
+    place1860(0, 10, 0);
+    place1860(1, 6, 6);
+    place1860(2, 6, 5);
+    place1860(3, 6, 4);
+    place1860(4, 6, 3);
+    place1860(5, 5, 3);
+    place1860(6, 5, 4);
+    place1860(7, 5, 5);
+    place1860(8, 5, 6);
+    place1860(9, 5, 7);
+    place1860(10, 5, 8);
+    place1860(11, 5, 9);
+    place1860(12, 5, 10);
+
+    place1860(13, 9, 0);
+    place1860(14, 8, 0);
+    place1860(15, 7, 0);
+    place1860(16, 7, 1);
+    place1860(17, 7, 2);
+    place1860(18, 8, 2);
+    place1860(19, 9, 2);
+    place1860(20, 9, 3);
+    place1860(21, 9, 4);
+    place1860(22, 8, 4);
+    place1860(23, 7, 4);
+    place1860(24, 7, 5);
+
+    place1860(25, 10, 1);
+    place1860(26, 10, 2);
+    place1860(27, 10, 3);
+    place1860(28, 10, 4);
+    place1860(29, 10, 5);
+    place1860(30, 10, 6);
+    place1860(31, 10, 7);
+    place1860(32, 10, 8);
+    place1860(33, 9, 8);
+    place1860(34, 8, 8);
+    place1860(35, 7, 8);
+    place1860(36, 7, 7);
+    place1860(37, 7, 6);
+
+    place1860(38, 6, 0);
+    place1860(39, 6, 1);
+    place1860(40, 6, 2);
+    place1860(41, 5, 0);
+    place1860(42, 5, 1);
+    place1860(43, 5, 2);
+    place1860(44, 4, 0);
+    place1860(45, 4, 1);
+    place1860(46, 4, 2);
+    place1860(47, 4, 3);
+    place1860(48, 4, 4);
+    place1860(49, 4, 5);
+    place1860(50, 4, 6);
+    place1860(51, 4, 7);
+    place1860(52, 3, 0);
+    place1860(53, 3, 1);
+    place1860(54, 2, 0);
+    place1860(55, 2, 1);
+    place1860(56, 1, 0);
+    place1860(57, 1, 1);
+    place1860(58, 0, 0);
+
+    place1860(59, 4, 10);
+    place1860(60, 3, 10);
+    place1860(61, 2, 10);
+    place1860(62, 2, 9);
+    place1860(63, 2, 8);
+    place1860(64, 2, 7);
+    place1860(65, 2, 6);
+    place1860(66, 2, 5);
+    place1860(67, 2, 4);
+    place1860(68, 2, 3);
+
+    place1860(69, 4, 9);
+    place1860(70, 4, 8);
+    place1860(71, 3, 8);
+    place1860(72, 3, 7);
+    place1860(73, 3, 6);
+    place1860(74, 3, 5);
+    place1860(75, 3, 4);
+    place1860(76, 3, 3);
+    place1860(77, 3, 2);
+    place1860(78, 2, 2);
+
+    place1860(79, 1, 2);
+    place1860(80, 1, 3);
+    place1860(81, 1, 4);
+    place1860(82, 1, 5);
+    place1860(83, 0, 2);
+    place1860(84, 0, 3);
+    place1860(85, 0, 4);
+    place1860(86, 0, 6);
+    place1860(87, 0, 9);
+    place1860(88, 0, 10);
 
     for (int i = 1; i <= 12; ++i) {
         tiles[i].label = "BK";
@@ -1017,6 +1937,114 @@ void Board::initTiles() {
     tiles[88].kind = TILE_RETIREMENT;
     tiles[88].stop = true;
     tiles[88].next = -1;
+
+    init1860FreeMovementBoard();
+}
+
+void Board::init1860FreeMovementBoard() {
+    mode1860Tiles.clear();
+    mode1860Tiles.resize(MODE1860_ROWS * MODE1860_COLS);
+
+    for (int row = 0; row < MODE1860_ROWS; ++row) {
+        for (int col = 0; col < MODE1860_COLS; ++col) {
+            const int localId = (row * MODE1860_COLS) + col;
+            Tile& tile = mode1860Tiles[static_cast<std::size_t>(localId)];
+            tile.id = MODE1860_BASE_TILE_ID + localId;
+            tile.y = row;
+            tile.x = col;
+            tile.mode1860Y = row;
+            tile.mode1860X = col;
+            tile.next = -1;
+            tile.altNext = -1;
+            tile.value = 0;
+            tile.stop = false;
+
+            const int zone = mode1860LifeZone(row, col);
+            const int pattern = ((row * 17) + (col * 31) + (zone * 7)) % 20;
+            tile.label = "LF";
+            tile.kind = TILE_EMPTY;
+
+            if (pattern < 5) {
+                tile.kind = TILE_BLACK;
+                tile.label = "AC";
+                tile.value = zone >= 3 ? 2 : 1;
+            } else if (pattern < 8) {
+                tile.kind = TILE_PAYDAY;
+                tile.label = "PD";
+                tile.value = 3000 + (zone * 4000);
+            } else if (pattern < 10) {
+                tile.kind = TILE_SAFE;
+                tile.label = "SF";
+                tile.stop = true;
+            } else if (pattern < 12) {
+                tile.kind = TILE_RISKY;
+                tile.label = "RK";
+                tile.stop = true;
+            } else if (pattern < 14) {
+                tile.kind = TILE_CAREER_2;
+                tile.label = "PR";
+                tile.value = 4000 + (zone * 2500);
+            } else if (pattern < 16) {
+                tile.kind = TILE_BLACK;
+                tile.label = "MG";
+                tile.value = 3;
+            } else if (pattern == 16 && zone >= 3) {
+                tile.kind = TILE_HOUSE;
+                tile.label = "HS";
+                tile.stop = true;
+            } else if (pattern == 17 && zone >= 4) {
+                tile.kind = TILE_BABY;
+                tile.label = "FE";
+                tile.stop = true;
+            } else if (pattern == 18 && zone >= 2) {
+                tile.kind = TILE_NIGHT_SCHOOL;
+                tile.label = "NS";
+                tile.stop = true;
+            }
+
+            if (zone == 0 && row == MODE1860_ROWS - 1 && col == 0) {
+                tile.kind = TILE_START;
+                tile.label = "ST";
+                tile.stop = false;
+            }
+            if (zone == 1 && row == 18 && col == 6) {
+                tile.kind = TILE_COLLEGE;
+                tile.label = "CO";
+                tile.stop = true;
+            }
+            if (zone == 1 && row == 19 && col == 8) {
+                tile.kind = TILE_CAREER;
+                tile.label = "JB";
+                tile.stop = true;
+            }
+            if (zone == 2 && ((row == 15 && col == 8) ||
+                              (row == 14 && col == 11))) {
+                tile.kind = TILE_GRADUATION;
+                tile.label = "GR";
+                tile.stop = true;
+            }
+            if (zone == 3 && row == 10 && col == 11) {
+                tile.kind = TILE_MARRIAGE;
+                tile.label = "MR";
+                tile.stop = true;
+            }
+            if (zone >= 4 && ((row == 8 && col == 17) || (row == 7 && col == 18))) {
+                tile.kind = TILE_FAMILY;
+                tile.label = "FM";
+                tile.stop = true;
+            }
+            if (zone >= 5 && row == 0 && col == MODE1860_COLS - 1) {
+                tile.kind = TILE_RETIREMENT;
+                tile.label = "RET";
+                tile.stop = true;
+            }
+            if (zone >= 5 && row == 1 && col == MODE1860_COLS - 2) {
+                tile.kind = TILE_RETIREMENT;
+                tile.label = "RET";
+                tile.stop = true;
+            }
+        }
+    }
 }
 
 //Input: Tile reference
@@ -1032,6 +2060,18 @@ bool Board::isStopSpace(const Tile& tile) const {
 //Purpose: finds which region a tile belongs to
 //Relation: used in UI and tutorial legend
 std::string Board::regionNameForTile(int tileIndex) const {
+    if (isMode1860TileId(tileIndex)) {
+        const Tile& tile = tileAt(tileIndex);
+        switch (mode1860LifeZone(tile.mode1860Y, tile.mode1860X)) {
+            case 0: return "Infancy";
+            case 1: return "Early Life";
+            case 2: return "College / Career";
+            case 3: return "Career Growth";
+            case 4: return "Family & Property";
+            case 5: return "Late Life";
+            default: break;
+        }
+    }
     for (std::size_t i = 0; i < regions.size(); ++i) {
         if (tileIndex >= regions[i].startTileIndex && tileIndex <= regions[i].endTileIndex) {
             return regions[i].name;
@@ -1132,6 +2172,22 @@ void Board::render(WINDOW* boardWin,
                       "%s",
                       clipText(statusLine, maxX - 4).c_str());
         }
+        drawBoxSafe(boardWin);
+        wrefresh(boardWin);
+        return;
+    }
+
+    if (viewMode == BoardViewMode::Mode1860) {
+        const std::set<int> noReachable;
+        drawMode1860Board(boardWin,
+                          mode1860Tiles,
+                          players,
+                          focusIndex,
+                          focusTile,
+                          -1,
+                          noReachable,
+                          0,
+                          hasColor);
         drawBoxSafe(boardWin);
         wrefresh(boardWin);
         return;
@@ -1255,5 +2311,30 @@ void Board::render(WINDOW* boardWin,
                     hasColor);
     }
 
+    wrefresh(boardWin);
+}
+
+void Board::render1860Selection(WINDOW* boardWin,
+                                const std::vector<Player>& players,
+                                int focusPlayerIndex,
+                                int cursorTile,
+                                const std::vector<int>& reachable,
+                                int steps,
+                                bool hasColor) const {
+    werase(boardWin);
+    drawBoxSafe(boardWin);
+    const int focusIndex = std::max(0, std::min(focusPlayerIndex, static_cast<int>(players.size()) - 1));
+    const int focusTile = players.empty() ? mode1860StartTileId() : players[static_cast<std::size_t>(focusIndex)].tile;
+    const std::set<int> reachableSet(reachable.begin(), reachable.end());
+    drawMode1860Board(boardWin,
+                      mode1860Tiles,
+                      players,
+                      focusIndex,
+                      focusTile,
+                      cursorTile,
+                      reachableSet,
+                      steps,
+                      hasColor);
+    drawBoxSafe(boardWin);
     wrefresh(boardWin);
 }
