@@ -2078,8 +2078,18 @@ bool Game::allPlayersRetired() const {
 //Output: Boolean (false if quit).
 //Purpose: Main game loop: handles start screen, loading/saving, player turns, sabotage, movement, retirement, endgame scoring.
 //Relation: Central orchestrator of gameplay. Calls nearly all other functions, manages windows, history, scoring, and UI
+
+// Enum to track game state for better control flow in the main loop
+enum class GameState {
+    RUNNING,
+    EXIT_TO_MENU,
+    EXIT_GAME
+};
+
+
 bool Game::run() {
     if (!ensureMinSize()) return false;
+
     while (true) {
         while (true) {
             const StartChoice startChoice = showStartScreen();
@@ -2103,6 +2113,7 @@ bool Game::run() {
                 destroyWindows();
                 continue;
             }
+
             setupInvestments();
             if (rules.toggles.tutorialEnabled) {
                 showPreGameQuickGuide(hasColor, boardViewMode == BoardViewMode::Mode1860);
@@ -2110,8 +2121,9 @@ bool Game::run() {
             }
             break;
         }
+        GameState gameState = GameState::RUNNING; // Track whether we are still running the game or need to exit to menu or quit
 
-        while (!allPlayersRetired()) {
+        while (gameState == GameState::RUNNING && !allPlayersRetired()) {
             if (!ensureMinSize()) return false;
             
             if (!windowsValid){
@@ -2137,6 +2149,7 @@ bool Game::run() {
             maybeShowSabotageUnlock(currentPlayerIndex);
             maybeCpuSabotage(currentPlayerIndex);
             int command = waitForTurnCommand(currentPlayerIndex);
+
             if (isCancelKey(command)) {
                 const int quitChoice = showBranchPopup(
                     "Paused",
@@ -2147,23 +2160,21 @@ bool Game::run() {
                     },
                     'A',
                     'B');
-                if (quitChoice == MENU_CANCELLED || quitChoice == 0) {
+
+                if (quitChoice == MENU_CANCELLED || quitChoice == 0) { //Back to game
                     renderGame(currentPlayerIndex,
                                players[currentPlayerIndex].name + "'s turn",
                                turnPromptText());
                     continue;
                 }
-                if (quitChoice == 1) {
-                    if (saveCurrentGame()) {
-                        return false;
-                    }
-                    renderGame(currentPlayerIndex,
-                               players[currentPlayerIndex].name + "'s turn",
-                               turnPromptText());
-                    continue;
+                if (quitChoice == 1) { //Save and return to menu
+                    saveCurrentGame();
+                    gameState = GameState::EXIT_TO_MENU;
+                    break;
                 }
-                if (quitChoice == 2) {
-                    return false;
+                if (quitChoice == 2) { //Quit without saving
+                    gameState = GameState::EXIT_GAME;
+                    break;
                 }
                 continue;
             }
@@ -2190,6 +2201,7 @@ bool Game::run() {
             currentPlayerIndex = (currentPlayerIndex + 1) % static_cast<int>(players.size());
         }
 
+        // Normal game completion (all players retired)
         maybeShowFirstTimeTutorial(TutorialTopic::EndgameScoring);
         finalizeScoring();
 
