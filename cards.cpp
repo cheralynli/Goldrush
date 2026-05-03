@@ -127,6 +127,7 @@ ActionCard makeRollActionCard(const std::string& id,
     return card;
 }
 
+//defines action cards (Tax Refund, Car Trouble, Casino Night, Jackpot, etc.)
 std::vector<ActionCard> actionPrototypes() {
     std::vector<ActionCard> cards;
     cards.push_back(makeActionCard("action-tax-refund", "Tax Refund",
@@ -206,6 +207,7 @@ std::vector<ActionCard> actionPrototypes() {
     return cards;
 }
 
+//defines degree careers (Doctor, Architect, Scientist, etc.)
 std::vector<CareerCard> collegeCareerPrototypes() {
     std::vector<CareerCard> cards;
     cards.push_back({"career-doctor", "Doctor", CARD_CAREER,
@@ -226,6 +228,7 @@ std::vector<CareerCard> collegeCareerPrototypes() {
     return cards;
 }
 
+//defines non-degree careers (Chef, Photographer, Developer, etc.)
 std::vector<CareerCard> careerPrototypes() {
     std::vector<CareerCard> cards;
     cards.push_back({"career-chef", "Chef", CARD_CAREER,
@@ -246,6 +249,7 @@ std::vector<CareerCard> careerPrototypes() {
     return cards;
 }
 
+//defines house cards (Lake Cabin, Townhouse, Beach House, etc.)
 std::vector<HouseCard> housePrototypes() {
     std::vector<HouseCard> cards;
     cards.push_back({"house-lake-cabin", "Lake Cabin", CARD_HOUSE,
@@ -266,6 +270,7 @@ std::vector<HouseCard> housePrototypes() {
     return cards;
 }
 
+//defines investment cards tied to spin values
 std::vector<InvestCard> investPrototypes(const RuleSet& rules) {
     std::vector<InvestCard> cards;
     cards.push_back({"invest-3", "Invest on 3", CARD_INVEST,
@@ -283,6 +288,7 @@ std::vector<InvestCard> investPrototypes(const RuleSet& rules) {
     return cards;
 }
 
+//defines pet cards (Dog, Cat, Rabbit, Parrot
 std::vector<PetCard> petPrototypes() {
     std::vector<PetCard> cards;
     cards.push_back({"pet-dog", "Dog", CARD_PET,
@@ -301,6 +307,8 @@ std::vector<PetCard> petPrototypes() {
 }
 
 template <typename T>
+//Purpose: converts deck into SerializedDeckState (IDs only).
+//Relation: used for save files
 SerializedDeckState serializeDeckState(const Deck<T>& deck) {
     SerializedDeckState state;
     const std::vector<T>& drawCards = deck.drawCards();
@@ -319,6 +327,8 @@ SerializedDeckState serializeDeckState(const Deck<T>& deck) {
 }
 
 template <typename T>
+//Purpose: builds map of card IDs → card objects.
+//Relation: used in restoration.
 std::map<std::string, T> buildCardIndex(const std::vector<T>& cards) {
     std::map<std::string, T> index;
     for (std::size_t i = 0; i < cards.size(); ++i) {
@@ -328,6 +338,8 @@ std::map<std::string, T> buildCardIndex(const std::vector<T>& cards) {
 }
 
 template <typename T>
+//Purpose: rebuilds deck from saved IDs, rejecting duplicates/unknowns.
+//Relation: used in DeckManager::restoreDeckState
 bool restoreDeckStateInternal(Deck<T>& deck,
                               const std::vector<T>& allCards,
                               const SerializedDeckState& state,
