@@ -310,7 +310,11 @@ Goldrush/
 
 ## Contributors
 
-Cheralyn, Michelle, Yin, Carla, Joylin
+- Cheralyn Clarecia Lianto
+- Carla Olivia
+- Kristanti Ignacia Joylin
+- Michelle Liu
+- Wong Yin To
 
 ## Notes
 
