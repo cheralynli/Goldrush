@@ -10,6 +10,10 @@
 
 std::string trimCopy(const std::string& text);  // defined in game.cpp
 
+//Input: Base string, PaymentResult object.
+//Output: String with loan information appended if loans were taken.
+//Purpose: Adds explanatory text when automatic loans are triggered.
+//Relation: Used in many places (buying houses, risky route, night school, etc.) to clarify loan mechanics.
 std::string appendLoanText(const std::string& base, const PaymentResult& payment) {
     if (payment.loansTaken <= 0) {
         return base;
@@ -21,6 +25,10 @@ std::string appendLoanText(const std::string& base, const PaymentResult& payment
     return out.str();
 }
 
+//Input: Career card.
+//Output: String description of career.
+//Purpose: Provides a readable description of a career card, falling back to defaults if none provided.
+//Relation: Used in career selection UI (chooseCareer)
 std::string careerDescriptionText(const CareerCard& card) {
     const std::string description = trimCopy(card.description);
     if (!description.empty() && description != card.title) {
@@ -32,6 +40,10 @@ std::string careerDescriptionText(const CareerCard& card) {
     return "A practical career path that starts earning steady pay right away.";
 }
 
+//Input: Player reference.
+//Output: Adjusted salary after sabotage reductions.
+//Purpose: Calculates salary considering penalties.
+//Relation: Used in payday tile resolution and scoring.
 int Game::effectiveSalary(const Player& player) const {
     if (player.salaryReductionTurns <= 0 || player.salaryReductionPercent <= 0) {
         return player.salary;
@@ -40,6 +52,10 @@ int Game::effectiveSalary(const Player& player) const {
     return std::max(0, player.salary - reduction);
 }
 
+//Input: None.
+//Output: None.
+//Purpose: Assigns investments to players if enabled.
+//Relation: Called during game setup.
 void Game::setupInvestments() {
     if (!rules.toggles.investmentEnabled) {
         return;
@@ -50,6 +66,10 @@ void Game::setupInvestments() {
     }
 }
 
+//Input: Player index, tile, action effect, reference to amount delta.
+//Output: String summary of effect.
+//Purpose: Applies an action card effect (gain/pay cash, per kid, salary bonus, marriage bonus, movement, duel minigame).
+//Relation: Central handler for action cards. Calls resolveDuelMinigameAction, movePlayerByAction
 std::string Game::applyActionEffect(int playerIndex,
                                     const Tile& tile,
                                     const ActionEffect& effect,
@@ -110,6 +130,10 @@ std::string Game::applyActionEffect(int playerIndex,
     }
 }
 
+//Input: Player reference, boolean requiresDegree.
+//Output: None.
+//Purpose: Lets player (or CPU) choose a career card, sets job and salary.
+//Relation: Called at career tiles, graduation, or night school. Uses careerDescriptionText, decks.drawCareerChoices
 void Game::chooseCareer(Player& player, bool requiresDegree) {
     std::vector<CareerCard> choices = decks.drawCareerChoices(requiresDegree, 2);
     if (choices.empty()) {
@@ -158,6 +182,10 @@ void Game::chooseCareer(Player& player, bool requiresDegree) {
                        : ". No degree required."));
 }
 
+//Input: Player reference.
+//Output: None.
+//Purpose: Resolves family vs life path choice.
+//Relation: Called at Family split tile. Updates player state (hasFamilyPath, familyBabyEventsRemaining)
 void Game::resolveFamilyStop(Player& player) {
     if (!rules.toggles.familyPathEnabled) {
         player.familyChoice = 1;
@@ -199,6 +227,10 @@ void Game::resolveFamilyStop(Player& player) {
     }
 }
 
+//Input: Player reference.
+//Output: None.
+//Purpose: Resolves family baby event: spins for babies, charges cost, updates player’s kids.
+//Relation: Called at Family tiles when events remain. Uses babiesFromSpin, bank.charge
 void Game::triggerBabyEvent(Player& player) {
     if (!player.hasFamilyPath) return;
     if (player.familyBabyEventsRemaining <= 0) return;
@@ -245,6 +277,10 @@ void Game::triggerBabyEvent(Player& player) {
     napms(1500);
 }
 
+//Input: Player reference.
+//Output: None.
+//Purpose: Resolves Night School choice: pay $100,000 to change career or keep current.
+//Relation: Called at Night School tile. Uses chooseCareer
 void Game::resolveNightSchool(Player& player) {
     if (!rules.toggles.nightSchoolEnabled) {
         addHistory(player.name + " passed Night School");
@@ -284,6 +320,10 @@ void Game::resolveNightSchool(Player& player) {
     }
 }
 
+//Input: Player reference.
+//Output: None.
+//Purpose: Resolves marriage event: sets married flag, spins for wedding gifts, credits bank.
+//Relation: Called at Marriage tile. May award pet card
 void Game::resolveMarriageStop(Player& player) {
     if (!player.married) {
         player.married = true;
@@ -300,6 +340,10 @@ void Game::resolveMarriageStop(Player& player) {
     showInfoPopup("Get Married", "Gift spin paid $" + std::to_string(gift) + ".");
 }
 
+//Input: None.
+//Output: None.
+//Purpose: Final scoring step: sells houses, calculates scores, shows breakdown.
+//Relation: Called at endgame before winner determination. Uses houseSaleValueFromSpin, updates history/UI.
 void Game::finalizeScoring() {
     for (size_t i = 0; i < players.size(); ++i) {
         Player& player = players[i];
@@ -334,7 +378,10 @@ void Game::finalizeScoring() {
         autoAdvanceUi = previousAutoAdvance;
     }
 }
-
+//Input: Player reference.
+//Output: Integer final worth.
+//Purpose: Calculates total worth including cash, house, actions, pets, babies, retirement bonus, minus loans.
+//Relation: Used in endgame ranking and winner determination.
 int Game::calculateFinalWorth(const Player& player) const {
     int worth = player.cash;
     worth += player.finalHouseSaleValue > 0 ? player.finalHouseSaleValue : player.houseValue;
