@@ -1415,18 +1415,24 @@ void debugEscCancelBehavior() {
     pauseForEnter();
 }
 
+//Purpose: tests sabotage unlock animation.
+//Relation: ensures UI animation plays correctly when sabotage becomes available
 void debugSabotageUnlockAnimation() {
     initialize_game_ui();
     showSabotageUnlockAnimation(has_colors());
     destroy_game_ui();
 }
 
+//Purpose: tests sabotage tutorial popup.
+//Relation: validates instructional UI for sabotage mechanics
 void debugSabotageTutorial() {
     initialize_game_ui();
     showSabotageTutorial(has_colors());
     destroy_game_ui();
 }
 
+//Purpose: tests dice resolution for sabotage (lawsuit example).
+//Relation: ensures sabotage outcomes (summary, roll, blocked/success states) are correctly applied to players
 void debugSabotageDiceResolution() {
     RuleSet rules = makeNormalRules();
     Bank bank(rules);
@@ -1442,6 +1448,8 @@ void debugSabotageDiceResolution() {
     pauseForEnter();
 }
 
+//Purpose: tests duel resolution for sabotage.
+//Relation: validates forced duel sabotage outcomes between attacker and target
 void debugSabotageDuelResolution() {
     RuleSet rules = makeNormalRules();
     Bank bank(rules);
@@ -1457,16 +1465,22 @@ void debugSabotageDuelResolution() {
     pauseForEnter();
 }
 
+//Purpose: tests Battleship minigame controls.
+//Relation: validates input handling and gameplay integration
 void debugBattleshipControls() {
     initialize_game_ui();
     (void)playBattleshipMinigame("Debug Player", has_colors());
     destroy_game_ui();
 }
 
+//Purpose: tests Battleship ammo and reload mechanics.
+//Relation: ensures reload logic functions correctly during minigame
 void debugBattleshipAmmoReload() {
     debugBattleshipControls();
 }
 
+//Purpose: tests CPU end-of-turn summary display.
+//Relation: validates automated turn summaries with events and rewards
 void debugCPUEndTurnWait() {
     TurnSummary summary;
     summary.playerName = "CPU 1";
@@ -1478,7 +1492,8 @@ void debugCPUEndTurnWait() {
     showTurnSummaryReport(summary, has_colors());
     destroy_game_ui();
 }
-
+//Purpose: tests clean stat-change turn summary.
+//Relation: ensures salary, loans, marriage, kids, and sabotage events display correctly
 void debugCleanTurnSummary() {
     TurnSummary summary;
     summary.playerName = "Player 1";
@@ -1496,6 +1511,8 @@ void debugCleanTurnSummary() {
     destroy_game_ui();
 }
 
+//Purpose: tests ASCII symbol set for Memory Match.
+//Relation: validates symbol rendering for card matching
 void debugMemoryMatchSymbols() {
     std::cout << "\n===== MEMORY MATCH SYMBOL DEBUG =====\n";
     const std::vector<std::string> symbols = getMemoryMatchSymbols(false);
@@ -1505,6 +1522,8 @@ void debugMemoryMatchSymbols() {
     pauseForEnter();
 }
 
+//Purpose: tests memorize countdown popup for Memory Match.
+//Relation: ensures pre-game memorization UI displays correctly
 void debugMemoryMatchMemorizePopup() {
     initialize_game_ui();
     showPopupMessage("Memory Match Memorize Preview",
@@ -1520,6 +1539,8 @@ void debugMemoryMatchMemorizePopup() {
     destroy_game_ui();
 }
 
+//Purpose: tests input mapping for WASD, arrows, ESC, and duel controls.
+//Relation: validates control scheme consistency
 void debugInputMapping() {
     std::cout << "\n===== INPUT MAPPING DEBUG =====\n";
     std::cout << "W single-player: " << static_cast<int>(getInputAction('w')) << "\n";
@@ -1530,6 +1551,8 @@ void debugInputMapping() {
     pauseForEnter();
 }
 
+//Purpose: tests legacy dice roll ASCII art popup.
+//Relation: ensures large-number roll popup displays correctly
 void debugDiceRollAsciiArt() {
     initialize_game_ui();
     showPopupMessage("DEBUG PLAYER ROLLED",
@@ -1542,6 +1565,8 @@ void debugDiceRollAsciiArt() {
     destroy_game_ui();
 }
 
+//Purpose: tests endgame winner popup with score breakdown.
+//Relation: validates final score display and breakdown formatting
 void debugEndGameScreen() {
     initialize_game_ui();
     showPopupMessage("Player 1 Wins!",
@@ -1559,6 +1584,8 @@ void debugEndGameScreen() {
     destroy_game_ui();
 }
 
+//Purpose: tests completed game history recording and display.
+//Relation: validates persistence of CompletedGameEntry and UI rendering
 void debugCompletedGameHistory() {
     CompletedGameEntry entry;
     entry.date = "2026-04-28 00:00";
@@ -1576,6 +1603,8 @@ void debugCompletedGameHistory() {
     destroy_game_ui();
 }
 
+//Purpose: tests story-style CPU decision text output.
+//Relation: validates narrative text for CPU choices
 void debugStoryCpuText() {
     std::cout << "\n===== STORY CPU TEXT DEBUG =====\n";
     std::cout << "CPU 1 pauses for a moment, weighing quick money against a stronger future.\n";
@@ -1583,6 +1612,8 @@ void debugStoryCpuText() {
     pauseForEnter();
 }
 
+//Purpose: tests Hangman stage count and visual states.
+//Relation: ensures correct number of wrong guesses and visual states
 void debugHangmanStages() {
     std::cout << "\n===== HANGMAN STAGES DEBUG =====\n";
     std::cout << "Hangman now uses exactly 8 wrong guesses and 9 visual states (0-8).\n";
@@ -1590,6 +1621,8 @@ void debugHangmanStages() {
     pauseForEnter();
 }
 
+//Purpose: tests Hangman blink feedback and input stop behavior.
+//Relation: validates feedback timing and input handling
 void debugHangmanBlinkInputStop() {
     std::cout << "\n===== HANGMAN BLINK INPUT DEBUG =====\n";
     std::cout << "Hangman feedback blinks twice, holds for 1 second, and ungets early input.\n";
@@ -1597,6 +1630,8 @@ void debugHangmanBlinkInputStop() {
     pauseForEnter();
 }
 
+//Purpose: tests choice card selector popup.
+//Relation: validates branching decision UI (College vs Career)
 void debugChoiceCards() {
     initialize_game_ui();
     choose_branch_with_selector("Choice Card Preview",
@@ -1609,6 +1644,8 @@ void debugChoiceCards() {
     destroy_game_ui();
 }
 
+//Purpose: menu-driven interface to test multiple playtest fixes (tutorials, sabotage, battleship, turn summaries, memory match, input mapping, dice art, endgame, history, story text, hangman, choice cards).
+//Relation: integrates all fixes into one debug menu for regression testing
 void debugPlaytestFixes() {
     while (true) {
         std::cout << "\n===== PLAYTEST FIXES DEBUG MENU =====\n"
@@ -1665,6 +1702,8 @@ void debugPlaytestFixes() {
     }
 }
 
+//Purpose: prints summary of game settings.
+//Relation: used by mode-specific debug functions
 void printGameSettings(const GameSettings& settings) {
     std::cout << gameSettingsSummary(settings) << "\n";
     std::cout << "Mode type: " << (settings.customMode ? "Custom" : "Preset") << "\n";
@@ -1679,24 +1718,30 @@ void printGameSettings(const GameSettings& settings) {
               << " | Pets: " << (settings.allowPets ? "ON" : "OFF") << "\n";
 }
 
+//Purpose: tests Relax Mode settings.
+//Relation: validates preset configuration
 void debugRelaxModeSettings() {
     std::cout << "\n===== RELAX MODE SETTINGS DEBUG =====\n";
     printGameSettings(createRelaxModeSettings());
     pauseForEnter();
 }
 
+//Purpose: tests Life Mode settings.
+//Relation: validates preset configuration
 void debugLifeModeSettings() {
     std::cout << "\n===== LIFE MODE SETTINGS DEBUG =====\n";
     printGameSettings(createLifeModeSettings());
     pauseForEnter();
 }
-
+//Purpose: tests Hell Mode settings.
+//Relation: validates preset configuration
 void debugHellModeSettings() {
     std::cout << "\n===== HELL MODE SETTINGS DEBUG =====\n";
     printGameSettings(createHellModeSettings());
     pauseForEnter();
 }
-
+//Purpose: tests custom mode settings menu.
+//Relation: validates custom configuration UI
 void debugCustomModeMenu() {
     initialize_game_ui();
     GameSettings settings = createLifeModeSettings();
@@ -1709,6 +1754,8 @@ void debugCustomModeMenu() {
     pauseForEnter();
 }
 
+//Purpose: tests salary range customization logic.
+//Relation: ensures salary bounds are respected
 void debugSalaryRangeCustomization() {
     std::cout << "\n===== SALARY RANGE CUSTOMIZATION DEBUG =====\n";
     GameSettings settings = createLifeModeSettings();
@@ -1723,6 +1770,8 @@ void debugSalaryRangeCustomization() {
     pauseForEnter();
 }
 
+//Purpose: tests independence of college cost from salary range changes.
+//Relation: validates rules consistency
 void debugCollegeCostIndependence() {
     std::cout << "\n===== COLLEGE COST INDEPENDENCE DEBUG =====\n";
     GameSettings settings = createLifeModeSettings();
@@ -1737,6 +1786,8 @@ void debugCollegeCostIndependence() {
     pauseForEnter();
 }
 
+//Purpose: tests terminal resize recovery.
+//Relation: ensures UI redraws correctly after resize
 void debugTerminalResizeRecovery() {
     std::cout << "\n===== TERMINAL RESIZE RECOVERY DEBUG =====\n";
     std::cout << "Required size: " << minimumGameWidth() << " x " << minimumGameHeight() << "\n";
@@ -1744,6 +1795,8 @@ void debugTerminalResizeRecovery() {
     pauseForEnter();
 }
 
+//Purpose: tests saving and loading of game settings.
+//Relation: validates persistence of settings in save files
 void debugGameSettingsSaveLoad() {
     std::cout << "\n===== GAME SETTINGS SAVE/LOAD DEBUG =====\n";
     Game game;
@@ -1779,7 +1832,8 @@ void debugGameSettingsSaveLoad() {
     std::cout << "Load path uses the same GAME_SETTINGS records in SaveManager::loadGame.\n";
     pauseForEnter();
 }
-
+//Purpose: tests reverted dice animation popup.
+//Relation: ensures legacy roll popup displays correctly
 void debugRevertedDiceAnimation() {
     initialize_game_ui();
     showPopupMessage("YOU ROLLED",
@@ -1793,6 +1847,8 @@ void debugRevertedDiceAnimation() {
     destroy_game_ui();
 }
 
+//Purpose: menu-driven interface to test all game settings debug functions.
+//Relation: integrates Relax, Life, Hell, Custom, salary, college cost, resize, save/load, dice animation
 void debugGameSettingsMenu() {
     while (true) {
         std::cout << "\n===== GAME SETTINGS DEBUG MENU =====\n"
@@ -1821,6 +1877,8 @@ void debugGameSettingsMenu() {
     }
 }
 
+//Purpose: tests end screen with fake players and varied stats.
+//Relation: validates final worth calculation, ranking, and breakdown display
 void debugEndScreen() {
     // Build fake players with varied stats to test the breakdown display
     RuleSet rules = makeNormalRules();
