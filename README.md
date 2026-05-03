@@ -21,48 +21,30 @@ A text-based board game inspired by *The Game of Life*, built with C++ and `ncur
 
 ## Game Flow
 
-TITLE SCREEN
-  |
-  +-- New Game
-  |     |
-  |     +-- Board Mode Selection (1860 / Follow Camera / Classic Full)
-  |     |
-  |     +-- Normal Mode / Custom Mode
-  |     |
-  |     +-- Player Setup (2-4 players, Human/CPU with difficulty)
-  |     |
-  |     +-- Pre-game Quick Guide (optional)
-  |     |
-  |     +-- Main Game Loop
-  |
-  +-- Load Game (from saves/ directory)
-  |
-  +-- Quit
+### Starting the Game
 
-Main board progression:
+1. **Title Screen** - Choose one of:
+   - **New Game** → Board Mode (1860/Follow Camera/Classic Full) → Game Mode (Normal/Custom) → Player Setup (2-4 players, Human/CPU) → Optional Quick Guide → Main Game Loop
+   - **Load Game** → Select save file from saves/ directory
+   - **Quit** → Exit game
 
-START
-  |
-  +-- COLLEGE -----+
-  |                |
-  +-- CAREER ------+
-         |
-     GRADUATION
-         |
-      MARRIAGE
-         |
-     FAMILY STOP
-      /       \
-  FAMILY      LIFE
-    PATH      PATH
-      \       /
-       HOUSE / PAYDAY / ACTION
-             |
-         RISK SPLIT
-         /       \
-      SAFE      RISKY
-         \       /
-          RETIREMENT
+### Main Board Progression
+
+Players follow this path through the board:
+
+**START → COLLEGE → CAREER → GRADUATION → MARRIAGE → FAMILY STOP**
+
+At FAMILY STOP, players choose:
+- **FAMILY PATH** → leads to babies and family events
+- **LIFE PATH** → no family obligations
+
+Both paths converge at tiles with multiple types:
+- **HOUSE** - Buy a house for retirement bonus
+- **PAYDAY** - Collect salary
+- **ACTION** - Draw and resolve action cards
+- **RISK SPLIT** - Choose between SAFE (guaranteed small reward) or RISKY (big win/loss)
+
+Finally: **RETIREMENT** - End active play and lock in bonuses
 
 ## Board View Modes
 
