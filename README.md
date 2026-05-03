@@ -255,83 +255,71 @@ Save files stored in saves/ (relative to executable). Preserves rules, player st
 
 ## Project Structure
 
-├── main.cpp                     # Entry point
+```
+Goldrush/
+├── main.cpp                      # Entry point
 │
 ├── Game Core
-│   ├── game.hpp/cpp             # Main game flow and logic
-│   ├── game_settings.h/cpp      # Game settings management
-│   ├── rules.hpp/cpp            # Game rules and toggles
-│   └── player.hpp/cpp           # Player data structures
+│   ├── game.hpp/cpp              # Main game flow and logic
+│   ├── game_settings.h/cpp       # Game settings management
+│   ├── rules.hpp/cpp             # Game rules and toggles
+│   └── player.hpp/cpp            # Player data structures
 │
 ├── Board & Movement
-│   ├── board.hpp/cpp            # Board data, rendering, view modes
-│   ├── tile_display.h/cpp       # Tile display helpers
-│   └── spins.hpp/cpp            # Spin result mappings
+│   ├── board.hpp/cpp             # Board data, rendering, view modes
+│   ├── tile_display.h/cpp        # Tile display helpers
+│   └── spins.hpp/cpp             # Spin result mappings
 │
 ├── Cards & Decks
-│   ├── cards.hpp/cpp            # Card systems (Action, Career, House, Invest, Pet)
-│   └── deck.hpp                 # Deck management
+│   ├── cards.hpp/cpp             # Card systems (Action, Career, House, Investment, Pet)
+│   └── deck.hpp                  # Deck management
 │
 ├── Economy & Banking
-│   ├── bank.hpp/cpp             # Banking and loan management
-│   └── economy_manager.cpp      # Economy effects and actions
+│   ├── bank.hpp/cpp              # Banking and loan management
+│   └── economy_manager.cpp       # Economy effects and actions
 │
 ├── Sabotage System
-│   ├── sabotage.h/cpp           # Sabotage system core
-│   ├── sabotage_card.h/cpp      # Sabotage card definitions
-│   └── cpuai.cpp                # CPU sabotage decisions
-│
-├── AI System
-│   ├── cpu_player.hpp/cpp       # AI player decisions
-│   └── random_service.hpp       # RNG with seed support
+│   ├── sabotage.h/cpp            # Sabotage system core
+│   ├── sabotage_card.h/cpp       # Sabotage card definitions
+│   └── cpu_player.hpp/cpp        # CPU AI decisions
 │
 ├── Minigames
-│   ├── pong.hpp/cpp             # Pong minigame
-│   ├── battleship.hpp/cpp       # Battleship minigame
-│   ├── hangman.hpp/cpp          # Hangman minigame
-│   ├── memory.hpp/cpp           # Memory Match minigame
-│   ├── minesweeper.hpp/cpp      # Minesweeper minigame
-│   └── minigame_manager.cpp     # Minigame orchestration
+│   ├── pong.hpp/cpp              # Pong minigame
+│   ├── battleship.hpp/cpp        # Battleship minigame
+│   ├── hangman.hpp/cpp           # Hangman minigame
+│   ├── memory.hpp/cpp            # Memory Match minigame
+│   └── minesweeper.hpp/cpp       # Minesweeper minigame
 │
 ├── UI System
-│   ├── ui.h/cpp                 # UI components and drawing
-│   ├── ui_helpers.h/cpp         # UI helper functions
-│   ├── ui_layout.h/cpp          # Layout calculations
-│   └── ui_manager.cpp           # UI management and popups
+│   ├── ui.h/cpp                  # UI components and drawing
+│   ├── ui_helpers.h/cpp          # UI helper functions
+│   ├── ui_layout.h/cpp           # Layout calculations
+│   ├── turn_summary.h/cpp        # Turn summary popups
+│   ├── timer_display.h/cpp       # Countdown timer
+│   └── input_helpers.h/cpp       # Input validation
 │
 ├── Save & History
-│   ├── save_manager.hpp/cpp     # Save/load functionality
-│   ├── completed_history.h/cpp  # Completed game history tracking
-│   ├── history.hpp/cpp          # In-game action history
-│   └── history_manager.cpp      # History management
+│   ├── save_manager.hpp/cpp      # Save/load functionality
+│   ├── history.hpp/cpp           # Action history tracking
+│   └── completed_history.h/cpp   # Completed game history
 │
-├── Tutorial System
-│   ├── tutorials.h/cpp          # Tutorial system core
-│   ├── tutorial_manager.cpp     # Tutorial triggering
-│   └── minigame_tutorials.h/cpp # Minigame-specific tutorials
+├── Tutorial & Debug
+│   ├── tutorials.h/cpp           # Tutorial system
+│   ├── minigame_tutorials.h/cpp  # Minigame tutorials
+│   ├── debug.h/cpp               # Debug utilities
+│   └── random_service.hpp        # RNG with seed support
 │
-├── UI Components
-│   ├── turn_summary.h/cpp       # Turn summary popups
-│   ├── timer_display.h/cpp      # Countdown timer
-│   └── input_helpers.h/cpp      # Input validation
-│
-├── Debug & Utilities
-│   ├── debug.h/cpp              # Debug utilities
-│   └── spins.cpp                # Spin result mappings (duplicate)
-│
-├── Build
-│   ├── Makefile                 # Build configuration
-│   └── .gitignore               # Git ignore rules
+├── Build & Configuration
+│   ├── Makefile                  # Build configuration
+│   └── .gitignore                # Git ignore rules
 │
 ├── Data
-│   ├── saves/                   # Save file directory
-│   └── backups.tar.gz           # Backup archive
+│   ├── saves/                    # Save file directory
+│   └── output/                   # Game output files
 │
-├── Documentation
-│   └── README.md                # Project documentation
-│
-└── Executable
-    └── gameoflife               # Compiled game binary
+└── Documentation
+    └── README.md                 # This file
+```
 
 ## Contributors
 
