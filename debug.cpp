@@ -1115,6 +1115,8 @@ void debugEventMessagePanel() {
     destroy_game_ui();
 }
 
+//Purpose: tests board rendering in Follow Camera mode.
+//Relation: ensures the board UI scrolls to follow the current player’s position dynamically
 void debugFollowCameraBoardMode() {
     RuleSet rules = makeNormalRules();
     std::vector<Player> players = makeBoardPreviewPlayers();
@@ -1131,6 +1133,7 @@ void debugFollowCameraBoardMode() {
                      BoardViewMode::FollowCamera);
 }
 
+//
 void debugClassicFullBoardMode() {
     RuleSet rules = makeNormalRules();
     std::vector<Player> players = makeBoardPreviewPlayers();
@@ -1892,6 +1895,8 @@ void debugEndScreen() {
     destroy_game_ui();
 }
 
+//Purpose: central entry point for the debug system.
+//Relation: provides menu-driven access to all debug functions, allowing developers to test subsystems interactively.
 void runDebugMenu() {
     while (true) {
         std::cout << "\n===== DEBUG MENU =====\n"
