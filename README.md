@@ -66,11 +66,11 @@ START
 
 ## Board View Modes
 
-| Mode               | Description                                                                     |
-|------              |-------------                                                                    |
-| **1860 Mode**      | Grid-based checkered board (25x25). Start at bottom-left, reach Retirement at top-right. Movement points spent tile-by-tile each turn. |
-| **Follow Camera**  | Zoomed view centered on current player, shows 3x5 tile window with connections. |
-| **Classic Full**   | Complete route overview with traditional board layout and symbols.              |
+| Mode | Description |
+|------|-------------|
+| **1860 Mode** | Grid-based checkered board (25x25). Start at bottom-left, reach Retirement at top-right. Movement points spent tile-by-tile each turn. |
+| **Follow Camera** | Zoomed view centered on current player, shows 3x5 tile window with connections. |
+| **Classic Full** | Complete route overview with traditional board layout and symbols. |
 
 ### 1860 Mode Movement
 
@@ -82,31 +82,31 @@ START
 
 ### 1860 Tile Colors & Symbols
 
-| Color | Meaning                    | Symbol |
-|-------|---------                   |--------|
-| Green | Payday / Safe              | +      | 
-| Teal  | Action / College           | A      |
-| Mauve | Minigame / Family          | M      |
-| Red   | Risk                       | !      |
-| Blue  | Career / Job               | J      |
-| Gold  | Start / Route / Retirement | S / R  |
+| Color | Meaning | Symbol |
+|-------|---------|--------|
+| Green | Payday / Safe | + |
+| Teal | Action / College | A |
+| Mauve | Minigame / Family | M |
+| Red | Risk | ! |
+| Blue | Career / Job | J |
+| Gold | Start / Route / Retirement | S / R |
 
 ## Space Effects
 
-| Space       | Effect                                           |
-|-------      |--------                                          |
-| START       | Begin the journey                                |
-| COLLEGE     | Pay tuition and head toward degree-based careers |
-| CAREER      | Start working immediately                        |
-| GRADUATION  | Choose or confirm a career path                  |
-| MARRIAGE    | Resolve marriage and gift spin                   |
-| FAMILY STOP | Choose family path or life path                  |
-| ACTION      | Draw and resolve an action card                  |
-| PAYDAY      | Collect salary                                   |
-| HOUSE       | Buy a house                                      |
-| SAFE        | Take a lower-risk reward spin                    |
-| RISKY       | Take a higher-risk reward/loss spin              |
-| RETIREMENT  | End active play and lock in retirement bonuses   |
+| Space | Effect |
+|-------|--------|
+| START | Begin the journey |
+| COLLEGE | Pay tuition and head toward degree-based careers |
+| CAREER | Start working immediately |
+| GRADUATION | Choose or confirm a career path |
+| MARRIAGE | Resolve marriage and gift spin |
+| FAMILY STOP | Choose family path or life path |
+| ACTION | Draw and resolve an action card |
+| PAYDAY | Collect salary |
+| HOUSE | Buy a house |
+| SAFE | Take a lower-risk reward spin |
+| RISKY | Take a higher-risk reward/loss spin |
+| RETIREMENT | End active play and lock in retirement bonuses |
 
 ## Turn Summary
 
@@ -147,41 +147,17 @@ Tutorials appear once when you first encounter each mechanic:
 
 ## Minigames
 
-| Minigame      | Controls                                          | Payout                     |
-|----------     |----------                                         |--------                    |
-| Pong          | W/S or arrows move, X serves                      | $100 per paddle return     |
-| Battleship    | A/D or arrows move, Space/Enter fire, R reload    | $100 per ship destroyed    |
-| Hangman       | Type A-Z to guess, ESC exits                      | $100 per letter revealed   |
-| Memory Match  | WASD/arrows move, Enter/Space select, help        | $100 per pair + $200 bonus |
-| Minesweeper   | WASD/arrows move, Enter/Space reveal              | $100 per safe tile         |
+| Minigame | Controls | Payout |
+|----------|----------|--------|
+| Pong | W/S or arrows move, X serves | $100 per paddle return |
+| Battleship | A/D or arrows move, Space/Enter fire, R reload | $100 per ship destroyed |
+| Hangman | Type A-Z to guess, ESC exits | $100 per letter revealed |
+| Memory Match | WASD/arrows move, Enter/Space select, help | $100 per pair + $200 bonus |
+| Minesweeper | WASD/arrows move, Enter/Space reveal | $100 per safe tile |
 
 ## Memory Match Countdown
 
 5 second memorization phase with countdown timer. ESC shows quit confirmation. Help button (H) reveals grid for 1 second (5 uses max).
-
-## Sabotage System (Unlocks Turn 3)
-
-| Action            | Cost    | Effect                      |
-|--------|------    |-------- |--------------------------   |
-| Trap Tile         | $12,000 | Place trap on any tile      |
-| Lawsuit           | $15,000 | Roll against target         |
-| Traffic Jam       | $10,000 | Reduce target's movement    |
-| Steal Action Card | $18,000 | Steal card from target      |
-| Forced Duel       | $22,000 | Force minigame duel         |
-| Career Sabotage   | $24,000 | Reduce target's salary      |
-| Position Swap     | $90,000 | Swap tiles with target      |
-| Debt Trap         | $20,000 | Force target to take a loan |
-| Buy Shield        | $15,000 | Block one sabotage          |
-| Buy Insurance     | $20,000 | Reduce next 2 hits          |
-| Item Disable      | $16,000 | Disable target's items      |
-
-### Trap Effects
-
-- Money loss: target pays cash when triggered
-- Backward move: push target back 2-3 tiles
-- Skip turn: target loses next turn
-- Lose card: target discards an action card
-- Minigame: force target into a duel
 
 ### Custom Mode Toggles
 
@@ -199,6 +175,31 @@ Tutorials appear once when you first encounter each mechanic:
 ## Winning
 
 Final worth = cash + house value + action cards + pet cards + baby bonuses + retirement bonus - loan penalties. Highest wins with ranked breakdown.
+
+## Getting Started
+
+### Quick Launch
+
+```bash
+# Clone the repository
+git clone https://github.com/yourusername/Goldrush.git
+cd Goldrush
+
+# Install dependencies (see options below for your system)
+# macOS:
+brew install ncurses
+
+# Ubuntu/Debian/WSL:
+sudo apt-get install libncurses5-dev libncursesw5-dev
+
+# Arch Linux:
+sudo pacman -S ncurses
+
+# Build and run the game
+make run
+```
+
+The game will start immediately. Press `N` for new game, `L` to load a previous game, or `ESC` to quit.
 
 ## Requirements
 
@@ -225,31 +226,32 @@ Save files stored in saves/ (relative to executable). Preserves rules, player st
 
 ## Controls
 
-| Key         | Action               |
-|-----        |--------              |
-| N           | New game             |
-| L           | Load game            |
-| H           | History              |
-| G           | Guide                |
-| K or ?      | Controls             |
-| ESC         | Back/Cancel/Quit     |
-| Enter       | Confirm/Start turn   |
-| Space       | Spin wheel           |
-| B           | Sabotage menu        |
-| Tab         | Scoreboard + minimap |
-| S           | Save game            |
-| Up/Down     | Navigate menus       |
-| Left/Right  | Switch modes         | 
+| Key | Action |
+|-----|--------|
+| N | New game |
+| L | Load game |
+| H | History |
+| G | Guide |
+| K or ? | Controls |
+| ESC | Back/Cancel/Quit |
+| Enter | Confirm/Start turn |
+| Space | Spin wheel |
+| B | Sabotage menu |
+| Tab | Scoreboard + minimap |
+| S | Save game |
+| Up/Down | Navigate menus |
+| Left/Right | Switch modes | 
 
 ## 1860 Movement Controls (during movement phase)
-|Key       |	Action                                  | 
-|----------|------------------------------------------|
-|Up / W	   | Move north (toward Retirement)           |
-|Right / D | Move east (toward Retirement)            | 
-|Down / S	 | Move south (backward)                    |
-|Left / A	 | Move west (backward)                     |
-|Enter	   | Stop moving (keep remaining points)      |
-|ESC / Q	 | Cancel movement (undo if no steps taken) | 
+
+| Key | Action |
+|-----|--------|
+| Up / W | Move north (toward Retirement) |
+| Right / D | Move east (toward Retirement) |
+| Down / S | Move south (backward) |
+| Left / A | Move west (backward) |
+| Enter | Stop moving (keep remaining points) |
+| ESC / Q | Cancel movement (undo if no steps taken) |
 
 ## Project Structure
 
