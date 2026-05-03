@@ -298,9 +298,11 @@ PongMinigameResult playPongMinigame(const std::string& playerName, bool hasColor
                       "Press X to serve. Press ESC to leave early.");
         } else if (gameOver) {
             mvwprintw(overlay, arenaBottom + 4, arenaLeft,
-                      "Game over. Final score %d, payout $%d. Press ENTER or ESC.",
+                      "The rally ends. Final score %d, payout $%d.",
                       result.playerScore,
                       result.playerScore * 100);
+            mvwprintw(overlay, arenaBottom + 6, arenaLeft,
+                      "Press ENTER or ESC to continue.");
         }
 
         wrefresh(overlay);
@@ -545,10 +547,12 @@ PongDuelResult playPongDuelMinigame(const std::string& leftPlayerName,
             mvwprintw(overlay, arenaBottom + 5, arenaLeft,
                       "Press X to serve. Press ESC to leave early.");
         } else if (gameOver) {
-            const std::string endLine = std::string("Winner: ") +
+            const std::string endLine = std::string("The duel is settled. Winner: ") +
                 (result.winnerSide == 0 ? leftPlayerName : rightPlayerName) +
-                ". Press ENTER or ESC.";
+                ".";
             mvwprintw(overlay, arenaBottom + 4, arenaLeft, "%s", endLine.c_str());
+            mvwprintw(overlay, arenaBottom + 6, arenaLeft,
+                      "Press ENTER or ESC to continue.");
         }
 
         wrefresh(overlay);

@@ -456,18 +456,19 @@ MinesweeperResult playMinesweeperMinigame(const std::string& playerName, bool ha
         if (gameOver) {
             std::string endLine;
             if (result.hitBomb) {
-                endLine = "Bomb hit. Earned $" + std::to_string(result.safeTilesRevealed * 100) +
-                          ". Press ENTER or ESC.";
+                endLine = "The ground gives way. Earned $" + std::to_string(result.safeTilesRevealed * 100) + ".";
             } else if (result.safeTilesRevealed >= TOTAL_SAFE_TILES) {
-                endLine = "Board cleared. Earned $" + std::to_string(result.safeTilesRevealed * 100) +
-                          ". Press ENTER or ESC.";
+                endLine = "The field is cleared. Earned $" + std::to_string(result.safeTilesRevealed * 100) + ".";
             } else {
-                endLine = "Time up. Earned $" + std::to_string(result.safeTilesRevealed * 100) +
-                          ". Press ENTER or ESC.";
+                endLine = "The clock runs out. Earned $" + std::to_string(result.safeTilesRevealed * 100) + ".";
             }
-            mvwprintw(overlay, arenaBottom - 4,
+            mvwprintw(overlay, arenaBottom - 5,
                       arenaLeft + (arenaWidth - static_cast<int>(endLine.size())) / 2,
                       "%s", endLine.c_str());
+            const std::string promptLine = "Press ENTER or ESC to continue.";
+            mvwprintw(overlay, arenaBottom - 3,
+                      arenaLeft + (arenaWidth - static_cast<int>(promptLine.size())) / 2,
+                      "%s", promptLine.c_str());
         }
 
         wrefresh(overlay);

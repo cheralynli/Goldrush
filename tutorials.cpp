@@ -395,9 +395,9 @@ void showPreGameQuickGuide(bool hasColor) {
         "1860 MOVEMENT",
         "",
         "A spin gives the maximum number of movement points you may spend that turn.",
-        "You can move up to what you spun, not necessarily the full amount.",
-        "If you land on a stop or event tile before using every point, its effect happens first and then you may keep moving.",
-        "So a big spin gives more options, and you can keep spending points until they run out or you choose to stop."
+        "Before the wagon moves, you can preview a route and pull the marker back along that uncommitted trail.",
+        "Once you press ENTER, the route is committed and the 1860 road does not allow backward travel.",
+        "You can stop before spending the full spin, so a big spin gives route choices instead of forcing every step."
     });
     pages.push_back({
         "1860 BOARD COLORS",
@@ -482,8 +482,9 @@ void showFullGuide(const Board& board, const RuleSet& rules, bool sabotageUnlock
         "",
         "On the 1860 board, you start at the bottom-left and work toward Retirement in the top-right.",
         "A spin gives the maximum movement points you may spend on that turn.",
-        "You may stop before spending them all, and landing on a stop/event tile only pauses for its effect before movement can continue.",
-        "That means a big spin gives you more route choices instead of forcing a hard stop halfway through."
+        "During route planning, move the marker forward, backtrack along your uncommitted trail if needed, then press ENTER.",
+        "After ENTER, the 1860 road is one-way: you cannot travel backward, only onward toward Retirement.",
+        "That means a big spin gives you more route choices without forcing every point to be spent."
     });
     pages.push_back({
         "1860 BOARD COLORS",

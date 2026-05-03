@@ -1090,42 +1090,80 @@ bool Game::moveHumanManually1860(int currentPlayer, int steps) {
         player.tile = board.mode1860StartTileId();
     }
 
-    int remaining = std::max(0, steps);
+    const int startTile = player.tile;
+    std::vector<int> plannedPath;
+    plannedPath.push_back(startTile);
+
+    int cursorTile = startTile;
+    std::string statusTitle = "1860 route planning";
+    std::string statusDetail =
+        "Mark your trail first. ENTER travels it, BACKSPACE pulls the marker back, ESC cancels.";
+
     bool moved = false;
     bool effectAppliedOnCurrentTile = false;
     keypad(boardWin, TRUE);
-    while (remaining > 0 && !player.retired) {
-        const std::vector<int> adjacent = validAdjacent1860Tiles(player.tile);
-        if (adjacent.empty()) {
-            showInfoPopup("1860 Movement", "No legal adjacent 1860 spaces are available.");
+
+    while (!player.retired) {
+        const int plannedSteps = static_cast<int>(plannedPath.size()) - 1;
+        const int remaining = std::max(0, steps - plannedSteps);
+
+        std::vector<int> adjacent;
+        if (remaining > 0) {
+            adjacent = validAdjacent1860Tiles(cursorTile);
+        }
+
+        if (adjacent.empty() && plannedPath.size() == 1U && remaining > 0) {
+            showInfoPopup("1860 Movement", "The trail has no legal forward space from here.");
             break;
         }
 
+        std::vector<int> selectable = adjacent;
+        if (plannedPath.size() > 1U) {
+            selectable.push_back(plannedPath[plannedPath.size() - 2]);
+        }
+
+        std::vector<Player> previewPlayers = players;
+        previewPlayers[static_cast<std::size_t>(currentPlayer)].tile = cursorTile;
+
         board.render1860Selection(boardWin,
-                                  players,
+                                  previewPlayers,
                                   currentPlayer,
-                                  player.tile,
-                                  adjacent,
+                                  cursorTile,
+                                  selectable,
                                   remaining,
                                   hasColor);
-        const Tile& current = board.tileAt(player.tile);
-        draw_sidebar_ui(infoWin, board, players, currentPlayer, history.recent(), rules);
+
+        const Tile& current = board.tileAt(cursorTile);
+        draw_sidebar_ui(infoWin, board, previewPlayers, currentPlayer, history.recent(), rules);
         draw_message_ui(
             msgWin,
-            "1860 movement: " + std::to_string(remaining) + " point" + (remaining == 1 ? "" : "s") + " left",
-            "Current: Space " + std::to_string(player.tile) + " - " + getTileDisplayName(current) +
-                " | Goal: move toward Retirement in the top-right. Arrows/WASD move, Enter stops, Esc/Q cancel or stop.");
+            statusTitle,
+            "Trail end: Space " + std::to_string(cursorTile) + " - " + getTileDisplayName(current) +
+                " | Planned " + std::to_string(plannedSteps) + "/" + std::to_string(steps) +
+                ". " + statusDetail);
 
         const int ch = wgetch(boardWin);
         if (isConfirmKey(ch)) {
             break;
         }
-        if (ch == 27 || ch == 'q' || ch == 'Q') {
-            if (!moved) {
-                showInfoPopup("1860 Movement", "Movement cancelled before any step was taken.");
-                return false;
+
+        if (ch == KEY_BACKSPACE || ch == 127 || ch == 8) {
+            if (plannedPath.size() > 1U) {
+                plannedPath.pop_back();
+                cursorTile = plannedPath.back();
+                statusTitle = "1860 route planning";
+                statusDetail = "You pull the marker back along your own trail before committing.";
+            } else {
+                beep();
+                statusTitle = "1860 route planning";
+                statusDetail = "There is no planned trail to pull back yet.";
             }
-            break;
+            continue;
+        }
+
+        if (ch == 27 || ch == 'q' || ch == 'Q') {
+            showInfoPopup("1860 Movement", "Route planning cancelled before the wagon moved.");
+            return false;
         }
 
         int dRow = 0;
@@ -1142,25 +1180,69 @@ bool Game::moveHumanManually1860(int currentPlayer, int steps) {
             continue;
         }
 
-        const int nextTile = board.mode1860TileIdAt(current.mode1860Y + dRow, current.mode1860X + dCol);
-        if (!isLegal1860Step(player.tile, nextTile)) {
-            beep();
+        const Tile& cursor = board.tileAt(cursorTile);
+        const int nextTile = board.mode1860TileIdAt(cursor.mode1860Y + dRow, cursor.mode1860X + dCol);
+
+        if (plannedPath.size() > 1U && nextTile == plannedPath[plannedPath.size() - 2]) {
+            plannedPath.pop_back();
+            cursorTile = plannedPath.back();
+            statusTitle = "1860 route planning";
+            statusDetail = "You backtracked along the trail you have not committed yet.";
             continue;
         }
 
-        player.tile = nextTile;
+        if (remaining <= 0) {
+            beep();
+            statusTitle = "No movement points left";
+            statusDetail = "Press ENTER to travel this planned route, or backtrack before committing.";
+            continue;
+        }
+
+        if (!isLegal1860Step(cursorTile, nextTile)) {
+            beep();
+            statusTitle = "1860 rule: no backward travel";
+            if (dRow > 0 || dCol < 0) {
+                statusDetail =
+                    "The 1860 road only goes forward toward Retirement. You may only undo your uncommitted trail.";
+            } else {
+                statusDetail = "That square is not part of the open forward trail.";
+            }
+            continue;
+        }
+
+        plannedPath.push_back(nextTile);
+        cursorTile = nextTile;
+        statusTitle = "1860 route planning";
+        statusDetail = "Trail marked. Press ENTER to travel it, or step back along your trail before committing.";
+    }
+
+    if (plannedPath.size() <= 1U) {
+        return false;
+    }
+
+    for (std::size_t step = 1; step < plannedPath.size() && !player.retired; ++step) {
+        player.tile = plannedPath[step];
         moved = true;
-        --remaining;
         effectAppliedOnCurrentTile = false;
+
         renderGame(currentPlayer,
-                   player.name + " moved to " + getTileDisplayName(board.tileAt(player.tile)),
-                   "1860 manual movement. Goal: move toward Retirement in the top-right.");
+                   player.name + " follows the marked trail to " + getTileDisplayName(board.tileAt(player.tile)),
+                   "1860 movement committed: step " + std::to_string(step) +
+                       " of " + std::to_string(plannedPath.size() - 1) +
+                       ". The road still only runs forward toward Retirement.");
+
         napms(120);
         checkTrapTrigger(currentPlayer);
+
         if (!board.isMode1860WalkableTile(player.tile)) {
             player.tile = board.mode1860StartTileId();
             break;
         }
+
+        if (player.tile != plannedPath[step]) {
+            break;
+        }
+
         if (board.isStopSpace(board.tileAt(player.tile))) {
             applyTileEffect(currentPlayer, board.tileAt(player.tile));
             effectAppliedOnCurrentTile = true;
@@ -1170,6 +1252,7 @@ bool Game::moveHumanManually1860(int currentPlayer, int steps) {
     if (moved && !player.retired && !effectAppliedOnCurrentTile) {
         applyTileEffect(currentPlayer, board.tileAt(player.tile));
     }
+
     return moved;
 }
 

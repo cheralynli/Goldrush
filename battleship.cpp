@@ -367,10 +367,12 @@ BattleshipMinigameResult playBattleshipMinigame(const std::string& playerName, b
                       "Each ship destroyed earns $100. Max payout: $1000. Press X to start.");
         } else if (gameOver) {
             mvwprintw(overlay, arenaBottom + 4, arenaLeft,
-                      "Wave over. Destroyed %d/%d ships, payout $%d. Press ENTER or ESC.",
+                      "The smoke clears. You destroyed %d/%d ships and earned $%d.",
                       result.shipsDestroyed,
                       maxShips,
                       result.shipsDestroyed * 100);
+            mvwprintw(overlay, arenaBottom + 6, arenaLeft,
+                      "Press ENTER or ESC to continue.");
         } else {
             mvwprintw(overlay, arenaBottom + 4, arenaLeft,
                       "One wave only. Dodge enemy fire or the run ends immediately.");
