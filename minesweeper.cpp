@@ -334,7 +334,7 @@ MinesweeperResult playMinesweeperMinigame(const std::string& playerName, bool ha
                          "Reveal safe tiles while avoiding bombs.",
                          "WASD moves, Enter/Space reveals, ESC exits.",
                          "Reveal all safe tiles or survive until time runs out.",
-                         "Each safe tile pays $100. One bomb ends the run.",
+                         "Each safe tile pays $2000. One bomb ends the run.",
                          hasColor);
 
     if (!terminalIsAtLeast(37, 76)) {
@@ -418,7 +418,7 @@ MinesweeperResult playMinesweeperMinigame(const std::string& playerName, bool ha
         mvwprintw(overlay, arenaTop + 1, arenaLeft + 3,
                   "Reveal as many safe tiles as you can in 60 seconds.");
         mvwprintw(overlay, arenaTop + 2, arenaLeft + 3,
-                  "One bomb ends the game. Each safe tile is worth $100.");
+                  "One bomb ends the game. Each safe tile is worth $2000.");
         mvwprintw(overlay, arenaTop + 3, arenaLeft + 3,
                   "First reveal opens with a safe 3x3 zone.");
         if (feedbackFrames > 0 && ((feedbackFrames / 2) % 2 == 0)) {
@@ -456,18 +456,19 @@ MinesweeperResult playMinesweeperMinigame(const std::string& playerName, bool ha
         if (gameOver) {
             std::string endLine;
             if (result.hitBomb) {
-                endLine = "Bomb hit. Earned $" + std::to_string(result.safeTilesRevealed * 100) +
-                          ". Press ENTER or ESC.";
+                endLine = "The ground gives way. Earned $" + std::to_string(result.safeTilesRevealed * 2000) + ".";
             } else if (result.safeTilesRevealed >= TOTAL_SAFE_TILES) {
-                endLine = "Board cleared. Earned $" + std::to_string(result.safeTilesRevealed * 100) +
-                          ". Press ENTER or ESC.";
+                endLine = "The field is cleared. Earned $" + std::to_string(result.safeTilesRevealed * 2000) + ".";
             } else {
-                endLine = "Time up. Earned $" + std::to_string(result.safeTilesRevealed * 100) +
-                          ". Press ENTER or ESC.";
+                endLine = "The clock runs out. Earned $" + std::to_string(result.safeTilesRevealed * 2000) + ".";
             }
-            mvwprintw(overlay, arenaBottom - 4,
+            mvwprintw(overlay, arenaBottom - 5,
                       arenaLeft + (arenaWidth - static_cast<int>(endLine.size())) / 2,
                       "%s", endLine.c_str());
+            const std::string promptLine = "Press ENTER or ESC to continue.";
+            mvwprintw(overlay, arenaBottom - 3,
+                      arenaLeft + (arenaWidth - static_cast<int>(promptLine.size())) / 2,
+                      "%s", promptLine.c_str());
         }
 
         wrefresh(overlay);

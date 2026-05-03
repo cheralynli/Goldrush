@@ -1163,19 +1163,24 @@ void drawMode1860Tile(WINDOW* boardWin,
 //Output: compact player marker text
 //Purpose: keeps one or more players visible on the same 1860 cell
 //Relation: used by drawMode1860Tokens
-std::string mode1860PlayerMarker(const std::vector<int>& occupants) {
+std::string mode1860PlayerMarker(const std::vector<Player>& players,
+                                 const std::vector<int>& occupants) {
     if (occupants.empty()) {
         return "";
     }
 
-    if (occupants.size() == 1U) {
-        return "P" + std::to_string(occupants.front() + 1);
+    std::string marker;
+    for (std::size_t i = 0; i < occupants.size(); ++i) {
+        const int playerIndex = occupants[i];
+        if (playerIndex >= 0 && playerIndex < static_cast<int>(players.size())) {
+            marker.push_back(players[static_cast<std::size_t>(playerIndex)].token);
+        }
     }
 
-    std::string marker = "P";
-    for (std::size_t i = 0; i < occupants.size(); ++i) {
-        marker += std::to_string(occupants[i] + 1);
+    if (marker.empty()) {
+        return "?";
     }
+
     return clipText(marker, MODE1860_CELL_W - 1);
 }
 
@@ -1226,7 +1231,7 @@ void drawMode1860Tokens(WINDOW* boardWin,
             continue;
         }
 
-        std::string marker = mode1860PlayerMarker(occupants);
+        std::string marker = mode1860PlayerMarker(players, occupants);
         int colorPlayer = occupants.front();
         bool containsFocusPlayer = occupants.front() == focusPlayerIndex;
         for (std::size_t i = 0; i < occupants.size(); ++i) {

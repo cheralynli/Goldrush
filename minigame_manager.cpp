@@ -28,7 +28,7 @@ void Game::playBlackTileMinigame(int playerIndex) {
 
     if (isCpuPlayer(playerIndex)) {
         const CpuMinigameResult cpuResult = cpu.playBlackTileMinigame(player, minigameChoice);
-        const int payout = cpuResult.score * 100;
+        const int payout = std::min(cpuResult.score * 2000, 25000);
         if (payout > 0) {
             bank.credit(player, payout);
         }
@@ -55,7 +55,7 @@ void Game::playBlackTileMinigame(int playerIndex) {
     if (minigameChoice == 0) {
         addHistory(player.name + " landed on a black tile and entered Pong");
         showInfoPopup("BLACK TILE: PONG",
-                      "One life. Each paddle return earns $100. Press ENTER to start.");
+                      "The saloon clears a table for Pong. Each return earns $2000. Press ENTER to step in.");
 
         const PongMinigameResult result = playPongMinigame(player.name, hasColor);
 
@@ -71,7 +71,7 @@ void Game::playBlackTileMinigame(int playerIndex) {
             return;
         }
 
-        const int payout = result.playerScore * 100;
+        const int payout = result.playerScore * 2000;
         if (payout > 0) {
             bank.credit(player, payout);
         }
@@ -92,7 +92,7 @@ void Game::playBlackTileMinigame(int playerIndex) {
     else if (minigameChoice == 1) {
         addHistory(player.name + " landed on a black tile and entered Battleship");
         showInfoPopup("BLACK TILE: BATTLESHIP",
-                    "Shoot the $ ships. One enemy hit ends the run. Each ship is worth $100.");
+                    "Enemy ships cut across the river. Sink them for $2000 each, but one enemy hit ends the run.");
 
         const BattleshipMinigameResult result = playBattleshipMinigame(player.name, hasColor);
 
@@ -108,7 +108,7 @@ void Game::playBlackTileMinigame(int playerIndex) {
             return;
         }
 
-        const int payout = result.shipsDestroyed * 100;
+        const int payout = result.shipsDestroyed * 2000;
         if (payout > 0) {
             bank.credit(player, payout);
         }
@@ -130,7 +130,7 @@ void Game::playBlackTileMinigame(int playerIndex) {
     else if (minigameChoice == 2) {
         addHistory(player.name + " landed on a black tile and entered Hangman");
         showInfoPopup("BLACK TILE: HANGMAN",
-                    "Guess the word. Hint unlocks after 5 misses. Each revealed letter is worth $100.");
+                    "A mystery word waits on the notice board. Reveal letters for $2000 each; a hint appears after 5 misses.");
         
         const HangmanResult result = playHangmanMinigame(player.name, hasColor);
         
@@ -146,7 +146,7 @@ void Game::playBlackTileMinigame(int playerIndex) {
             return;
         }
         
-        const int payout = result.lettersGuessed * 100;
+        const int payout = result.lettersGuessed * 2000;
         if (payout > 0) {
             bank.credit(player, payout);
         }
@@ -172,7 +172,7 @@ void Game::playBlackTileMinigame(int playerIndex) {
     if (minigameChoice == 3) {
         addHistory(player.name + " landed on a black tile and entered Memory Match");
         showInfoPopup("BLACK TILE: MEMORY MATCH",
-                      "Match all 8 pairs. Each wrong match costs a life. 20 lives total. Help button reveals grid.");
+                      "The cards are scattered across the table. Match all 8 pairs; wrong matches cost lives, and Help reveals the grid.");
         
         const MemoryMatchResult result = playMemoryMatchMinigame(player.name, hasColor);
         
@@ -188,7 +188,7 @@ void Game::playBlackTileMinigame(int playerIndex) {
             return;
         }
         
-        const int payout = (result.pairsMatched * 100) + (result.won ? 200 : 0);
+        const int payout = (result.pairsMatched * 2000) + (result.won ? 4000 : 0);
         if (payout > 0) {
             bank.credit(player, payout);
         }
@@ -209,7 +209,7 @@ void Game::playBlackTileMinigame(int playerIndex) {
         const int minesweeperSafeTileTotal = 15;
         addHistory(player.name + " landed on a black tile and entered Minesweeper");
         showInfoPopup("BLACK TILE: MINESWEEPER",
-                      "Reveal safe tiles for 60 seconds. One bomb ends the run. Each safe tile is worth $100.");
+                      "The claim is unstable. Reveal safe ground for 60 seconds; one bomb ends the run, and each safe tile pays $2000.");
 
         const MinesweeperResult result = playMinesweeperMinigame(player.name, hasColor);
 
@@ -225,7 +225,7 @@ void Game::playBlackTileMinigame(int playerIndex) {
             return;
         }
 
-        const int payout = result.safeTilesRevealed * 100;
+        const int payout = result.safeTilesRevealed * 2000;
         if (payout > 0) {
             bank.credit(player, payout);
         }

@@ -115,7 +115,7 @@ void addText(std::vector<SummaryLine>& lines,
 //Purpose: draws summary section with important information
 //Relation: called by showTurnSummaryReport
 void drawSummarySection(WINDOW* win, int& y, const SummaryLine& line, int width) {
-    if (y + 1 >= getmaxy(win) - 2) {
+    if (y + 1 >= getmaxy(win) - 4) {
         return;
     }
     wattron(win, COLOR_PAIR(line.colorPair) | A_BOLD);
@@ -235,7 +235,7 @@ void showTurnSummaryReport(const TurnSummary& summary, bool hasColor) {
         }
 
         mvwprintw(popup, actualH - 2, 3, "%s",
-                  clipUiText("\nPress ENTER or ESC to continue...", static_cast<std::size_t>(std::max(1, actualW - 5))).c_str());
+                  clipUiText("Press ENTER or ESC to continue...", static_cast<std::size_t>(std::max(1, actualW - 5))).c_str());
         wrefresh(popup);
 
         const int ch = wgetch(popup);

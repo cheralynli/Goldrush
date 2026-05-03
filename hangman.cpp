@@ -358,7 +358,7 @@ HangmanResult playHangmanMinigame(const std::string& playerName, bool hasColor) 
                          "Guess the hidden word one letter at a time.",
                          "Type A-Z to guess, ESC exits.",
                          "Reveal the full word before 8 wrong guesses.",
-                         "Each revealed letter slot pays $100. Exiting early pays nothing.",
+                         "Each revealed letter slot pays $2000. Exiting early pays nothing.",
                          hasColor);
 
     if (!terminalIsAtLeast(37, 90)) {
@@ -408,7 +408,7 @@ HangmanResult playHangmanMinigame(const std::string& playerName, bool hasColor) 
             "Player: " + playerName + "  |  Wrong guesses left: " +
             std::to_string(std::max(0, MAX_WRONG_GUESSES - wrong)) + " / " +
             std::to_string(MAX_WRONG_GUESSES) + "  |  Current payout: $" +
-            std::to_string(res.lettersGuessed * 100);
+            std::to_string(res.lettersGuessed * 2000);
         mvwprintw(win, 8, (w - static_cast<int>(statusLine.size())) / 2, "%s", statusLine.c_str());
         if (hasColor) {
             wattroff(win, COLOR_PAIR(GOLDRUSH_BROWN_CREAM));
@@ -442,7 +442,7 @@ HangmanResult playHangmanMinigame(const std::string& playerName, bool hasColor) 
         mvwprintw(win, arenaBottom - 3, arenaLeft + 3,
                   "Guess letters A-Z. Category is shown and the hint appears after 5 misses.");
         mvwprintw(win, arenaBottom - 2, arenaLeft + 3,
-            "Each revealed letter slot is worth $100. One finished hangman ends the game.");
+            "Each revealed letter slot is worth $2000. One finished hangman ends the game.");
         if (hasColor) {
             wattroff(win, COLOR_PAIR(GOLDRUSH_BLACK_CREAM));
         }
@@ -464,7 +464,7 @@ HangmanResult playHangmanMinigame(const std::string& playerName, bool hasColor) 
             const std::string winLine1 = "CONGRATULATIONS!";
             const std::string winLine2 = "You guessed the word: " + word;
             const std::string winLine3 = "Letters revealed: " + std::to_string(res.lettersGuessed) +
-                                         "  |  Earned $" + std::to_string(res.lettersGuessed * 100);
+                                         "  |  Earned $" + std::to_string(res.lettersGuessed * 2000);
             const std::string winLine4 = "Press ENTER or ESC to continue.";
             mvwprintw(win, arenaCenterY - 1, arenaLeft + (arenaWidth - static_cast<int>(winLine2.size())) / 2,
                       "%s", winLine2.c_str());
@@ -507,7 +507,7 @@ HangmanResult playHangmanMinigame(const std::string& playerName, bool hasColor) 
             const std::string loseLine1 = "GAME OVER!";
             const std::string loseLine2 = "The word was: " + word;
             const std::string loseLine3 = "Letters revealed: " + std::to_string(res.lettersGuessed) +
-                                          "  |  Earned $" + std::to_string(res.lettersGuessed * 100);
+                                          "  |  Earned $" + std::to_string(res.lettersGuessed * 2000);
             const std::string loseLine4 = "Press ENTER or ESC to continue.";
             mvwprintw(win, arenaCenterY - 1, arenaLeft + (arenaWidth - static_cast<int>(loseLine2.size())) / 2,
                       "%s", loseLine2.c_str());
@@ -597,7 +597,7 @@ HangmanResult playHangmanMinigame(const std::string& playerName, bool hasColor) 
                               arenaBottom - 1,
                               arenaLeft,
                               arenaWidth,
-                              "CORRECT! +$" + std::to_string(revealedThisGuess * 100),
+                              "CORRECT! +$" + std::to_string(revealedThisGuess * 2000),
                               true,
                               hasColor);
             }

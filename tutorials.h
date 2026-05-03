@@ -65,7 +65,7 @@ std::vector<std::string> tutorialLines(TutorialTopic topic);
 void showPagedGuide(const std::string& title,
                     const std::vector<std::vector<std::string> >& pages,
                     bool hasColor);
-void showPreGameQuickGuide(bool hasColor);
+void showPreGameQuickGuide(bool hasColor, bool include1860Pages = true);
 void showFirstTimeTutorial(TutorialTopic topic, bool hasColor);
 void showFullGuide(const Board& board, const RuleSet& rules, bool sabotageUnlocked, bool hasColor);
 bool showQuitConfirmation(bool hasColor);

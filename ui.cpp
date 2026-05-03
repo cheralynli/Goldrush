@@ -325,6 +325,37 @@ void drawMinimapDot(WINDOW* panelWin, int y, int x, const char* glyph, int color
     wattroff(panelWin, COLOR_PAIR(colorPair) | A_BOLD);
 }
 
+std::string minimapPlayerGlyph(const std::vector<Player>& players, int playerIndex) {
+    if (playerIndex < 0 || playerIndex >= static_cast<int>(players.size())) {
+        return "?";
+    }
+
+    char token = players[static_cast<std::size_t>(playerIndex)].token;
+    if (token == '\0' || std::isspace(static_cast<unsigned char>(token))) {
+        return "?";
+    }
+
+    return std::string(1, token);
+}
+
+int minimapRepresentativePlayerOnTile(const std::vector<Player>& players,
+                                      int tileId,
+                                      int currentPlayer) {
+    if (currentPlayer >= 0 &&
+        currentPlayer < static_cast<int>(players.size()) &&
+        players[static_cast<std::size_t>(currentPlayer)].tile == tileId) {
+        return currentPlayer;
+    }
+
+    for (int p = 0; p < static_cast<int>(players.size()); ++p) {
+        if (players[static_cast<std::size_t>(p)].tile == tileId) {
+            return p;
+        }
+    }
+
+    return -1;
+}
+
 std::vector<std::pair<int, int> > minimapConnections(const Board& board) {
     std::vector<std::pair<int, int> > connections;
     for (int i = 0; i < TILE_COUNT; ++i) {
@@ -838,9 +869,8 @@ void drawMinimapPanel(WINDOW* panelWin,
                       BoardViewMode viewMode,
                       const std::vector<int>* reachableTiles,
                       int cursorTile) {
-    (void)viewMode;
-    (void)reachableTiles;
-    (void)cursorTile;
+    (void) reachableTiles;
+    (void) cursorTile;
     werase(panelWin);
     drawBoxSafe(panelWin);
 
@@ -849,125 +879,229 @@ void drawMinimapPanel(WINDOW* panelWin,
     wattroff(panelWin, COLOR_PAIR(GOLDRUSH_GOLD_BLACK) | A_BOLD);
 
     const int panelHeight = getmaxy(panelWin);
-    const int mapTop = 3;
-    const int mapLeft = 3;
-    const int mapCellWidth = 3;
-    const std::set<int> reachable = minimapReachableTiles(board);
-    int minTileX = board.tileAt(0).x;
-    int maxTileX = board.tileAt(0).x;
-    int minTileY = board.tileAt(0).y;
-    int maxTileY = board.tileAt(0).y;
-    for (int i = 1; i < TILE_COUNT; ++i) {
-        if (reachable.count(i) == 0) {
-            continue;
+    const int panelWidth = getmaxx(panelWin);
+
+    // =========================
+    // MODE 1860 (25x25 GRID)
+    // =========================
+    if (viewMode == BoardViewMode::Mode1860) {
+        const int gridRows = 25;
+        const int gridCols = 25;
+
+        const int mapCellWidth = 2;
+        const int mapCellHeight = 1;
+
+        const int mapWidth = (gridCols - 1) * mapCellWidth + 1;
+        const int mapHeight = gridRows;
+
+        const int mapTop = 3;
+        const int mapLeft = std::max(2, (panelWidth - mapWidth) / 2);
+        const int mapBottom = mapTop + mapHeight - 1;
+        const int separatorWidth = std::max(4, panelWidth - 2);
+
+        wattron(panelWin, COLOR_PAIR(GOLDRUSH_BROWN_SAND));
+        drawBorderLineSafe(panelWin, 2, 1, separatorWidth);
+        drawBorderLineSafe(panelWin, mapBottom + 1, 1, separatorWidth);
+        wattroff(panelWin, COLOR_PAIR(GOLDRUSH_BROWN_SAND));
+
+        for (int row = 0; row < gridRows; ++row) {
+            for (int col = 0; col < gridCols; ++col) {
+                const int tileId = board.mode1860TileIdAt(row, col);
+
+                if (tileId < 0) {
+                    continue;
+                }
+
+                const Tile& tile = board.tileAt(tileId);
+
+                const int drawX = mapLeft + col * mapCellWidth;
+                const int drawY = mapTop + row * mapCellHeight;
+
+                const char* glyph = ".";
+
+                if (tile.kind == TILE_START) {
+                    glyph = "S";
+                } else if (tile.kind == TILE_RETIREMENT) {
+                    glyph = "*";
+                } else if (isSpecialMinimapTile(tile)) {
+                    glyph = "+";
+                }
+
+                int color = GOLDRUSH_BROWN_CREAM;
+
+                if (tile.kind == TILE_RETIREMENT) {
+                    color = GOLDRUSH_BLACK_FOREST;
+                } else if (isSpecialMinimapTile(tile)) {
+                    color = GOLDRUSH_BLACK_TERRA;
+                }
+
+                drawMinimapDot(panelWin, drawY, drawX, glyph, color);
+            }
         }
-        const Tile& tile = board.tileAt(i);
-        minTileX = std::min(minTileX, tile.x);
-        maxTileX = std::max(maxTileX, tile.x);
-        minTileY = std::min(minTileY, tile.y);
-        maxTileY = std::max(maxTileY, tile.y);
-    }
 
-    const int logicalRows = std::max(1, maxTileY - minTileY);
-    const int maxMapBottom = std::max(mapTop + logicalRows, panelHeight - 11);
-    const int mapCellHeight = (mapTop + (logicalRows * 2) <= maxMapBottom) ? 2 : 1;
-    const int mapHeight = ((maxTileY - minTileY) * mapCellHeight) + 1;
-    const int separatorWidth = std::max(4, getmaxx(panelWin) - 2);
-    const int mapBottom = mapTop + mapHeight;
+        for (int p = 0; p < static_cast<int>(players.size()); ++p) {
+            const int tileId = players[p].tile;
 
-    wattron(panelWin, COLOR_PAIR(GOLDRUSH_BROWN_SAND));
-    drawBorderLineSafe(panelWin, 2, 1, separatorWidth);
-    drawBorderLineSafe(panelWin, mapBottom + 1, 1, separatorWidth);
-    wattroff(panelWin, COLOR_PAIR(GOLDRUSH_BROWN_SAND));
-
-    const std::vector<std::pair<int, int> > connections = minimapConnections(board);
-    for (std::size_t i = 0; i < connections.size(); ++i) {
-        if (reachable.count(connections[i].first) == 0 || reachable.count(connections[i].second) == 0) {
-            continue;
-        }
-        const Tile& from = board.tileAt(connections[i].first);
-        const Tile& to = board.tileAt(connections[i].second);
-        const int fromX = mapLeft + ((from.x - minTileX) * mapCellWidth);
-        const int fromY = mapTop + ((from.y - minTileY) * mapCellHeight);
-        const int toX = mapLeft + ((to.x - minTileX) * mapCellWidth);
-        const int toY = mapTop + ((to.y - minTileY) * mapCellHeight);
-        drawMiniLine(panelWin, fromY, fromX, toY, toX);
-    }
-
-    for (int i = 0; i < TILE_COUNT; ++i) {
-        if (reachable.count(i) == 0) {
-            continue;
-        }
-        const Tile& tile = board.tileAt(i);
-        const int drawX = mapLeft + ((tile.x - minTileX) * mapCellWidth);
-        const int drawY = mapTop + ((tile.y - minTileY) * mapCellHeight);
-
-        int occupants = 0;
-        int firstPlayer = -1;
-        for (std::size_t p = 0; p < players.size(); ++p) {
-            if (players[p].tile != i) {
+            if (!board.isMode1860TileId(tileId)) {
                 continue;
             }
-            if (firstPlayer < 0) {
-                firstPlayer = static_cast<int>(p);
+
+            const Tile& tile = board.tileAt(tileId);
+
+            const int row = tile.mode1860Y;
+            const int col = tile.mode1860X;
+
+            if (row < 0 || row >= gridRows || col < 0 || col >= gridCols) {
+                continue;
             }
-            ++occupants;
-        }
 
-        if (occupants > 1) {
-            drawMinimapDot(panelWin, drawY, drawX, "@", GOLDRUSH_GOLD_TERRA);
-        } else if (occupants == 1) {
-            drawMinimapDot(panelWin, drawY, drawX, "o", ui_player_color_pair(firstPlayer));
-        } else {
+            const int drawX = mapLeft + col * mapCellWidth;
+            const int drawY = mapTop + row * mapCellHeight;
+
+            if (p == currentPlayer) {
+                wattron(panelWin, A_REVERSE | A_BOLD);
+            }
+
+            const std::string playerGlyph = minimapPlayerGlyph(players, p);
             drawMinimapDot(panelWin,
-                           drawY,
-                           drawX,
-                           minimapDotGlyph(tile),
-                           tile.kind == TILE_RETIREMENT ? GOLDRUSH_GOLD_TERRA
-                                                        : (isSpecialMinimapTile(tile) ? GOLDRUSH_BLACK_TERRA
-                                                                                      : GOLDRUSH_BROWN_CREAM));
+                        drawY,
+                        drawX,
+                        playerGlyph.c_str(),
+                        ui_player_color_pair(p));
+
+            if (p == currentPlayer) {
+                wattroff(panelWin, A_REVERSE | A_BOLD);
+            }
         }
+
+        if (!players.empty() &&
+            currentPlayer >= 0 &&
+            currentPlayer < static_cast<int>(players.size())) {
+            const Player& player = players[currentPlayer];
+
+            if (mapBottom + 2 < panelHeight - 1) {
+                wattron(panelWin, COLOR_PAIR(ui_player_color_pair(currentPlayer)) | A_BOLD);
+                mvwprintw(panelWin,
+                        panelHeight - 3,
+                        2,
+                        "%-.34s",
+                        (player.name + "'s turn").c_str());
+                wattroff(panelWin, COLOR_PAIR(ui_player_color_pair(currentPlayer)) | A_BOLD);
+            }
+        }
+
+        if (mapBottom + 3 < panelHeight - 1) {
+            mvwprintw(panelWin, mapBottom + 3, 2, ". tile  + special  * retire S start  token player");
+        }
+
+        wrefresh(panelWin);
+        return;
     }
 
-    if (mapBottom + 2 < panelHeight - 1) {
-        mvwprintw(panelWin, mapBottom + 2, 2, "%-.34s", "o player  @ stacked  + stop/event");
-    }
-    if (mapBottom + 3 < panelHeight - 1) {
-        mvwprintw(panelWin, mapBottom + 3, 2, "%-.34s", ". route  * retirement");
-    }
+    // =========================
+    // FOLLOW CAMERA (OLD LOGIC)
+    // =========================
+    else if (viewMode == BoardViewMode::FollowCamera) {
+        const int mapTop = 3;
+        const int mapLeft = 3;
+        const int mapCellWidth = 3;
 
-    if (!players.empty() && currentPlayer >= 0 && currentPlayer < static_cast<int>(players.size())) {
-        const Player& player = players[currentPlayer];
-        const std::string home = player.retirementHome.empty() ? "--" : player.retirementHome;
-        const std::string invest = player.investedNumber > 0 ? std::to_string(player.investedNumber) : "-";
-        const int statsY = mapBottom + 5;
+        const std::set<int> reachable = minimapReachableTiles(board);
 
-        if (statsY < panelHeight - 1) {
-            wattron(panelWin, COLOR_PAIR(ui_player_color_pair(currentPlayer)) | A_BOLD);
-            mvwprintw(panelWin, statsY, 2, "%-.24s's trail", player.name.c_str());
-            wattroff(panelWin, COLOR_PAIR(ui_player_color_pair(currentPlayer)) | A_BOLD);
+        int minTileX = board.tileAt(0).x;
+        int maxTileX = board.tileAt(0).x;
+        int minTileY = board.tileAt(0).y;
+        int maxTileY = board.tileAt(0).y;
+
+        for (int i = 1; i < TILE_COUNT; ++i) {
+            if (!reachable.count(i)) continue;
+            const Tile& tile = board.tileAt(i);
+            minTileX = std::min(minTileX, tile.x);
+            maxTileX = std::max(maxTileX, tile.x);
+            minTileY = std::min(minTileY, tile.y);
+            maxTileY = std::max(maxTileY, tile.y);
         }
 
-        wattron(panelWin, COLOR_PAIR(GOLDRUSH_BROWN_CREAM));
-        if (statsY + 1 < panelHeight - 1) {
-            mvwprintw(panelWin, statsY + 1, 2, "Cash:%d  Loans:%d", player.cash, player.loans);
+        const int logicalRows = std::max(1, maxTileY - minTileY);
+        const int maxMapBottom = std::max(mapTop + logicalRows, panelHeight - 11);
+        const int mapCellHeight = (mapTop + (logicalRows * 2) <= maxMapBottom) ? 2 : 1;
+        const int mapHeight = ((maxTileY - minTileY) * mapCellHeight) + 1;
+        const int mapBottom = mapTop + mapHeight;
+
+        const auto connections = minimapConnections(board);
+
+        for (auto& c : connections) {
+            if (!reachable.count(c.first) || !reachable.count(c.second)) continue;
+
+            const Tile& from = board.tileAt(c.first);
+            const Tile& to = board.tileAt(c.second);
+
+            int fromX = mapLeft + (from.x - minTileX) * mapCellWidth;
+            int fromY = mapTop + (from.y - minTileY) * mapCellHeight;
+            int toX   = mapLeft + (to.x - minTileX) * mapCellWidth;
+            int toY   = mapTop + (to.y - minTileY) * mapCellHeight;
+
+            drawMiniLine(panelWin, fromY, fromX, toY, toX);
         }
-        if (statsY + 2 < panelHeight - 1) {
-            mvwprintw(panelWin, statsY + 2, 2, "Job:%-.15s  Inv:%s", player.job.c_str(), invest.c_str());
+
+        for (int i = 0; i < TILE_COUNT; ++i) {
+            if (!reachable.count(i)) continue;
+
+            const Tile& tile = board.tileAt(i);
+
+            int drawX = mapLeft + (tile.x - minTileX) * mapCellWidth;
+            int drawY = mapTop + (tile.y - minTileY) * mapCellHeight;
+
+            int occupants = 0;
+            int firstPlayer = -1;
+
+            for (int p = 0; p < (int)players.size(); ++p) {
+                if (players[p].tile == i) {
+                    if (firstPlayer < 0) firstPlayer = p;
+                    occupants++;
+                }
+            }
+
+            if (occupants > 0) {
+                const int shownPlayer = minimapRepresentativePlayerOnTile(players, i, currentPlayer);
+                const std::string playerGlyph = minimapPlayerGlyph(players, shownPlayer);
+                drawMinimapDot(panelWin,
+                               drawY,
+                               drawX,
+                               playerGlyph.c_str(),
+                               ui_player_color_pair(shownPlayer));
+            } else {
+                drawMinimapDot(panelWin,
+                               drawY,
+                               drawX,
+                               minimapDotGlyph(tile),
+                               tile.kind == TILE_RETIREMENT
+                                   ? GOLDRUSH_BLACK_FOREST
+                                   : (isSpecialMinimapTile(tile)
+                                          ? GOLDRUSH_BLACK_TERRA
+                                          : GOLDRUSH_BROWN_CREAM));
+            }
         }
-        if (statsY + 3 < panelHeight - 1) {
-            mvwprintw(panelWin, statsY + 3, 2, "Married:%s Kids:%d Pets:%d",
-                      player.married ? "Y" : "N",
-                      player.kids,
-                      static_cast<int>(player.petCards.size()));
+
+        if (!players.empty() &&
+            currentPlayer >= 0 &&
+            currentPlayer < static_cast<int>(players.size())) {
+            const Player& player = players[currentPlayer];
+
+            if (mapBottom + 2 < panelHeight - 1) {
+                wattron(panelWin, COLOR_PAIR(ui_player_color_pair(currentPlayer)) | A_BOLD);
+                mvwprintw(panelWin,
+                        panelHeight - 3,
+                        2,
+                        "%-.34s",
+                        (player.name + "'s turn").c_str());
+                wattroff(panelWin, COLOR_PAIR(ui_player_color_pair(currentPlayer)) | A_BOLD);
+            }
         }
-        if (statsY + 4 < panelHeight - 1) {
-            mvwprintw(panelWin, statsY + 4, 2, "Home:%-.24s", home.c_str());
+
+        if (mapBottom + 3 < panelHeight - 1) {
+            mvwprintw(panelWin, mapBottom + 3, 2, ". tile  + special  * retire  S start  token player");
         }
-        if (statsY + 5 < panelHeight - 1) {
-            mvwprintw(panelWin, statsY + 5, 2, "Tab/Enter/Esc closes this popup.");
-        }
-        wattroff(panelWin, COLOR_PAIR(GOLDRUSH_BROWN_CREAM));
     }
 
     wrefresh(panelWin);

@@ -374,7 +374,7 @@ void showPagedGuide(const std::string& title,
 //Output: none
 //Purpose: show pregame guide before game starts
 //Relation: to inform the user about basic information
-void showPreGameQuickGuide(bool hasColor) {
+void showPreGameQuickGuide(bool hasColor, bool include1860Pages) {
     std::vector<std::vector<std::string> > pages;
     pages.push_back({
         "MONEY AND LOANS",
@@ -383,31 +383,61 @@ void showPreGameQuickGuide(bool hasColor) {
         "If you cannot afford a payment, the game may automatically give you loans.",
         "Manual loans are emergency cash, but every loan reduces your final score."
     });
-    pages.push_back({
-        "1860 BOARD GOAL",
-        "",
-        "On the 1860 board, you begin near the bottom-left and work toward the top-right.",
-        "Your goal is to reach Retirement in the top-right corner before your rivals do.",
-        "Each spin determines how many movement points you can spend.",
-        "Plan your route carefully, avoid risky spaces when possible, and use safer stops to protect your money."
-    });
-    pages.push_back({
-        "1860 MOVEMENT",
-        "",
-        "A spin gives the maximum number of movement points you may spend that turn.",
-        "You can move up to what you spun, not necessarily the full amount.",
-        "If you land on a stop or event tile before using every point, its effect happens first and then you may keep moving.",
-        "So a big spin gives more options, and you can keep spending points until they run out or you choose to stop."
-    });
-    pages.push_back({
-        "1860 BOARD COLORS",
-        "",
-        "Pay/Safe spaces give steadier money and are usually the safer route.",
-        "Action spaces trigger life or board events. Mini spaces lead to side challenges.",
-        "Risk spaces can pay more, but they can also punish you badly.",
-        "Job spaces shape salary progress, and Family spaces push family-related events.",
-        "The symbols help too: S Start, R Retire, A Action, M Mini, ! Risk, + Safe, J Job, F Family."
-    });
+
+    if (include1860Pages) {
+        pages.push_back({
+            "1860 BOARD GOAL",
+            "",
+            "On the 1860 board, you begin near the bottom-left and work toward the top-right.",
+            "Your goal is to reach Retirement in the top-right corner before your rivals do.",
+            "Each spin determines how many movement points you can spend.",
+            "Plan your route carefully, avoid risky spaces when possible, and use safer stops to protect your money."
+        });
+        pages.push_back({
+            "1860 MOVEMENT",
+            "",
+            "A spin gives the maximum number of movement points you may spend that turn.",
+            "Before the wagon moves, you can preview a route and pull the marker back along that uncommitted trail.",
+            "Once you press ENTER, the route is committed and the 1860 road does not allow backward travel.",
+            "You can stop before spending the full spin, so a big spin gives route choices instead of forcing every step."
+        });
+        pages.push_back({
+            "1860 BOARD COLORS",
+            "",
+            "Pay/Safe spaces give steadier money and are usually the safer route.",
+            "Action spaces trigger life or board events. Mini spaces lead to side challenges.",
+            "Risk spaces can pay more, but they can also punish you badly.",
+            "Job spaces shape salary progress, and Family spaces push family-related events.",
+            "The symbols help too: S Start, R Retire, A Action, M Mini, ! Risk, + Safe, J Job, F Family."
+        });
+    } else {
+        pages.push_back({
+            "NORMAL BOARD TILE GUIDE",
+            "",
+            "The other board modes use abbreviations on the route. Read them as Full Name (ABBR).",
+            "START / ST: Start - the journey begins.",
+            "CO: College - pay tuition and aim for stronger careers.",
+            "CA: Career - choose a job and salary early.",
+            "GR: Graduation - college players choose a degree career.",
+            "PAY / SP: Salary Payday - collect salary and space payout.",
+            "ACT / A: Action - draw or resolve an action card.",
+            "MG / M: Minigame - play a side game for money.",
+            "JOB / J: Job or career event - career progress happens here."
+        });
+        pages.push_back({
+            "NORMAL BOARD LIFE TILES",
+            "",
+            "MAR: Marriage - resolve wedding gifts and family bonuses.",
+            "BABY / B: Baby - spin for children.",
+            "FAM / F: Family - family-path events may happen.",
+            "NS: Night School - optional career upgrade.",
+            "SAFE / +: Safe route - smaller but steadier payout.",
+            "RISK / !: Risky route - bigger swings, good or bad.",
+            "HOUSE / H: House - draw or buy a home.",
+            "RET / R: Retirement - choose retirement destination and final bonus."
+        });
+    }
+
     pages.push_back({
         "JOBS, SALARY, AND INVESTMENTS",
         "",
@@ -438,6 +468,7 @@ void showPreGameQuickGuide(bool hasColor) {
         "retirement bonuses, and loan penalties.",
         "Press G in-game to look at guide and tutorials again."
     });
+
     showPagedGuide("QUICK GUIDE", pages, hasColor);
 }
 
@@ -482,8 +513,9 @@ void showFullGuide(const Board& board, const RuleSet& rules, bool sabotageUnlock
         "",
         "On the 1860 board, you start at the bottom-left and work toward Retirement in the top-right.",
         "A spin gives the maximum movement points you may spend on that turn.",
-        "You may stop before spending them all, and landing on a stop/event tile only pauses for its effect before movement can continue.",
-        "That means a big spin gives you more route choices instead of forcing a hard stop halfway through."
+        "During route planning, move the marker forward, backtrack along your uncommitted trail if needed, then press ENTER.",
+        "After ENTER, the 1860 road is one-way: you cannot travel backward, only onward toward Retirement.",
+        "That means a big spin gives you more route choices without forcing every point to be spent."
     });
     pages.push_back({
         "1860 BOARD COLORS",

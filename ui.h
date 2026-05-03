@@ -66,7 +66,7 @@ void drawMinimapPanel(WINDOW* panelWin,
                       const Board& board,
                       const std::vector<Player>& players,
                       int currentPlayer,
-                      BoardViewMode viewMode = BoardViewMode::FollowCamera,
+                      BoardViewMode viewMode,
                       const std::vector<int>* reachableTiles = nullptr,
                       int cursorTile = -1);
 void draw_sidebar_ui(WINDOW* panelWin,

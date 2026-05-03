@@ -157,7 +157,7 @@ PongMinigameResult playPongMinigame(const std::string& playerName, bool hasColor
                          "Return the ball with your paddle for as long as possible.",
                          "W/S or arrows move, X serves, ESC exits.",
                          "Keep returning the ball. One miss ends the run.",
-                         "Each successful return pays $100. Exiting early pays nothing.",
+                         "Each successful return pays $2000. Exiting early pays nothing.",
                          hasColor);
 
     int screenH = 0;
@@ -237,7 +237,7 @@ PongMinigameResult playPongMinigame(const std::string& playerName, bool hasColor
         drawAsciiTitle(overlay, screenW, hasColor);
 
         const std::string statusLine =
-            playerName + " vs CPU  |  One life  |  Score x $100 payout";
+            playerName + " vs CPU  |  One life  |  Score x $2000 payout";
         mvwprintw(overlay, 7, (screenW - static_cast<int>(statusLine.size())) / 2,
                   "%s", statusLine.c_str());
         if (feedbackFrames > 0 && ((feedbackFrames / 2) % 2 == 0)) {
@@ -293,14 +293,16 @@ PongMinigameResult playPongMinigame(const std::string& playerName, bool hasColor
 
         if (waitingForServe) {
             mvwprintw(overlay, arenaBottom + 4, arenaLeft,
-                      "Rules: one miss ends the game. Each successful return earns $100.");
+                      "Rules: one miss ends the game. Each successful return earns $2000.");
             mvwprintw(overlay, arenaBottom + 5, arenaLeft,
                       "Press X to serve. Press ESC to leave early.");
         } else if (gameOver) {
             mvwprintw(overlay, arenaBottom + 4, arenaLeft,
-                      "Game over. Final score %d, payout $%d. Press ENTER or ESC.",
+                      "The rally ends. Final score %d, payout $%d.",
                       result.playerScore,
-                      result.playerScore * 100);
+                      result.playerScore * 2000);
+            mvwprintw(overlay, arenaBottom + 6, arenaLeft,
+                      "Press ENTER or ESC to continue.");
         }
 
         wrefresh(overlay);
@@ -378,7 +380,7 @@ PongMinigameResult playPongMinigame(const std::string& playerName, bool hasColor
             ++result.playerScore;
             ball.vx = std::fabs(ball.vx) + 0.03f;
             ball.vy += (ball.y - playerPaddle.centerY) * 0.08f;
-            feedbackText = "RETURN! +$100";
+            feedbackText = "RETURN! +$2000";
             feedbackPositive = true;
             feedbackFrames = 18;
         }
@@ -545,10 +547,12 @@ PongDuelResult playPongDuelMinigame(const std::string& leftPlayerName,
             mvwprintw(overlay, arenaBottom + 5, arenaLeft,
                       "Press X to serve. Press ESC to leave early.");
         } else if (gameOver) {
-            const std::string endLine = std::string("Winner: ") +
+            const std::string endLine = std::string("The duel is settled. Winner: ") +
                 (result.winnerSide == 0 ? leftPlayerName : rightPlayerName) +
-                ". Press ENTER or ESC.";
+                ".";
             mvwprintw(overlay, arenaBottom + 4, arenaLeft, "%s", endLine.c_str());
+            mvwprintw(overlay, arenaBottom + 6, arenaLeft,
+                      "Press ENTER or ESC to continue.");
         }
 
         wrefresh(overlay);
