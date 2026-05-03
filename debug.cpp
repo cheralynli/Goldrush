@@ -37,6 +37,8 @@
 #include <vector>
 
 namespace {
+//Purpose: creates a mock player with preset stats for testing.
+//Relation: used in debug scenarios (movement, CPU decisions, board previews).
 Player makeDebugPlayer(const std::string& name, int index) {
     Player player = Player();
     player.name = name;
@@ -71,12 +73,16 @@ Player makeDebugPlayer(const std::string& name, int index) {
     return player;
 }
 
+//Purpose: waits for user to press ENTER in console.
+//Relation: used to pause between debug outputs
 void pauseForEnter() {
     std::cout << "\nPress ENTER to continue...";
     std::string ignored;
     std::getline(std::cin, ignored);
 }
 
+//Purpose: manage ncurses windows for debug UI.
+//Relation: used in board preview and UI debug functions
 void destroyDebugWindows(WINDOW*& titleWin, WINDOW*& boardWin, WINDOW*& infoWin, WINDOW*& msgWin) {
     if (msgWin) {
         delwin(msgWin);
@@ -96,6 +102,8 @@ void destroyDebugWindows(WINDOW*& titleWin, WINDOW*& boardWin, WINDOW*& infoWin,
     }
 }
 
+//Purpose: checks if terminal size fits layout.
+//Relation: prevents UI overflow in debug previews
 bool debugLayoutFits(const UILayout& layout) {
     int termH = 0;
     int termW = 0;
@@ -108,6 +116,8 @@ bool debugLayoutFits(const UILayout& layout) {
     return true;
 }
 
+//Purpose: manage ncurses windows for debug UI.
+//Relation: used in board preview and UI debug functions
 bool createDebugWindows(const UILayout& layout,
                         WINDOW*& titleWin,
                         WINDOW*& boardWin,
@@ -145,6 +155,8 @@ bool createDebugWindows(const UILayout& layout,
     return true;
 }
 
+//Purpose: console input helpers for numeric choices.
+//Relation: used in debug menus
 int readInt(const std::string& prompt, int minValue, int maxValue, int defaultValue) {
     while (true) {
         std::cout << prompt << " [" << defaultValue << "]: ";
@@ -163,10 +175,14 @@ int readInt(const std::string& prompt, int minValue, int maxValue, int defaultVa
     }
 }
 
+//Purpose: console input helpers for numeric choices.
+//Relation: used in debug menus.
 int readMenuChoice(int minValue, int maxValue) {
     return readInt("Choose an option", minValue, maxValue, minValue);
 }
 
+//Purpose: formats payment results (cash + auto-loans).
+//Relation: used in action card effect debugging
 std::string describePayment(const PaymentResult& payment) {
     std::ostringstream out;
     out << "charged $" << payment.charged;
@@ -176,6 +192,8 @@ std::string describePayment(const PaymentResult& payment) {
     return out.str();
 }
 
+//Purpose: determines next tile based on split choices.
+//Relation: used in movement debugging
 int debugNextTile(const Board& board, const Player& player) {
     const Tile& current = board.tileAt(player.tile);
     if (current.kind == TILE_SPLIT_START) {
@@ -190,6 +208,8 @@ int debugNextTile(const Board& board, const Player& player) {
     return current.next;
 }
 
+//Purpose: simulates player movement across tiles.
+//Relation: used in action card effects and movement debugging
 std::string debugMovePlayer(Player& player, const Board& board, int steps) {
     if (steps <= 0) {
         return "No forward movement requested.";
@@ -223,6 +243,8 @@ std::string debugMovePlayer(Player& player, const Board& board, int steps) {
     return out.str();
 }
 
+//Purpose: applies action card effects to player/bank.
+//Relation: used in action card debugging
 std::string debugApplyActionEffect(Player& player,
                                    const Board& board,
                                    const Bank& bank,
@@ -271,6 +293,8 @@ std::string debugApplyActionEffect(Player& player,
     }
 }
 
+//Purpose: prints player’s financial summary.
+//Relation: used after applying effects
 void printPlayerSummary(const Player& player, const Bank& bank) {
     std::cout << player.name << " | tile " << player.tile
               << " | cash $" << player.cash
@@ -280,6 +304,7 @@ void printPlayerSummary(const Player& player, const Bank& bank) {
               << "\n";
 }
 
+//runs Pong minigame in debug mode
 void runCursesPong() {
     initialize_game_ui();
     const PongMinigameResult result = playPongMinigame("DEBUG", has_colors());
@@ -289,6 +314,7 @@ void runCursesPong() {
               << ", abandoned " << (result.abandoned ? "yes" : "no") << "\n";
 }
 
+//runs Battleship minigame
 void runCursesBattleship() {
     initialize_game_ui();
     const BattleshipMinigameResult result = playBattleshipMinigame("DEBUG", has_colors());
@@ -298,6 +324,7 @@ void runCursesBattleship() {
               << ", abandoned " << (result.abandoned ? "yes" : "no") << "\n";
 }
 
+//runs Hangman minigame
 void runCursesHangman() {
     initialize_game_ui();
     const HangmanResult result = playHangmanMinigame("DEBUG", has_colors());
@@ -308,6 +335,7 @@ void runCursesHangman() {
               << ", abandoned " << (result.abandoned ? "yes" : "no") << "\n";
 }
 
+//runs Memory Match minigame
 void runCursesMemory() {
     initialize_game_ui();
     const MemoryMatchResult result = playMemoryMatchMinigame("DEBUG", has_colors());
@@ -318,6 +346,7 @@ void runCursesMemory() {
               << ", abandoned " << (result.abandoned ? "yes" : "no") << "\n";
 }
 
+//runs Minesweeper minigame
 void runCursesMinesweeper() {
     initialize_game_ui();
     const MinesweeperResult result = playMinesweeperMinigame("DEBUG", has_colors());
