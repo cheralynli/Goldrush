@@ -33,11 +33,11 @@ const char* const GOLDRUSH_TITLE_ART[] = {
 const int GOLDRUSH_TITLE_ART_LINES = static_cast<int>(sizeof(GOLDRUSH_TITLE_ART) / sizeof(GOLDRUSH_TITLE_ART[0]));
 const int GOLDRUSH_TITLE_ART_WIDTH = 62;
 
-void drawGoldrushTitleArt(bool hasColor) {
-    int h = 0;
+void drawGoldrushTitleArtAt(bool hasColor, int startY) {
     int w = 0;
+    int h = 0;
     getmaxyx(stdscr, h, w);
-    int startY = (h / 2) - 6;
+    (void)h;
     int startX = (w - GOLDRUSH_TITLE_ART_WIDTH) / 2;
     if (startY < 1) startY = 1;
     if (startX < 0) startX = 0;
@@ -51,6 +51,16 @@ void drawGoldrushTitleArt(bool hasColor) {
     if (hasColor) {
         attroff(COLOR_PAIR(GOLDRUSH_GOLD_BLACK) | A_BOLD);
     }
+}
+
+void drawGoldrushTitleArt(bool hasColor) {
+    int h = 0;
+    int w = 0;
+    getmaxyx(stdscr, h, w);
+    (void)w;
+    int startY = (h / 2) - 6;
+    if (startY < 1) startY = 1;
+    drawGoldrushTitleArtAt(hasColor, startY);
 }
 
 std::string appendLoanText(const std::string& base, const PaymentResult& payment) {
@@ -520,33 +530,7 @@ void Game::drawSetupTitle() const {
     if (!msgWin) {
         return;
     }
-
-    const char* lines[] = {
-        "  ________         .__       .___                       .__      ",
-        " /  _____/    ____ |  |    __| _/______ __ __     _____ |  |__   ",
-        "/   \\  ___  /  _\\|  |   / __ |\\_  __ \\  |  \\/  ___/|     \\ ",
-        "\\   \\_\\  (  <_> )  |__/ /_/ |  |  | \\/  |  /\\___ \\|   Y  \\",
-        " \\______  /\\____/|____/\\____|  |__|   |____/  /____  >___|  / ",
-        "        \\/                  \\/                     \\/    \\/  "
-    };
-    const int artW = 60;
-
-    int h, w;
-    getmaxyx(stdscr, h, w);
-    int startY = (h / 2) - 6;
-    int startX = (w - artW) / 2;
-    if (startY < 1) startY = 1;
-    if (startX < 0) startX = 0;
-
-    if (hasColor) {
-        attron(COLOR_PAIR(GOLDRUSH_GOLD_BLACK) | A_BOLD);
-    }
-    for (int i = 0; i < 6; ++i) {
-        mvprintw(startY + i, startX, "%s", lines[i]);
-    }
-    if (hasColor) {
-        attroff(COLOR_PAIR(GOLDRUSH_GOLD_BLACK) | A_BOLD);
-    }
+    drawGoldrushTitleArt(hasColor);
     refresh();
 }
 
@@ -1037,25 +1021,99 @@ Game::StartChoice Game::showStartScreen() {
 }
 
 bool Game::chooseBoardViewMode() {
+    const char* primaryNames[] = {
+        "1860s Board",
+        "Other Board Styles"
+    };
+    const char* primaryDescriptions[] = {
+        "Use the 1860-inspired checkered board and movement view.",
+        "Pick Follow Camera or Classic / Full Board in the next step."
+    };
+    const char* otherNames[] = {
+        "Follow Camera Mode",
+        "Classic / Full Board Mode"
+    };
+    const char* otherDescriptions[] = {
+        "Zoomed route view centered on the current player.",
+        "Shows the whole route with the classic board layout."
+    };
+
+    auto chooseOtherStylesFallback = [&]() -> int {
+        int otherSelected = boardViewMode == BoardViewMode::ClassicFull ? 1 : 0;
+        while (true) {
+            const int w = getmaxx(stdscr);
+            const int popupW = std::min(78, std::max(60, w - 6));
+            const int popupH = 11;
+            WINDOW* popup = createCenteredWindow(popupH, popupW, 11, 48);
+            if (!popup) {
+                showTerminalSizeWarning(11, 48, hasColor);
+                return -1;
+            }
+            keypad(popup, TRUE);
+            int popupActualH = 0;
+            int popupActualW = 0;
+            getmaxyx(popup, popupActualH, popupActualW);
+
+            while (true) {
+                werase(popup);
+                drawBoxSafe(popup);
+                if (hasColor) wattron(popup, COLOR_PAIR(GOLDRUSH_GOLD_SAND) | A_BOLD);
+                mvwprintw(popup, 1, 2, "Other Board Styles");
+                if (hasColor) wattroff(popup, COLOR_PAIR(GOLDRUSH_GOLD_SAND) | A_BOLD);
+
+                for (int i = 0; i < 2; ++i) {
+                    const int row = 3 + (i * 2);
+                    if (otherSelected == i) wattron(popup, A_REVERSE | A_BOLD);
+                    mvwprintw(popup, row, 4, "%s",
+                              clipUiText(std::to_string(i + 1) + ". " + otherNames[i],
+                                         static_cast<std::size_t>(std::max(1, popupActualW - 6))).c_str());
+                    if (otherSelected == i) wattroff(popup, A_REVERSE | A_BOLD);
+                    mvwprintw(popup,
+                              row + 1,
+                              7,
+                              "%s",
+                              clipUiText(otherDescriptions[i], static_cast<std::size_t>(popupActualW - 10)).c_str());
+                }
+
+                mvwprintw(popup, popupActualH - 3, 2, "%s",
+                          clipUiText("Use UP/DOWN or A/D. ENTER select. ESC back.",
+                                     static_cast<std::size_t>(std::max(1, popupActualW - 4))).c_str());
+                mvwprintw(popup, popupActualH - 2, 2, "%s",
+                          clipUiText(std::string("Selected: ") + otherNames[otherSelected],
+                                     static_cast<std::size_t>(std::max(1, popupActualW - 4))).c_str());
+                wrefresh(popup);
+
+                const int ch = wgetch(popup);
+                if (ch == KEY_RESIZE) {
+                    delwin(popup);
+                    if (!ensureMinSize()) {
+                        return -1;
+                    }
+                    break;
+                }
+                if (ch == KEY_UP || ch == KEY_DOWN ||
+                    ch == KEY_LEFT || ch == KEY_RIGHT ||
+                    ch == 'a' || ch == 'A' ||
+                    ch == 'd' || ch == 'D' ||
+                    ch == 'w' || ch == 'W' ||
+                    ch == 's' || ch == 'S') {
+                    otherSelected = (otherSelected + 1) % 2;
+                } else if (ch == '1' || ch == '2') {
+                    otherSelected = ch - '1';
+                } else if (isCancelKey(ch)) {
+                    delwin(popup);
+                    return -1;
+                } else if (isConfirmKey(ch)) {
+                    delwin(popup);
+                    return otherSelected;
+                }
+            }
+        }
+    };
+
     int selected = 0;
-    if (boardViewMode == BoardViewMode::ClassicFull) {
-        selected = 1;
-    } else if (boardViewMode == BoardViewMode::Mode1860) {
-        selected = 2;
-    }
 
     if (!msgWin || !titleWin) {
-        const char* names[] = {
-            "Follow Camera Mode",
-            "Classic / Full Board Mode",
-            "1860s Board"
-        };
-        const char* descriptions[] = {
-            "Zoomed route view centered on the current player.",
-            "Shows the whole route with the classic board layout.",
-            "Use the 1860-inspired checkered board and movement view."
-        };
-
         while (true) {
             int h = 0;
             int w = 0;
@@ -1081,12 +1139,12 @@ bool Game::chooseBoardViewMode() {
             const int contentW = std::max(8, boxW - 4);
             mvwprintw(box, 1, 2, "%s",
                       clipUiText("Choose Board Display", static_cast<std::size_t>(contentW)).c_str());
-            for (int i = 0; i < 3; ++i) {
+            for (int i = 0; i < 2; ++i) {
                 if (selected == i) {
                     wattron(box, A_REVERSE | A_BOLD);
                 }
-                const std::string lineText = std::string("- ") + names[i] +
-                                             (i == selected ? std::string("  ") + descriptions[i] : std::string());
+                const std::string lineText = std::string("- ") + primaryNames[i] +
+                                             (i == selected ? std::string("  ") + primaryDescriptions[i] : std::string());
                 mvwprintw(box, 2 + i, 2, "%-*s", contentW,
                           clipUiText(lineText, static_cast<std::size_t>(contentW)).c_str());
                 if (selected == i) {
@@ -1108,19 +1166,23 @@ bool Game::chooseBoardViewMode() {
                 ch == KEY_UP || ch == KEY_DOWN ||
                 ch == 'a' || ch == 'A' || ch == 'd' || ch == 'D' ||
                 ch == 'w' || ch == 'W' || ch == 's' || ch == 'S') {
-                if (ch == KEY_LEFT || ch == KEY_UP || ch == 'a' || ch == 'A' || ch == 'w' || ch == 'W') {
-                    selected = (selected + 2) % 3;
-                } else {
-                    selected = (selected + 1) % 3;
-                }
-            } else if (ch == '1' || ch == '2' || ch == '3') {
+                selected = (selected + 1) % 2;
+            } else if (ch == '1' || ch == '2') {
                 selected = ch - '1';
             } else if (ch == 27) {
                 return false;
             } else if (ch == '\n' || ch == '\r' || ch == KEY_ENTER) {
-                boardViewMode = selected == 0
+                if (selected == 0) {
+                    boardViewMode = BoardViewMode::Mode1860;
+                    return true;
+                }
+                const int otherChoice = chooseOtherStylesFallback();
+                if (otherChoice < 0) {
+                    continue;
+                }
+                boardViewMode = otherChoice == 0
                     ? BoardViewMode::FollowCamera
-                    : (selected == 1 ? BoardViewMode::ClassicFull : BoardViewMode::Mode1860);
+                    : BoardViewMode::ClassicFull;
                 return true;
             }
         }
@@ -1139,17 +1201,6 @@ bool Game::chooseBoardViewMode() {
         }
         renderHeader();
 
-        const char* names[] = {
-            "Follow Camera Mode",
-            "Classic / Full Board Mode",
-            "1860s Board"
-        };
-        const char* descriptions[] = {
-            "Zoomed route view centered on the current player.",
-            "Shows the whole route with the classic board layout.",
-            "Use the 1860-inspired checkered board and movement view."
-        };
-
         while (true) {
             int msgH = 0;
             int msgW = 0;
@@ -1162,12 +1213,12 @@ bool Game::chooseBoardViewMode() {
             mvwprintw(msgWin, 1, 2, "%s",
                       clipUiText("Choose Board Display", static_cast<std::size_t>(contentW)).c_str());
 
-            for (int i = 0; i < 3; ++i) {
+            for (int i = 0; i < 2; ++i) {
                 if (selected == i) {
                     wattron(msgWin, A_REVERSE | A_BOLD);
                 }
-                const std::string lineText = std::string("- ") + names[i] +
-                                             (i == selected ? std::string("  ") + descriptions[i] : std::string());
+                const std::string lineText = std::string("- ") + primaryNames[i] +
+                                             (i == selected ? std::string("  ") + primaryDescriptions[i] : std::string());
                 mvwprintw(msgWin, 2 + i, 2, "%-*s",
                           contentW,
                           clipUiText(lineText, static_cast<std::size_t>(contentW)).c_str());
@@ -1193,19 +1244,24 @@ bool Game::chooseBoardViewMode() {
                 ch == 'd' || ch == 'D' ||
                 ch == 'w' || ch == 'W' ||
                 ch == 's' || ch == 'S') {
-                if (ch == KEY_LEFT || ch == KEY_UP || ch == 'a' || ch == 'A' || ch == 'w' || ch == 'W') {
-                    selected = (selected + 2) % 3;
-                } else {
-                    selected = (selected + 1) % 3;
-                }
-            } else if (ch == '1' || ch == '2' || ch == '3') {
+                selected = (selected + 1) % 2;
+            } else if (ch == '1' || ch == '2') {
                 selected = ch - '1';
             } else if (ch == 27) {
                 return false;
             } else if (ch == '\n' || ch == '\r' || ch == KEY_ENTER) {
-                boardViewMode = selected == 0
+                if (selected == 0) {
+                    boardViewMode = BoardViewMode::Mode1860;
+                    return true;
+                }
+                const int otherChoice = chooseOtherStylesFallback();
+                if (otherChoice < 0) {
+                    renderHeader();
+                    continue;
+                }
+                boardViewMode = otherChoice == 0
                     ? BoardViewMode::FollowCamera
-                    : (selected == 1 ? BoardViewMode::ClassicFull : BoardViewMode::Mode1860);
+                    : BoardViewMode::ClassicFull;
                 return true;
             }
         }
@@ -1217,10 +1273,10 @@ bool Game::chooseBoardViewMode() {
         getmaxyx(stdscr, h, w);
         (void)h;
         const int popupW = std::min(78, std::max(60, w - 6));
-        const int popupH = 14;
-        WINDOW* popup = createCenteredWindow(popupH, popupW, 12, 50);
+        const int popupH = 11;
+        WINDOW* popup = createCenteredWindow(popupH, popupW, 11, 48);
         if (!popup) {
-            showTerminalSizeWarning(12, 50, hasColor);
+            showTerminalSizeWarning(11, 48, hasColor);
             return false;
         }
         keypad(popup, TRUE);
@@ -1235,36 +1291,25 @@ bool Game::chooseBoardViewMode() {
             mvwprintw(popup, 1, 2, "Choose Board Display");
             if (hasColor) wattroff(popup, COLOR_PAIR(GOLDRUSH_GOLD_SAND) | A_BOLD);
 
-            const char* names[] = {
-                "Follow Camera Mode",
-                "Classic / Full Board Mode",
-                "1860s Board"
-            };
-            const char* descriptions[] = {
-                "Zoomed route view centered on the current player. Minimap stays in the side panel.",
-                "Full route overview using the classic board symbols, regions, and landmarks.",
-                "Use the 1860-inspired checkered board and movement view."
-            };
-
-            for (int i = 0; i < 3; ++i) {
-                const int row = 4 + (i * 3);
+            for (int i = 0; i < 2; ++i) {
+                const int row = 3 + (i * 2);
                 if (selected == i) wattron(popup, A_REVERSE | A_BOLD);
                 mvwprintw(popup, row, 4, "%s",
-                          clipUiText(std::to_string(i + 1) + ". " + names[i],
+                          clipUiText(std::to_string(i + 1) + ". " + primaryNames[i],
                                      static_cast<std::size_t>(std::max(1, popupActualW - 6))).c_str());
                 if (selected == i) wattroff(popup, A_REVERSE | A_BOLD);
                 mvwprintw(popup,
                           row + 1,
                           7,
                           "%s",
-                          clipUiText(descriptions[i], static_cast<std::size_t>(popupActualW - 10)).c_str());
+                          clipUiText(primaryDescriptions[i], static_cast<std::size_t>(popupActualW - 10)).c_str());
             }
 
             mvwprintw(popup, popupActualH - 3, 2, "%s",
                       clipUiText("Use UP/DOWN or A/D. ENTER select. ESC back.",
                                  static_cast<std::size_t>(std::max(1, popupActualW - 4))).c_str());
             mvwprintw(popup, popupActualH - 2, 2, "%s",
-                      clipUiText(std::string("Selected: ") + names[selected],
+                      clipUiText(std::string("Selected: ") + primaryNames[selected],
                                  static_cast<std::size_t>(std::max(1, popupActualW - 4))).c_str());
             wrefresh(popup);
 
@@ -1282,21 +1327,25 @@ bool Game::chooseBoardViewMode() {
                 ch == 'd' || ch == 'D' ||
                 ch == 'w' || ch == 'W' ||
                 ch == 's' || ch == 'S') {
-                if (ch == KEY_LEFT || ch == KEY_UP || ch == 'a' || ch == 'A' || ch == 'w' || ch == 'W') {
-                    selected = (selected + 2) % 3;
-                } else {
-                    selected = (selected + 1) % 3;
-                }
-            } else if (ch == '1' || ch == '2' || ch == '3') {
+                selected = (selected + 1) % 2;
+            } else if (ch == '1' || ch == '2') {
                 selected = ch - '1';
             } else if (isCancelKey(ch)) {
                 delwin(popup);
                 return false;
             } else if (isConfirmKey(ch)) {
-                boardViewMode = selected == 0
-                    ? BoardViewMode::FollowCamera
-                    : (selected == 1 ? BoardViewMode::ClassicFull : BoardViewMode::Mode1860);
                 delwin(popup);
+                if (selected == 0) {
+                    boardViewMode = BoardViewMode::Mode1860;
+                    return true;
+                }
+                const int otherChoice = chooseOtherStylesFallback();
+                if (otherChoice < 0) {
+                    break;
+                }
+                boardViewMode = otherChoice == 0
+                    ? BoardViewMode::FollowCamera
+                    : BoardViewMode::ClassicFull;
                 return true;
             }
         }
@@ -1452,15 +1501,13 @@ void Game::maybeShowSabotageUnlock(int playerIndex) {
     if (msgWin) { touchwin(msgWin); wrefresh(msgWin); }
 
 
-    // Force a redraw
     renderGame(playerIndex,
                players[playerIndex].name + "'s turn - Sabotage Unlocked!",
                "Press ENTER to continue...");
-    
-    if (!autoAdvanceUi && msgWin) {
-        int msgH, msgW;
-        getmaxyx(msgWin, msgH, msgW);
-        waitForEnterPrompt(msgWin, msgH - 2, 2, "Press ENTER to continue...");
+    if (msgWin) {
+        draw_message_ui(msgWin,
+                        players[playerIndex].name + "'s turn - Sabotage Unlocked!",
+                        "Press ENTER to continue...");
     }
 
     autoAdvanceUi = previousAutoAdvance;
@@ -2778,29 +2825,15 @@ int Game::maxRewardForTier(int tier) const {
 }
 
 void Game::showInfoPopup(const std::string& line1, const std::string& line2) const {
-    int msgHeight = 0;
-    int msgWidth = 0;
-    getmaxyx(msgWin, msgHeight, msgWidth);
-    drawEventMessage(msgWin,
-                     clipUiText(line1, static_cast<std::size_t>(std::max(8, msgWidth - 12))),
-                     clipUiText(line2, static_cast<std::size_t>(std::max(8, msgWidth - 4))));
-    blinkIndicator(msgWin,
-                   1,
-                   2,
-                   clipUiText(line1, static_cast<std::size_t>(std::max(8, msgWidth - 12))),
-                   hasColor,
-                   GOLDRUSH_GOLD_SAND,
-                   2,
-                   2000,
-                   std::max(8, msgWidth - 4));
-    if (autoAdvanceUi) {
-        return;
-    }
-    const std::string prompt = "Press ENTER to continue...";
-    waitForEnterPrompt(msgWin,
-                       std::max(1, msgHeight - 2),
-                       std::max(2, (msgWidth - static_cast<int>(prompt.size())) / 2),
-                       prompt);
+    if (titleWin) { touchwin(titleWin); wrefresh(titleWin); }
+    if (boardWin) { touchwin(boardWin); wrefresh(boardWin); }
+    if (infoWin) { touchwin(infoWin); wrefresh(infoWin); }
+    if (msgWin) { touchwin(msgWin); wrefresh(msgWin); }
+    showPopupMessage(line1, line2, hasColor, autoAdvanceUi);
+    if (titleWin) { touchwin(titleWin); wrefresh(titleWin); }
+    if (boardWin) { touchwin(boardWin); wrefresh(boardWin); }
+    if (infoWin) { touchwin(infoWin); wrefresh(infoWin); }
+    if (msgWin) { touchwin(msgWin); wrefresh(msgWin); }
 }
 
 void Game::showTurnSummaryPopup(int playerIndex,
@@ -2868,6 +2901,10 @@ void Game::showTurnSummaryPopup(int playerIndex,
                                       " to Space " + std::to_string(endTile) + ".");
     summary.importantEvents.push_back("Landed on " + getTileDisplayName(end) + ".");
     summary.importantEvents.push_back(describeTileEffectText(end));
+    if (titleWin) { touchwin(titleWin); wrefresh(titleWin); }
+    if (boardWin) { touchwin(boardWin); wrefresh(boardWin); }
+    if (infoWin) { touchwin(infoWin); wrefresh(infoWin); }
+    if (msgWin) { touchwin(msgWin); wrefresh(msgWin); }
     showTurnSummaryReport(summary, hasColor);
     if (titleWin) touchwin(titleWin);
     if (boardWin) touchwin(boardWin);
@@ -3698,6 +3735,7 @@ bool Game::moveHumanManually1860(int currentPlayer, int steps) {
 
     int remaining = std::max(0, steps);
     bool moved = false;
+    bool effectAppliedOnCurrentTile = false;
     keypad(boardWin, TRUE);
     while (remaining > 0 && !player.retired) {
         const std::vector<int> adjacent = validAdjacent1860Tiles(player.tile);
@@ -3756,6 +3794,7 @@ bool Game::moveHumanManually1860(int currentPlayer, int steps) {
         player.tile = nextTile;
         moved = true;
         --remaining;
+        effectAppliedOnCurrentTile = false;
         renderGame(currentPlayer,
                    player.name + " moved to " + getTileDisplayName(board.tileAt(player.tile)),
                    "1860 manual movement. Goal: move toward Retirement in the top-right.");
@@ -3767,11 +3806,11 @@ bool Game::moveHumanManually1860(int currentPlayer, int steps) {
         }
         if (board.isStopSpace(board.tileAt(player.tile))) {
             applyTileEffect(currentPlayer, board.tileAt(player.tile));
-            return moved;
+            effectAppliedOnCurrentTile = true;
         }
     }
 
-    if (moved && !player.retired) {
+    if (moved && !player.retired && !effectAppliedOnCurrentTile) {
         applyTileEffect(currentPlayer, board.tileAt(player.tile));
     }
     return moved;
@@ -3788,6 +3827,7 @@ bool Game::moveCPUManually1860(int currentPlayer, int steps) {
     }
 
     bool moved = false;
+    bool effectAppliedOnCurrentTile = false;
     for (int remaining = std::max(0, steps); remaining > 0 && !player.retired; --remaining) {
         const int nextTile = chooseCPU1860NextStep(currentPlayer, remaining);
         if (nextTile == player.tile || !isLegal1860Step(player.tile, nextTile)) {
@@ -3796,6 +3836,7 @@ bool Game::moveCPUManually1860(int currentPlayer, int steps) {
 
         player.tile = nextTile;
         moved = true;
+        effectAppliedOnCurrentTile = false;
         renderGame(currentPlayer,
                    player.name + " advances on the 1860 board",
                    "CPU movement point " + std::to_string(steps - remaining + 1) +
@@ -3808,11 +3849,11 @@ bool Game::moveCPUManually1860(int currentPlayer, int steps) {
         }
         if (board.isStopSpace(board.tileAt(player.tile))) {
             applyTileEffect(currentPlayer, board.tileAt(player.tile));
-            return moved;
+            effectAppliedOnCurrentTile = true;
         }
     }
 
-    if (moved && !player.retired) {
+    if (moved && !player.retired && !effectAppliedOnCurrentTile) {
         applyTileEffect(currentPlayer, board.tileAt(player.tile));
     }
     return moved;
@@ -4907,10 +4948,6 @@ bool Game::run() {
                     break;
                 }
                 destroyWindows(); //Very heavy duty function
-                continue;
-            }
-
-            if (!chooseBoardViewMode()) {
                 continue;
             }
 

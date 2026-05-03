@@ -38,6 +38,43 @@ void centerPrint(WINDOW* win, int y, const std::string& text, int attrs = A_NORM
     }
 }
 
+void drawSummaryArt(WINDOW* win, int startY, bool hasColor) {
+    static const char* const SUMMARY_ART[] = {
+        "   _____ _    _ __  __ __  __          _______     __",
+        "  / ____| |  | |  \\/  |  \\/  |   /\\   |  __ \\ \\   / /",
+        " | (___ | |  | | \\  / | \\  / |  /  \\  | |__) \\ \\_/ / ",
+        "  \\___ \\| |  | | |\\/| | |\\/| | / /\\ \\ |  _  / \\   /  ",
+        "  ____) | |__| | |  | | |  | |/ ____ \\| | \\ \\  | |   ",
+        " |_____/ \\____/|_|  |_|_|  |_/_/    \\_\\_|  \\_\\ |_|   ",
+        "                                                     ",
+        "                                                     "
+    };
+    const int artLines = static_cast<int>(sizeof(SUMMARY_ART) / sizeof(SUMMARY_ART[0]));
+    int w = 0;
+    int h = 0;
+    getmaxyx(win, h, w);
+    (void)h;
+    int artWidth = 0;
+    for (int i = 0; i < artLines; ++i) {
+        artWidth = std::max(artWidth, static_cast<int>(std::strlen(SUMMARY_ART[i])));
+    }
+    const int startX = std::max(2, (w - artWidth) / 2);
+
+    if (hasColor) {
+        wattron(win, COLOR_PAIR(GOLDRUSH_GOLD_SAND) | A_BOLD);
+    } else {
+        wattron(win, A_BOLD);
+    }
+    for (int i = 0; i < artLines; ++i) {
+        mvwprintw(win, startY + i, startX, "%s", SUMMARY_ART[i]);
+    }
+    if (hasColor) {
+        wattroff(win, COLOR_PAIR(GOLDRUSH_GOLD_SAND) | A_BOLD);
+    } else {
+        wattroff(win, A_BOLD);
+    }
+}
+
 //Input: vector lines, amount, string gainLabel, string lossLabel, string unit, int gainColor, int lossColor
 //Output: none
 //Purpose: add line to summary regarding unit changes, when change amount != 0
@@ -159,7 +196,8 @@ void showTurnSummaryReport(const TurnSummary& summary, bool hasColor) {
         const UILayout layout = calculateUILayout(screenH, screenW);
         const int boardInnerW = std::max(48, layout.boardWidth - 4);
         const int boardInnerH = std::max(14, layout.boardHeight - 4);
-        const int desiredW = std::min(76, std::max(48, boardInnerW));
+        const int minimumSummaryWidth = 58;
+        const int desiredW = std::min(76, std::max(minimumSummaryWidth, boardInnerW));
         const int desiredH = std::min(std::max(18, 8 + static_cast<int>(lines.size()) * 3), boardInnerH);
         const int popupW = std::max(48, std::min(desiredW, boardInnerW));
         const int popupH = std::max(14, std::min(desiredH, boardInnerH));
@@ -184,23 +222,13 @@ void showTurnSummaryReport(const TurnSummary& summary, bool hasColor) {
         werase(popup);
         drawBoxSafe(popup);
 
-        if (hasColor) {
-            wattron(popup, COLOR_PAIR(GOLDRUSH_GOLD_SAND) | A_BOLD);
-        }
-            centerPrint(popup, 1, " ____  _   _ __  __ __  __    _     ____  __    __", A_BOLD);
-            centerPrint(popup, 2, "/ ___|| | | |  \\/ |  \\/ |  / \\  |  _ \\ \\  / /", A_BOLD);
-            centerPrint(popup, 3, "\\___ \\| | | | \\/| | \\/| |/ _ \\ | |_) | \\ V /", A_BOLD);
-            centerPrint(popup, 4, " ___) | |_| | |  | | |  | |  __/ |  _ <   | |", A_BOLD);
-            centerPrint(popup, 5, "|____/ \\___/|_|  |_|_|  |_|\\___| |_| \\_\\  |_|", A_BOLD);
-        if (hasColor) {
-            wattroff(popup, COLOR_PAIR(GOLDRUSH_GOLD_SAND) | A_BOLD);
-        }
+        drawSummaryArt(popup, 1, hasColor);
         centerPrint(popup,
-                    7,
+                    8,
                     summary.playerName + " End-of-Turn " + std::to_string(summary.turnNumber) + " Summary",
                     A_BOLD);
 
-        int y = 9;
+        int y = 10;
         for (std::size_t i = 0; i < lines.size(); ++i) {
             drawSummarySection(popup, y, lines[i], actualW);
         }

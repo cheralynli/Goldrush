@@ -1447,9 +1447,6 @@ void drawMode1860Board(WINDOW* boardWin,
     if (roomy) {
         renderMode1860SymbolLegend(boardWin, 3, useModeColors);
     }
-    const std::string goalLine = "Goal: move toward Retirement in the top-right. A sufficient spin can enter Retirement.";
-    mvwprintw(boardWin, roomy ? 4 : 3, 2, "%s", clipText(goalLine, maxX - 4).c_str());
-
     for (int row = 0; row < visibleRows; ++row) {
         for (int col = 0; col < visibleCols; ++col) {
             const int boardRow = cameraRow + row;

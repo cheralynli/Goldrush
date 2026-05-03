@@ -114,12 +114,17 @@ void drawCell(WINDOW* win, int y, int x, const std::string& symbol, bool isRevea
 //Purpose: draws ASCII art title for Memory Match
 //Relation: called at the start of playMemoryMatchMinigame for UI
 void drawAsciiTitle(WINDOW* win, int screenW, bool hasColor) {
+    int titleWidth = 0;
+    for (const auto& line : MEMORY_TITLE) {
+        titleWidth = std::max(titleWidth, static_cast<int>(line.size()));
+    }
+    const int startX = std::max(0, (screenW - titleWidth) / 2);
+
     if (hasColor) {
         wattron(win, COLOR_PAIR(GOLDRUSH_GOLD_SAND) | A_BOLD);
     }
     for (std::size_t i = 0; i < MEMORY_TITLE.size(); ++i) {
-        mvwprintw(win, static_cast<int>(i), (screenW - static_cast<int>(MEMORY_TITLE[i].size())) / 2,
-                  "%s", MEMORY_TITLE[i].c_str());
+        mvwprintw(win, static_cast<int>(i), startX, "%s", MEMORY_TITLE[i].c_str());
     }
     if (hasColor) {
         wattroff(win, COLOR_PAIR(GOLDRUSH_GOLD_SAND) | A_BOLD);

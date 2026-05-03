@@ -357,7 +357,7 @@ void showPopupMessage(const std::string& title,
         wrapped.insert(wrapped.end(), part.begin(), part.end());
     }
 
-    int popupH = std::min(std::max(12, static_cast<int>(wrapped.size()) + 8), h - 2);
+    int popupH = std::min(std::max(15, static_cast<int>(wrapped.size()) + 11), h - 2);
     WINDOW* popup = createCenteredWindow(popupH, popupW, 8, 32);
     if (!popup) {
         showTerminalSizeWarning(8, 32, hasColor, !autoAdvance);
@@ -387,28 +387,30 @@ void showPopupMessage(const std::string& title,
                    0,
                    actualContentW);
 
-    const int maxLines = popupH - 5;
+    const int bodyStartY = 5;
+    const int promptY = popupH - 2;
+    const int maxLines = std::min(std::max(0, promptY - bodyStartY - 2), static_cast<int>(wrapped.size()));
     for (int i = 0; i < maxLines && i < static_cast<int>(wrapped.size()); ++i) {
-        mvwprintw(popup, 4 + i, 3, "%s", clipUiText(wrapped[static_cast<std::size_t>(i)],
+        mvwprintw(popup, bodyStartY + i, 3, "%s", clipUiText(wrapped[static_cast<std::size_t>(i)],
                                                      static_cast<std::size_t>(actualContentW)).c_str());
     }
 
     if (autoAdvance) {
-        mvwprintw(popup, popupH - 3, 3, "%s",
+        mvwprintw(popup, promptY, 3, "%s",
                   clipUiText("Continuing...", static_cast<std::size_t>(actualContentW)).c_str());
         wrefresh(popup);
         napms(2000);
     } else {
         waitForEnterPrompt(popup,
-                           popupH - 3,
+                           promptY,
                            3,
                            clipUiText("Press ENTER or ESC to continue...",
                                       static_cast<std::size_t>(actualContentW)));
     }
 
     delwin(popup);
-    touchwin(stdscr);
-    refresh();
+    wnoutrefresh(stdscr);
+    doupdate();
 }
 
 //Input: string playerName, string decision, string explanation

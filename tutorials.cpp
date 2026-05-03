@@ -11,7 +11,7 @@ namespace {
 //Output: WINDOW centeredPopup
 //Purpose: create a popup with specified dimensions
 //Relation: to display tutorials in the form of a popup
-WINDOW* centeredPopup(int height, int width) {
+WINDOW* centeredPopupInScreen(int height, int width) {
     int screenH = 0;
     int screenW = 0;
     getmaxyx(stdscr, screenH, screenW);
@@ -24,6 +24,43 @@ WINDOW* centeredPopup(int height, int width) {
     }
     keypad(popup, TRUE);
     return popup;
+}
+
+WINDOW* centeredPopupInBoard(int height, int width) {
+    int screenH = 0;
+    int screenW = 0;
+    getmaxyx(stdscr, screenH, screenW);
+    const UILayout layout = calculateUILayout(screenH, screenW);
+    const int boardOuterY = layout.originY + layout.headerHeight;
+    const int boardOuterX = layout.originX;
+    const int boardInnerY = boardOuterY + 1;
+    const int boardInnerX = boardOuterX + 1;
+    const int boardInnerH = std::max(8, layout.boardHeight - 2);
+    const int boardInnerW = std::max(40, layout.boardWidth - 2);
+
+    const int popupH = std::min(height, std::max(8, boardInnerH - 4));
+    const int popupW = std::min(width, std::max(40, boardInnerW - 8));
+    const int popupY = boardInnerY + std::max(0, (boardInnerH - popupH) / 2);
+    const int popupX = boardInnerX + std::max(0, (boardInnerW - popupW) / 2);
+
+    if (popupY < 0 || popupX < 0 || popupY + popupH > screenH || popupX + popupW > screenW) {
+        showTerminalSizeWarning(8, 40, has_colors());
+        return nullptr;
+    }
+
+    WINDOW* popup = newwin(popupH, popupW, popupY, popupX);
+    if (!popup) {
+        showTerminalSizeWarning(8, 40, has_colors());
+        return nullptr;
+    }
+    apply_ui_background(popup);
+    keypad(popup, TRUE);
+    return popup;
+}
+
+WINDOW* centeredPopup(int height, int width, bool insideBoard) {
+    return insideBoard ? centeredPopupInBoard(height, width)
+                       : centeredPopupInScreen(height, width);
 }
 
 //Input: WINDOW win, int y(rows), string text, int attrs
@@ -43,6 +80,86 @@ void drawCentered(WINDOW* win, int y, const std::string& text, int attrs = A_NOR
     if (attrs != A_NORMAL) {
         wattroff(win, attrs);
     }
+}
+
+void drawAsciiBlock(WINDOW* win,
+                    int startY,
+                    const std::vector<std::string>& lines,
+                    int attrs = A_NORMAL) {
+    int height = 0;
+    int width = 0;
+    getmaxyx(win, height, width);
+    (void)height;
+    int blockWidth = 0;
+    for (std::size_t i = 0; i < lines.size(); ++i) {
+        blockWidth = std::max(blockWidth, static_cast<int>(lines[i].size()));
+    }
+    const int startX = std::max(1, (width - blockWidth) / 2);
+    if (attrs != A_NORMAL) {
+        wattron(win, attrs);
+    }
+    for (std::size_t i = 0; i < lines.size(); ++i) {
+        mvwprintw(win, startY + static_cast<int>(i), startX, "%s", lines[i].c_str());
+    }
+    if (attrs != A_NORMAL) {
+        wattroff(win, attrs);
+    }
+}
+
+void drawColorSwatch(WINDOW* win, int y, int x, int colorPair) {
+    wattron(win, COLOR_PAIR(colorPair) | A_REVERSE);
+    mvwprintw(win, y, x, "   ");
+    wattroff(win, COLOR_PAIR(colorPair) | A_REVERSE);
+}
+
+bool is1860BoardColorsPage(const std::vector<std::string>& lines) {
+    return !lines.empty() && lines.front() == "1860 BOARD COLORS";
+}
+
+void draw1860BoardColorsPage(WINDOW* popup, int height, int width) {
+    struct LegendRow {
+        const char* label;
+        const char* text;
+        int colorPair;
+    };
+
+    const LegendRow rows[] = {
+        {"Pay/Safe", "steadier money and usually the safer route", GOLDRUSH_TILE_PAYDAY},
+        {"Action", "life and board events", GOLDRUSH_TILE_ACTION},
+        {"Mini", "side challenges and minigames", GOLDRUSH_TILE_MINIGAME},
+        {"Risk", "bigger rewards, but painful setbacks", GOLDRUSH_TILE_RISK},
+        {"Job", "salary and career progress", GOLDRUSH_TILE_CAREER},
+        {"Family", "family-related events and choices", GOLDRUSH_TILE_MINIGAME}
+    };
+
+    const int leftX = 2;
+    int y = 3;
+    mvwprintw(popup, y++, leftX, "%s", "1860 BOARD COLORS");
+    ++y;
+
+    for (const auto& row : rows) {
+        if (y >= height - 4) {
+            break;
+        }
+        drawColorSwatch(popup, y, leftX, row.colorPair);
+        wattron(popup, A_BOLD);
+        mvwprintw(popup, y, leftX + 5, "%s", row.label);
+        wattroff(popup, A_BOLD);
+        mvwprintw(popup, y, leftX + 15, "- %s", row.text);
+        ++y;
+    }
+
+    if (y < height - 4) {
+        ++y;
+        mvwprintw(popup,
+                  y++,
+                  leftX,
+                  "%s",
+                  "Symbols: S Start, R Retire, A Action, M Mini, ! Risk, + Safe, J Job, F Family.");
+    }
+
+    mvwprintw(popup, height - 2, 2, "%s",
+              clipUiText("ENTER next  ESC back", static_cast<std::size_t>(std::max(1, width - 4))).c_str());
 }
 }
 
@@ -182,15 +299,19 @@ void showPagedGuide(const std::string& title,
                     const std::vector<std::vector<std::string> >& pages,
                     bool hasColor) {
     const int pageCount = std::max(1, static_cast<int>(pages.size()));
+    const bool insideBoard = title != "QUICK GUIDE" && title != "FIRST-TIME TIP";
 
     for (int page = 0; page < pageCount;) {
-        if (hasColor) {
-            bkgd(COLOR_PAIR(GOLDRUSH_GOLD_BLACK));
+        const std::vector<std::string>& lines = pages[static_cast<std::size_t>(page)];
+        std::vector<std::string> wrappedLines;
+        const int initialBodyWidth = 80;
+        for (const std::string& line : lines) {
+            const std::vector<std::string> wrapped = wrapUiText(line, static_cast<std::size_t>(initialBodyWidth));
+            wrappedLines.insert(wrappedLines.end(), wrapped.begin(), wrapped.end());
         }
-        clear();
-        refresh();
 
-        WINDOW* popup = centeredPopup(20, 84);
+        const int popupH = std::min(24, std::max(18, static_cast<int>(wrappedLines.size()) + 8));
+        WINDOW* popup = centeredPopup(popupH, 84, insideBoard);
         if (!popup) {
             return;
         }
@@ -198,6 +319,14 @@ void showPagedGuide(const std::string& title,
         int height = 0;
         int width = 0;
         getmaxyx(popup, height, width);
+
+        wrappedLines.clear();
+        const int bodyWidth = std::max(8, width - 4);
+        for (const std::string& line : lines) {
+            const std::vector<std::string> wrapped = wrapUiText(line, static_cast<std::size_t>(bodyWidth));
+            wrappedLines.insert(wrappedLines.end(), wrapped.begin(), wrapped.end());
+        }
+
         werase(popup);
         drawBoxSafe(popup);
         if (hasColor) {
@@ -208,27 +337,25 @@ void showPagedGuide(const std::string& title,
             wattroff(popup, COLOR_PAIR(GOLDRUSH_GOLD_SAND) | A_BOLD);
         }
 
-        const std::vector<std::string>& lines = pages[static_cast<std::size_t>(page)];
-        const int maxLines = std::max(1, height - 6);
-        for (int i = 0; i < maxLines && i < static_cast<int>(lines.size()); ++i) {
-            mvwprintw(popup,
-                      3 + i,
-                      2,
-                      "%s",
-                      clipUiText(lines[static_cast<std::size_t>(i)],
-                                 static_cast<std::size_t>(std::max(8, width - 4))).c_str());
-        }
+        if (is1860BoardColorsPage(lines)) {
+            draw1860BoardColorsPage(popup, height, width);
+        } else {
+            const int maxLines = std::max(1, height - 6);
+            for (int i = 0; i < maxLines && i < static_cast<int>(wrappedLines.size()); ++i) {
+                mvwprintw(popup,
+                          3 + i,
+                          2,
+                          "%s",
+                          wrappedLines[static_cast<std::size_t>(i)].c_str());
+            }
 
-        mvwprintw(popup, height - 2, 2, "%s",
-                  clipUiText("ENTER next  ESC back", static_cast<std::size_t>(std::max(1, width - 4))).c_str());
+            mvwprintw(popup, height - 2, 2, "%s",
+                      clipUiText("ENTER next  ESC back", static_cast<std::size_t>(std::max(1, width - 4))).c_str());
+        }
         wrefresh(popup);
         const int ch = wgetch(popup);
         delwin(popup);
         if (ch == KEY_RESIZE) {
-            delwin(popup);
-            // Clear screen and continue - will recreate popup on next iteration
-            clear();
-            refresh();
             continue;  // Don't change page, just redraw
         }
         if (isCancelKey(ch)) {
@@ -255,6 +382,31 @@ void showPreGameQuickGuide(bool hasColor) {
         "Cash pays for choices, penalties, houses, and big events.",
         "If you cannot afford a payment, the game may automatically give you loans.",
         "Manual loans are emergency cash, but every loan reduces your final score."
+    });
+    pages.push_back({
+        "1860 BOARD GOAL",
+        "",
+        "On the 1860 board, you begin near the bottom-left and work toward the top-right.",
+        "Your goal is to reach Retirement in the top-right corner before your rivals do.",
+        "Each spin determines how many movement points you can spend.",
+        "Plan your route carefully, avoid risky spaces when possible, and use safer stops to protect your money."
+    });
+    pages.push_back({
+        "1860 MOVEMENT",
+        "",
+        "A spin gives the maximum number of movement points you may spend that turn.",
+        "You can move up to what you spun, not necessarily the full amount.",
+        "If you land on a stop or event tile before using every point, its effect happens first and then you may keep moving.",
+        "So a big spin gives more options, and you can keep spending points until they run out or you choose to stop."
+    });
+    pages.push_back({
+        "1860 BOARD COLORS",
+        "",
+        "Pay/Safe spaces give steadier money and are usually the safer route.",
+        "Action spaces trigger life or board events. Mini spaces lead to side challenges.",
+        "Risk spaces can pay more, but they can also punish you badly.",
+        "Job spaces shape salary progress, and Family spaces push family-related events.",
+        "The symbols help too: S Start, R Retire, A Action, M Mini, ! Risk, + Safe, J Job, F Family."
     });
     pages.push_back({
         "JOBS, SALARY, AND INVESTMENTS",
@@ -326,6 +478,22 @@ void showFullGuide(const Board& board, const RuleSet& rules, bool sabotageUnlock
         "ESC is the universal back/cancel/quit key."
     });
     pages.push_back({
+        "1860 MOVEMENT",
+        "",
+        "On the 1860 board, you start at the bottom-left and work toward Retirement in the top-right.",
+        "A spin gives the maximum movement points you may spend on that turn.",
+        "You may stop before spending them all, and landing on a stop/event tile only pauses for its effect before movement can continue.",
+        "That means a big spin gives you more route choices instead of forcing a hard stop halfway through."
+    });
+    pages.push_back({
+        "1860 BOARD COLORS",
+        "",
+        "Pay/Safe spaces are the steadier money route.",
+        "Action spaces trigger board events, Mini spaces lead to side challenges, and Risk spaces are high-reward but dangerous.",
+        "Job spaces affect salary progress, while Family spaces lead to family-style events.",
+        "Symbols: S Start, R Retire, A Action, M Mini, ! Risk, + Safe, J Job, F Family."
+    });
+    pages.push_back({
         "ECONOMY AND LOANS",
         "",
         "Cash is your main resource.",
@@ -363,7 +531,7 @@ void showFullGuide(const Board& board, const RuleSet& rules, bool sabotageUnlock
 //Purpose: ask user to confirm quit
 //Relation: used in showStartScreen
 bool showQuitConfirmation(bool hasColor) {
-    WINDOW* popup = centeredPopup(10, 56);
+    WINDOW* popup = centeredPopup(10, 56, true);
     if (!popup) {
         return false;
     }
@@ -413,7 +581,7 @@ void showSabotageUnlockAnimation(bool hasColor) {
     art.push_back(" ___) / ___ \\| |_) | |_| || |/ ___ \\ |_| | |___");
     art.push_back("|____/_/   \\_\\____/ \\___/ |_/_/   \\_\\____|_____|");
 
-    WINDOW* popup = centeredPopup(15, 72);
+    WINDOW* popup = centeredPopup(15, 72, true);
     if (!popup) {
         return;
     }
@@ -424,9 +592,7 @@ void showSabotageUnlockAnimation(bool hasColor) {
         if (hasColor) {
             wattron(popup, COLOR_PAIR(colorPair) | A_BOLD);
         }
-        for (std::size_t i = 0; i < art.size(); ++i) {
-            drawCentered(popup, 3 + static_cast<int>(i), art[i], A_BOLD);
-        }
+        drawAsciiBlock(popup, 3, art, A_BOLD);
         drawCentered(popup, 10, "SABOTAGE UNLOCKED!", A_BOLD);
         if (hasColor) {
             wattroff(popup, COLOR_PAIR(colorPair) | A_BOLD);
@@ -437,11 +603,12 @@ void showSabotageUnlockAnimation(bool hasColor) {
     int height = 0;
     int width = 0;
     getmaxyx(popup, height, width);
-    mvwprintw(popup, height - 2, 2, "%s",
-              clipUiText("Press ENTER or ESC to continue...",
-                         static_cast<std::size_t>(std::max(1, width - 4))).c_str());
+    drawCentered(popup,
+                 height - 3,
+                 clipUiText("Press ENTER or ESC to continue...",
+                            static_cast<std::size_t>(std::max(1, width - 4))));
     wrefresh(popup);
-    waitForEnterPrompt(popup, height - 2, 2, "");
+    waitForEnterPrompt(popup, height - 3, std::max(1, (width - 32) / 2), "");
     delwin(popup);
 }
 
