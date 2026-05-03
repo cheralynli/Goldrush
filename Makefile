@@ -30,7 +30,10 @@ debug: $(DEBUG_OBJS)
 	$(CXX) $(CXXFLAGS) -o debug $(DEBUG_OBJS) $(LIBS) $(FS_LIBS)
 
 clean:
-	rm -f *.o gameoflife debug
+	rm -f *.o gameoflife
+	rm -f saves/*.sav
+	rm -f saves/*.log
+	rm -f *.sav
 
 run: gameoflife
 	./gameoflife
