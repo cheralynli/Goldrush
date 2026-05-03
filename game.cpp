@@ -2578,7 +2578,7 @@ char Game::showCharacterCustomisationPopup(const std::vector<char>& unavailableV
         mvwprintw(popup, previewY + 1, previewX, "| %-12s |", displayName.c_str());
 
         wattron(popup, A_BOLD);
-        mvwprintw(popup, previewY + 2, previewX, "|              |", symbols[selected]);
+        mvwprintw(popup, previewY + 2, previewX, "|      %c       |", symbols[selected]);
         wattroff(popup, A_BOLD);
 
         std::string playerTypeText = (type == PlayerType::CPU) ? "CPU" : "HUMAN";

@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <cstdlib>
+#include <cstring>
 
 #include <ncurses.h>
 
@@ -234,7 +235,7 @@ void showTurnSummaryReport(const TurnSummary& summary, bool hasColor) {
         }
 
         mvwprintw(popup, actualH - 2, 3, "%s",
-                  clipUiText("Press ENTER or ESC to continue...", static_cast<std::size_t>(std::max(1, actualW - 5))).c_str());
+                  clipUiText("\nPress ENTER or ESC to continue...", static_cast<std::size_t>(std::max(1, actualW - 5))).c_str());
         wrefresh(popup);
 
         const int ch = wgetch(popup);
