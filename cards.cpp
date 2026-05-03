@@ -386,10 +386,14 @@ bool restoreDeckStateInternal(Deck<T>& deck,
 
 }
 
+//Purpose: checks if card has roll outcomes
+//Relation: used in gameplay resolution
 bool actionCardUsesRoll(const ActionCard& card) {
     return !card.rollOutcomes.empty();
 }
 
+//Purpose: evaluates if roll matches condition
+//Relation: used in findMatchingRollOutcome
 bool matchesRollCondition(const RollCondition& condition, int roll) {
     switch (condition.kind) {
         case ROLL_ANY:
@@ -407,6 +411,8 @@ bool matchesRollCondition(const RollCondition& condition, int roll) {
     }
 }
 
+//Purpose: finds first matching roll outcome
+//Relation: resolves roll-based cards
 const ActionRollOutcome* findMatchingRollOutcome(const ActionCard& card, int roll) {
     for (std::size_t i = 0; i < card.rollOutcomes.size(); ++i) {
         if (matchesRollCondition(card.rollOutcomes[i].condition, roll)) {
@@ -416,6 +422,8 @@ const ActionRollOutcome* findMatchingRollOutcome(const ActionCard& card, int rol
     return 0;
 }
 
+//Purpose: human-readable description of condition.
+//Relation: used in UI
 std::string describeRollCondition(const RollCondition& condition) {
     switch (condition.kind) {
         case ROLL_ANY:
@@ -433,6 +441,7 @@ std::string describeRollCondition(const RollCondition& condition) {
     }
 }
 
+//Initializes all decks (action, career, house, invest, pet) with rules and RNG
 DeckManager::DeckManager(const RuleSet& rules, RandomService& randomService)
     : ruleset(rules),
       actionDeck(randomService),
@@ -444,19 +453,23 @@ DeckManager::DeckManager(const RuleSet& rules, RandomService& randomService)
     initDecks(true);
 }
 
+//resets decks with new rules
 void DeckManager::reset(const RuleSet& rules, bool reshuffle) {
     ruleset = rules;
     initDecks(reshuffle);
 }
 
+//returns current ruleset
 const RuleSet& DeckManager::rules() const {
     return ruleset;
 }
 
+//manage action cards
 bool DeckManager::drawActionCard(ActionCard& card) {
     return actionDeck.draw(card);
 }
 
+//manage action cards
 void DeckManager::resolveActionCard(const ActionCard& card, bool keepCard) {
     if (keepCard) {
         return;
@@ -464,6 +477,7 @@ void DeckManager::resolveActionCard(const ActionCard& card, bool keepCard) {
     actionDeck.discard(card);
 }
 
+//manage career selection
 std::vector<CareerCard> DeckManager::drawCareerChoices(bool requiresDegree, int count) {
     std::vector<CareerCard> choices;
     if (count <= 0) {
@@ -483,6 +497,7 @@ std::vector<CareerCard> DeckManager::drawCareerChoices(bool requiresDegree, int 
     return choices;
 }
 
+//manage career selection
 void DeckManager::resolveCareerChoices(bool requiresDegree,
                                        const std::vector<CareerCard>& choices,
                                        int keptIndex) {
@@ -495,18 +510,22 @@ void DeckManager::resolveCareerChoices(bool requiresDegree,
     }
 }
 
+//draw other card types
 bool DeckManager::drawHouseCard(HouseCard& card) {
     return houseDeck.draw(card);
 }
 
+//draw other card types
 bool DeckManager::drawInvestCard(InvestCard& card) {
     return investDeck.draw(card);
 }
 
+//draw other card types
 bool DeckManager::drawPetCard(PetCard& card) {
     return petDeck.draw(card);
 }
 
+//serialize deck state
 SerializedDeckState DeckManager::deckState(DeckSlot slot) const {
     switch (slot) {
         case DECK_ACTION:
@@ -526,6 +545,7 @@ SerializedDeckState DeckManager::deckState(DeckSlot slot) const {
     }
 }
 
+//restore deck from save
 bool DeckManager::restoreDeckState(DeckSlot slot,
                                    const SerializedDeckState& state,
                                    std::string& error) {
@@ -574,6 +594,7 @@ bool DeckManager::restoreDeckState(DeckSlot slot,
     }
 }
 
+//initialize all decks
 void DeckManager::initDecks(bool reshuffle) {
     initActionDeck(reshuffle);
     initCareerDecks(reshuffle);
@@ -582,10 +603,12 @@ void DeckManager::initDecks(bool reshuffle) {
     initPetDeck(reshuffle);
 }
 
+//initialize specific decks
 void DeckManager::initActionDeck(bool reshuffle) {
     actionDeck.reset(expandDeck(actionPrototypes(), ruleset.components.actionCards), reshuffle);
 }
 
+//initialize specific decks
 void DeckManager::initCareerDecks(bool reshuffle) {
     collegeCareerDeck.reset(
         expandDeck(collegeCareerPrototypes(), ruleset.components.collegeCareerCards),
@@ -595,14 +618,17 @@ void DeckManager::initCareerDecks(bool reshuffle) {
         reshuffle);
 }
 
+//initialize specific decks
 void DeckManager::initHouseDeck(bool reshuffle) {
     houseDeck.reset(expandDeck(housePrototypes(), ruleset.components.houseCards), reshuffle);
 }
 
+//initialize specific decks
 void DeckManager::initInvestDeck(bool reshuffle) {
     investDeck.reset(expandDeck(investPrototypes(ruleset), ruleset.components.investCards), reshuffle);
 }
 
+//initialize specific decks
 void DeckManager::initPetDeck(bool reshuffle) {
     petDeck.reset(expandDeck(petPrototypes(), ruleset.components.petCards), reshuffle);
 }
