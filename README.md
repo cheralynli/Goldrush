@@ -220,6 +220,7 @@ make run-debug  # Run debug suite
 make clean      # Clean build files
 
 ## How to play
+- git clone "https://github.com/cheralynli/Goldrush.git"
 - cd Goldrush
 - make clean
 - make gameoflife
