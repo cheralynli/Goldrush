@@ -1214,8 +1214,8 @@ void Game::showControlsPopup() const {
 void Game::showScoreboardPopup() const {
     int h, w;
     getmaxyx(stdscr, h, w);
-    const int popupH = std::min(28, std::max(18, h - 4));
-    const int popupW = std::min(104, std::max(92, w - 8));
+    const int popupH = std::min(36, std::max(36, h - 4));
+    const int popupW = std::min(124, std::max(112, w - 8));
     WINDOW* popup = createCenteredWindow(popupH, popupW, 18, 70);
     if (!popup) {
         showTerminalSizeWarning(18, 70, hasColor);
@@ -1227,8 +1227,15 @@ void Game::showScoreboardPopup() const {
     int actualPopupW = 0;
     getmaxyx(popup, actualPopupH, actualPopupW);
 
-    WINDOW* scoreWin = derwin(popup, actualPopupH - 4, 56, 2, 2);
-    WINDOW* mapWin = derwin(popup, actualPopupH - 4, actualPopupW - 61, 2, 59);
+    const int scoreW = 58;
+    const int gap = 2;
+    const int scoreX = 2;
+    const int mapX = scoreX + scoreW + gap;
+    const int innerH = actualPopupH - 4;
+    const int mapW = actualPopupW - mapX - 2;
+
+    WINDOW* scoreWin = derwin(popup, innerH, scoreW, 2, scoreX);
+    WINDOW* mapWin = derwin(popup, innerH, mapW, 2, mapX);
     if (!scoreWin || !mapWin) {
         if (mapWin) delwin(mapWin);
         if (scoreWin) delwin(scoreWin);
@@ -1300,7 +1307,7 @@ void Game::showScoreboardPopup() const {
               clipMenuText(getTileDisplayName(board.tileAt(players[currentPlayerIndex].tile)), scoreWinW - 18).c_str());
     wrefresh(scoreWin);
 
-    drawMinimapPanel(mapWin, board, players, currentPlayerIndex);
+    drawMinimapPanel(mapWin, board, players, currentPlayerIndex, boardViewMode);
 
     mvwprintw(popup, actualPopupH - 2, 2, "Close with TAB, ENTER, or ESC.");
     wrefresh(popup);
