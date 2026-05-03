@@ -21,56 +21,38 @@ A text-based board game inspired by *The Game of Life*, built with C++ and `ncur
 
 ## Game Flow
 
-TITLE SCREEN
-  |
-  +-- New Game
-  |     |
-  |     +-- Board Mode Selection (1860 / Follow Camera / Classic Full)
-  |     |
-  |     +-- Normal Mode / Custom Mode
-  |     |
-  |     +-- Player Setup (2-4 players, Human/CPU with difficulty)
-  |     |
-  |     +-- Pre-game Quick Guide (optional)
-  |     |
-  |     +-- Main Game Loop
-  |
-  +-- Load Game (from saves/ directory)
-  |
-  +-- Quit
+### Starting the Game
 
-Main board progression:
+1. **Title Screen** - Choose one of:
+   - **New Game** → Board Mode (1860/Follow Camera/Classic Full) → Game Mode (Normal/Custom) → Player Setup (2-4 players, Human/CPU) → Optional Quick Guide → Main Game Loop
+   - **Load Game** → Select save file from saves/ directory
+   - **Quit** → Exit game
 
-START
-  |
-  +-- COLLEGE -----+
-  |                |
-  +-- CAREER ------+
-         |
-     GRADUATION
-         |
-      MARRIAGE
-         |
-     FAMILY STOP
-      /       \
-  FAMILY      LIFE
-    PATH      PATH
-      \       /
-       HOUSE / PAYDAY / ACTION
-             |
-         RISK SPLIT
-         /       \
-      SAFE      RISKY
-         \       /
-          RETIREMENT
+### Main Board Progression
+
+Players follow this path through the board:
+
+**START → COLLEGE → CAREER → GRADUATION → MARRIAGE → FAMILY STOP**
+
+At FAMILY STOP, players choose:
+- **FAMILY PATH** → leads to babies and family events
+- **LIFE PATH** → no family obligations
+
+Both paths converge at tiles with multiple types:
+- **HOUSE** - Buy a house for retirement bonus
+- **PAYDAY** - Collect salary
+- **ACTION** - Draw and resolve action cards
+- **RISK SPLIT** - Choose between SAFE (guaranteed small reward) or RISKY (big win/loss)
+
+Finally: **RETIREMENT** - End active play and lock in bonuses
 
 ## Board View Modes
 
-| Mode               | Description                                                                     |
-|------              |-------------                                                                    |
-| **1860 Mode**      | Grid-based checkered board (25x25). Start at bottom-left, reach Retirement at top-right. Movement points spent tile-by-tile each turn. |
-| **Follow Camera**  | Zoomed view centered on current player, shows 3x5 tile window with connections. |
-| **Classic Full**   | Complete route overview with traditional board layout and symbols.              |
+| Mode | Description |
+|------|-------------|
+| **1860 Mode** | Grid-based checkered board (25x25). Start at bottom-left, reach Retirement at top-right. Movement points spent tile-by-tile each turn. |
+| **Follow Camera** | Zoomed view centered on current player, shows 3x5 tile window with connections. |
+| **Classic Full** | Complete route overview with traditional board layout and symbols. |
 
 ### 1860 Mode Movement
 
@@ -82,31 +64,31 @@ START
 
 ### 1860 Tile Colors & Symbols
 
-| Color | Meaning                    | Symbol |
-|-------|---------                   |--------|
-| Green | Payday / Safe              | +      | 
-| Teal  | Action / College           | A      |
-| Mauve | Minigame / Family          | M      |
-| Red   | Risk                       | !      |
-| Blue  | Career / Job               | J      |
-| Gold  | Start / Route / Retirement | S / R  |
+| Color | Meaning | Symbol |
+|-------|---------|--------|
+| Green | Payday / Safe | + |
+| Teal | Action / College | A |
+| Mauve | Minigame / Family | M |
+| Red | Risk | ! |
+| Blue | Career / Job | J |
+| Gold | Start / Route / Retirement | S / R |
 
 ## Space Effects
 
-| Space       | Effect                                           |
-|-------      |--------                                          |
-| START       | Begin the journey                                |
-| COLLEGE     | Pay tuition and head toward degree-based careers |
-| CAREER      | Start working immediately                        |
-| GRADUATION  | Choose or confirm a career path                  |
-| MARRIAGE    | Resolve marriage and gift spin                   |
-| FAMILY STOP | Choose family path or life path                  |
-| ACTION      | Draw and resolve an action card                  |
-| PAYDAY      | Collect salary                                   |
-| HOUSE       | Buy a house                                      |
-| SAFE        | Take a lower-risk reward spin                    |
-| RISKY       | Take a higher-risk reward/loss spin              |
-| RETIREMENT  | End active play and lock in retirement bonuses   |
+| Space | Effect |
+|-------|--------|
+| START | Begin the journey |
+| COLLEGE | Pay tuition and head toward degree-based careers |
+| CAREER | Start working immediately |
+| GRADUATION | Choose or confirm a career path |
+| MARRIAGE | Resolve marriage and gift spin |
+| FAMILY STOP | Choose family path or life path |
+| ACTION | Draw and resolve an action card |
+| PAYDAY | Collect salary |
+| HOUSE | Buy a house |
+| SAFE | Take a lower-risk reward spin |
+| RISKY | Take a higher-risk reward/loss spin |
+| RETIREMENT | End active play and lock in retirement bonuses |
 
 ## Turn Summary
 
@@ -147,41 +129,17 @@ Tutorials appear once when you first encounter each mechanic:
 
 ## Minigames
 
-| Minigame      | Controls                                          | Payout                     |
-|----------     |----------                                         |--------                    |
-| Pong          | W/S or arrows move, X serves                      | $100 per paddle return     |
-| Battleship    | A/D or arrows move, Space/Enter fire, R reload    | $100 per ship destroyed    |
-| Hangman       | Type A-Z to guess, ESC exits                      | $100 per letter revealed   |
-| Memory Match  | WASD/arrows move, Enter/Space select, help        | $100 per pair + $200 bonus |
-| Minesweeper   | WASD/arrows move, Enter/Space reveal              | $100 per safe tile         |
+| Minigame | Controls | Payout |
+|----------|----------|--------|
+| Pong | W/S or arrows move, X serves | $2000 per paddle return |
+| Battleship | A/D or arrows move, Space/Enter fire, R reload | $2000 per ship destroyed |
+| Hangman | Type A-Z to guess, ESC exits | $2000 per letter revealed |
+| Memory Match | WASD/arrows move, Enter/Space select, help | $2000 per pair + $4000 bonus |
+| Minesweeper | WASD/arrows move, Enter/Space reveal | $2000 per safe tile |
 
 ## Memory Match Countdown
 
 5 second memorization phase with countdown timer. ESC shows quit confirmation. Help button (H) reveals grid for 1 second (5 uses max).
-
-## Sabotage System (Unlocks Turn 3)
-
-| Action            | Cost    | Effect                      |
-|--------|------    |-------- |--------------------------   |
-| Trap Tile         | $12,000 | Place trap on any tile      |
-| Lawsuit           | $15,000 | Roll against target         |
-| Traffic Jam       | $10,000 | Reduce target's movement    |
-| Steal Action Card | $18,000 | Steal card from target      |
-| Forced Duel       | $22,000 | Force minigame duel         |
-| Career Sabotage   | $24,000 | Reduce target's salary      |
-| Position Swap     | $90,000 | Swap tiles with target      |
-| Debt Trap         | $20,000 | Force target to take a loan |
-| Buy Shield        | $15,000 | Block one sabotage          |
-| Buy Insurance     | $20,000 | Reduce next 2 hits          |
-| Item Disable      | $16,000 | Disable target's items      |
-
-### Trap Effects
-
-- Money loss: target pays cash when triggered
-- Backward move: push target back 2-3 tiles
-- Skip turn: target loses next turn
-- Lose card: target discards an action card
-- Minigame: force target into a duel
 
 ### Custom Mode Toggles
 
@@ -199,6 +157,36 @@ Tutorials appear once when you first encounter each mechanic:
 ## Winning
 
 Final worth = cash + house value + action cards + pet cards + baby bonuses + retirement bonus - loan penalties. Highest wins with ranked breakdown.
+
+## Getting Started
+
+### Quick Launch
+
+```bash
+# Clone the repository
+git clone https://github.com/yourusername/Goldrush.git
+cd Goldrush
+
+# Install dependencies (see options below for your system)
+# macOS:
+brew install ncurses
+
+# Ubuntu/Debian/WSL:
+sudo apt-get install libncurses5-dev libncursesw5-dev
+
+# Arch Linux:
+sudo pacman -S ncurses
+
+# Build the game
+make
+
+# Then run it
+./gameoflife
+```
+
+Alternatively, you can build and run in one command with `make run`.
+
+The game will start immediately. Press `N` for new game, `L` to load a previous game, or `ESC` to quit.
 
 ## Requirements
 
@@ -219,131 +207,124 @@ make run        # Run main game
 make run-debug  # Run debug suite
 make clean      # Clean build files
 
-## How to play
-- git clone "https://github.com/cheralynli/Goldrush.git"
-- cd Goldrush
-- make clean
-- make gameoflife
-- ./gameoflife
-
 ## Save / Load
 
 Save files stored in saves/ (relative to executable). Preserves rules, player state, turn counter, history, decks, RNG state, and board view mode.
 
 ## Controls
 
-| Key         | Action               |
-|-----        |--------              |
-| N           | New game             |
-| L           | Load game            |
-| H           | History              |
-| G           | Guide                |
-| K or ?      | Controls             |
-| ESC         | Back/Cancel/Quit     |
-| Enter       | Confirm/Start turn   |
-| Space       | Spin wheel           |
-| B           | Sabotage menu        |
-| Tab         | Scoreboard + minimap |
-| S           | Save game            |
-| Up/Down     | Navigate menus       |
-| Left/Right  | Switch modes         | 
+| Key | Action |
+|-----|--------|
+| N | New game |
+| L | Load game |
+| H | History |
+| G | Guide |
+| K or ? | Controls |
+| ESC | Back/Cancel/Quit |
+| Enter | Confirm/Start turn |
+| Space | Spin wheel |
+| B | Sabotage menu |
+| Tab | Scoreboard + minimap |
+| S | Save game |
+| Up/Down | Navigate menus |
+| Left/Right | Switch modes | 
 
 ## 1860 Movement Controls (during movement phase)
-|Key       |	Action                                  | 
-|----------|------------------------------------------|
-|Up / W	   | Move north (toward Retirement)           |
-|Right / D | Move east (toward Retirement)            | 
-|Down / S	 | Move south (backward)                    |
-|Left / A	 | Move west (backward)                     |
-|Enter	   | Stop moving (keep remaining points)      |
-|ESC / Q	 | Cancel movement (undo if no steps taken) | 
+
+| Key | Action |
+|-----|--------|
+| Up / W | Move north (toward Retirement) |
+| Right / D | Move east (toward Retirement) |
+| Down / S | Move south (backward) |
+| Left / A | Move west (backward) |
+| Enter | Stop moving (keep remaining points) |
+| ESC / Q | Cancel movement (undo if no steps taken) |
 
 ## Project Structure
 
-├── main.cpp                     # Entry point
+```
+Goldrush/
+├── main.cpp                      # Entry point
 │
 ├── Game Core
-│   ├── game.hpp/cpp             # Main game flow and logic
-│   ├── game_settings.h/cpp      # Game settings management
-│   ├── rules.hpp/cpp            # Game rules and toggles
-│   └── player.hpp/cpp           # Player data structures
+│   ├── game.hpp/cpp              # Main game flow and logic
+│   ├── game_settings.h/cpp       # Game settings management
+│   ├── rules.hpp/cpp             # Game rules and toggles
+│   └── player.hpp/cpp            # Player data structures
 │
 ├── Board & Movement
-│   ├── board.hpp/cpp            # Board data, rendering, view modes
-│   ├── tile_display.h/cpp       # Tile display helpers
-│   └── spins.hpp/cpp            # Spin result mappings
+│   ├── board.hpp/cpp             # Board data, rendering, view modes
+│   ├── tile_display.h/cpp        # Tile display helpers
+│   └── spins.hpp/cpp             # Spin result mappings
 │
 ├── Cards & Decks
-│   ├── cards.hpp/cpp            # Card systems (Action, Career, House, Invest, Pet)
-│   └── deck.hpp                 # Deck management
+│   ├── cards.hpp/cpp             # Card systems (Action, Career, House, Investment, Pet)
+│   └── deck.hpp                  # Deck management
 │
 ├── Economy & Banking
-│   ├── bank.hpp/cpp             # Banking and loan management
-│   └── economy_manager.cpp      # Economy effects and actions
+│   ├── bank.hpp/cpp              # Banking and loan management
+│   └── economy_manager.cpp       # Economy effects and actions
 │
 ├── Sabotage System
-│   ├── sabotage.h/cpp           # Sabotage system core
-│   ├── sabotage_card.h/cpp      # Sabotage card definitions
-│   └── cpuai.cpp                # CPU sabotage decisions
-│
-├── AI System
-│   ├── cpu_player.hpp/cpp       # AI player decisions
-│   └── random_service.hpp       # RNG with seed support
+│   ├── sabotage.h/cpp            # Sabotage system core
+│   ├── sabotage_card.h/cpp       # Sabotage card definitions
+│   └── cpu_player.hpp/cpp        # CPU AI decisions
 │
 ├── Minigames
-│   ├── pong.hpp/cpp             # Pong minigame
-│   ├── battleship.hpp/cpp       # Battleship minigame
-│   ├── hangman.hpp/cpp          # Hangman minigame
-│   ├── memory.hpp/cpp           # Memory Match minigame
-│   ├── minesweeper.hpp/cpp      # Minesweeper minigame
-│   └── minigame_manager.cpp     # Minigame orchestration
+│   ├── pong.hpp/cpp              # Pong minigame
+│   ├── battleship.hpp/cpp        # Battleship minigame
+│   ├── hangman.hpp/cpp           # Hangman minigame
+│   ├── memory.hpp/cpp            # Memory Match minigame
+│   └── minesweeper.hpp/cpp       # Minesweeper minigame
 │
 ├── UI System
-│   ├── ui.h/cpp                 # UI components and drawing
-│   ├── ui_helpers.h/cpp         # UI helper functions
-│   ├── ui_layout.h/cpp          # Layout calculations
-│   └── ui_manager.cpp           # UI management and popups
+│   ├── ui.h/cpp                  # UI components and drawing
+│   ├── ui_helpers.h/cpp          # UI helper functions
+│   ├── ui_layout.h/cpp           # Layout calculations
+│   ├── turn_summary.h/cpp        # Turn summary popups
+│   ├── timer_display.h/cpp       # Countdown timer
+│   └── input_helpers.h/cpp       # Input validation
 │
 ├── Save & History
-│   ├── save_manager.hpp/cpp     # Save/load functionality
-│   ├── completed_history.h/cpp  # Completed game history tracking
-│   ├── history.hpp/cpp          # In-game action history
-│   └── history_manager.cpp      # History management
+│   ├── save_manager.hpp/cpp      # Save/load functionality
+│   ├── history.hpp/cpp           # Action history tracking
+│   └── completed_history.h/cpp   # Completed game history
 │
-├── Tutorial System
-│   ├── tutorials.h/cpp          # Tutorial system core
-│   ├── tutorial_manager.cpp     # Tutorial triggering
-│   └── minigame_tutorials.h/cpp # Minigame-specific tutorials
+├── Tutorial & Debug
+│   ├── tutorials.h/cpp           # Tutorial system
+│   ├── minigame_tutorials.h/cpp  # Minigame tutorials
+│   ├── debug.h/cpp               # Debug utilities
+│   └── random_service.hpp        # RNG with seed support
 │
-├── UI Components
-│   ├── turn_summary.h/cpp       # Turn summary popups
-│   ├── timer_display.h/cpp      # Countdown timer
-│   └── input_helpers.h/cpp      # Input validation
-│
-├── Debug & Utilities
-│   ├── debug.h/cpp              # Debug utilities
-│   └── spins.cpp                # Spin result mappings (duplicate)
-│
-├── Build
-│   ├── Makefile                 # Build configuration
-│   └── .gitignore               # Git ignore rules
+├── Build & Configuration
+│   ├── Makefile                  # Build configuration
+│   └── .gitignore                # Git ignore rules
 │
 ├── Data
-│   ├── saves/                   # Save file directory
-│   └── backups.tar.gz           # Backup archive
+│   ├── saves/                    # Save file directory
+│   └── output/                   # Game output files
 │
-├── Documentation
-│   └── README.md                # Project documentation
-│
-└── Executable
-    └── gameoflife               # Compiled game binary
+└── Documentation
+    └── README.md                 # This file
+```
 
 ## Contributors
 
-Cheralyn, Michelle, Yin, Carla, Joylin
+- Cheralyn Clarecia Lianto
+- Carla Olivia
+- Kristanti Ignacia Joylin
+- Michelle Liu
+- Wong Yin To
 
 ## Notes
 
 Educational project. The Game of Life is a trademark of Hasbro.
+
+## AI Acknowledgement
+This project was made with the assitance of Artificial Intelligence as a tools to improve code and as a guide.
+
+
+
+
 
 Enjoy! May the best life win! 🎉
