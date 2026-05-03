@@ -316,4 +316,8 @@ Cheralyn, Michelle, Yin, Carla, Joylin
 
 Educational project. The Game of Life is a trademark of Hasbro.
 
+## AI Acknowledgement
+This project was made with the assitance of Artificial Intelligence as a tools to improve code and as a guide.
+
+
 Enjoy! May the best life win! 🎉
