@@ -1133,7 +1133,8 @@ void debugFollowCameraBoardMode() {
                      BoardViewMode::FollowCamera);
 }
 
-//
+//Purpose: tests board rendering in Classic Full Board Mode.
+//Relation: ensures the entire board overview (symbols, regions, landmarks, player markers) is visible at once
 void debugClassicFullBoardMode() {
     RuleSet rules = makeNormalRules();
     std::vector<Player> players = makeBoardPreviewPlayers();
@@ -1152,6 +1153,8 @@ void debugClassicFullBoardMode() {
                      BoardViewMode::ClassicFull);
 }
 
+//Purpose: tests minimap panel rendering.
+//Relation: validates minimap integration alongside the main board UI
 void debugMinimapSupport() {
     initialize_game_ui();
     Board board;
@@ -1170,6 +1173,8 @@ void debugMinimapSupport() {
     destroy_game_ui();
 }
 
+//Purpose: tests popup behavior when drawn over the follow-camera board.
+//Relation: ensures board redraws correctly after closing a popup, without duplication or misalignment
 void debugPopupOverFollowCamera() {
     initialize_game_ui();
     const UILayout layout = calculateUILayout();
@@ -1210,6 +1215,8 @@ void debugPopupOverFollowCamera() {
     destroy_game_ui();
 }
 
+//Purpose: provides a menu-driven interface to test all board-related debug functions.
+//Relation: integrates tile colors, names, tokens, legend, regions, landmarks, side panel, history, objectives, event messages, and camera modes
 void debugBoardUi() {
     while (true) {
         std::cout << "\n===== BOARD UI DEBUG MENU =====\n"
@@ -1264,6 +1271,8 @@ void debugBoardUi() {
     }
 }
 
+//Purpose: provides a menu-driven interface to test sabotage mechanics (trap tiles, lawsuits, traffic jams, stealing cards, forced duels, career penalties, position swaps, debt increases, shield cards, CPU sabotage decisions).
+//Relation: validates SabotageManager and CpuController sabotage logic
 void debugSabotage() {
     while (true) {
         std::cout << "\n===== SABOTAGE DEBUG MENU =====\n"
@@ -1360,18 +1369,23 @@ void debugSabotage() {
     }
 }
 
+//Purpose: tests pre-game quick guide popup.
+//Relation: validates tutorial UI before gameplay starts
 void debugPreGameTutorial() {
     initialize_game_ui();
     showPreGameQuickGuide(has_colors());
     destroy_game_ui();
 }
 
+//Purpose: tests first-time tutorial popup for specific topics (e.g., automatic loans).
+//Relation: ensures contextual tutorials display correctly
 void debugFirstTimeTutorialPopup() {
     initialize_game_ui();
     showFirstTimeTutorial(TutorialTopic::AutomaticLoan, has_colors());
     destroy_game_ui();
 }
-
+//Purpose: tests full guide screen rendering.
+//Relation: validates comprehensive tutorial integration with board and rules
 void debugGuideScreen() {
     initialize_game_ui();
     Board board;
@@ -1380,6 +1394,8 @@ void debugGuideScreen() {
     destroy_game_ui();
 }
 
+//Purpose: tests quit confirmation popup from title screen.
+//Relation: ensures confirmation logic works correctly (confirmed vs cancelled)
 void debugTitleQuitConfirmation() {
     initialize_game_ui();
     const bool confirmed = showQuitConfirmation(has_colors());
@@ -1388,6 +1404,8 @@ void debugTitleQuitConfirmation() {
     pauseForEnter();
 }
 
+//Purpose: tests ESC and key mappings for cancel behavior.
+//Relation: validates input handling and control scheme consistency
 void debugEscCancelBehavior() {
     std::cout << "\n===== ESC CANCEL DEBUG =====\n";
     std::cout << "ESC maps to cancel: " << (isCancelKey(27) ? "yes" : "no") << "\n";
