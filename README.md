@@ -195,9 +195,14 @@ sudo apt-get install libncurses5-dev libncursesw5-dev
 # Arch Linux:
 sudo pacman -S ncurses
 
-# Build and run the game
-make run
+# Build the game
+make
+
+# Then run it
+./gameoflife
 ```
+
+Alternatively, you can build and run in one command with `make run`.
 
 The game will start immediately. Press `N` for new game, `L` to load a previous game, or `ESC` to quit.
 
