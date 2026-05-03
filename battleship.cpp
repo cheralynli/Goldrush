@@ -197,7 +197,7 @@ BattleshipMinigameResult playBattleshipMinigame(const std::string& playerName, b
                          "Destroy the money ships while dodging enemy fire.",
                          "Press X to start. A/D or arrows move. Space/Enter fires. R reloads.",
                          "Clear the wave or survive until the run ends.",
-                         "Each ship destroyed pays $100. Ammo is limited.",
+                         "Each ship destroyed pays $2000. Ammo is limited.",
                          hasColor);
 
     const int enemySpacingX = 7;
@@ -364,13 +364,13 @@ BattleshipMinigameResult playBattleshipMinigame(const std::string& playerName, b
             mvwprintw(overlay, arenaBottom + 4, arenaLeft,
                       "Rules: destroy the $ ships. One enemy hit ends the game.");
             mvwprintw(overlay, arenaBottom + 5, arenaLeft,
-                      "Each ship destroyed earns $100. Max payout: $1000. Press X to start.");
+                      "Each ship destroyed earns $2000. Max payout: $20000. Press X to start.");
         } else if (gameOver) {
             mvwprintw(overlay, arenaBottom + 4, arenaLeft,
                       "The smoke clears. You destroyed %d/%d ships and earned $%d.",
                       result.shipsDestroyed,
                       maxShips,
-                      result.shipsDestroyed * 100);
+                      result.shipsDestroyed * 2000);
             mvwprintw(overlay, arenaBottom + 6, arenaLeft,
                       "Press ENTER or ESC to continue.");
         } else {
@@ -511,7 +511,7 @@ BattleshipMinigameResult playBattleshipMinigame(const std::string& playerName, b
                     enemies[enemyIndex].alive = false;
                     playerShots[shotIndex].y = arenaTop - 1;
                     ++result.shipsDestroyed;
-                    feedbackText = "DIRECT HIT! +$100";
+                    feedbackText = "DIRECT HIT! +$2000";
                     feedbackPositive = true;
                     feedbackFrames = 18;
                     break;

@@ -164,7 +164,7 @@ MemoryMatchResult playMemoryMatchMinigame(const std::string& playerName, bool ha
                          "Memorize the grid, then find all matching pairs.",
                          "WASD or arrows move. Enter/Space selects. H reveals help. ESC exits.",
                          "Match all 8 pairs before running out of lives.",
-                         "Each pair pays $100. Clearing the board adds a $200 bonus.",
+                         "Each pair pays $2000. Clearing the board adds a $4000 bonus.",
                          hasColor);
 
     if (!terminalIsAtLeast(31, 74)) {
@@ -245,7 +245,7 @@ MemoryMatchResult playMemoryMatchMinigame(const std::string& playerName, bool ha
         int instrLen = strlen(instructions);
         mvwprintw(overlay, arenaBottom - 2, (screenW - instrLen) / 2, "%s", instructions);
         mvwprintw(overlay, arenaBottom - 1, (screenW - 46) / 2,
-                  "Match pairs for $100 each. Clear all for a $200 bonus.");
+                  "Match pairs for $2000 each. Clear all for a $4000 bonus.");
 
         gridStartY = arenaTop + 5;
         gridStartX = arenaLeft + (arenaWidth - TOTAL_GRID_WIDTH) / 2;
@@ -414,7 +414,7 @@ MemoryMatchResult playMemoryMatchMinigame(const std::string& playerName, bool ha
                         flashFeedback(overlay,
                                       arenaBottom - 4,
                                       screenW,
-                                      "MATCH! +$100",
+                                      "MATCH! +$2000",
                                       true,
                                       hasColor);
                     } else {
@@ -464,7 +464,7 @@ MemoryMatchResult playMemoryMatchMinigame(const std::string& playerName, bool ha
     if (result.won) {
         if (hasColor) wattron(overlay, COLOR_PAIR(GOLDRUSH_BLACK_FOREST) | A_BOLD);
         mvwprintw(overlay, arenaTop + 8, arenaLeft + 5, "You matched all %d pairs!", TOTAL_PAIRS);
-        mvwprintw(overlay, arenaTop + 9, arenaLeft + 5, "Lives remaining: %d  |  Earned $1000", result.livesRemaining);
+        mvwprintw(overlay, arenaTop + 9, arenaLeft + 5, "Lives remaining: %d  |  Earned $4000", result.livesRemaining);
         blinkIndicator(overlay,
                        arenaTop + 6,
                        arenaLeft + (arenaWidth - 8) / 2,
@@ -481,7 +481,7 @@ MemoryMatchResult playMemoryMatchMinigame(const std::string& playerName, bool ha
         if (hasColor) wattron(overlay, COLOR_PAIR(GOLDRUSH_GOLD_TERRA) | A_BOLD);
         mvwprintw(overlay, arenaTop + 8, arenaLeft + 5, "You ran out of lives!");
         mvwprintw(overlay, arenaTop + 9, arenaLeft + 5, "Pairs matched: %d/8  |  Earned $%d", 
-                  result.pairsMatched, result.pairsMatched * 100);
+                  result.pairsMatched, result.pairsMatched * 2000);
         blinkIndicator(overlay,
                        arenaTop + 6,
                        arenaLeft + (arenaWidth - 10) / 2,
