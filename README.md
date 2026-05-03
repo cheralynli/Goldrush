@@ -164,7 +164,7 @@ Final worth = cash + house value + action cards + pet cards + baby bonuses + ret
 
 ```bash
 # Clone the repository
-git clone https://github.com/yourusername/Goldrush.git
+git clone https://github.com/cheralynli/Goldrush.git
 cd Goldrush
 
 # Install dependencies (see options below for your system)
