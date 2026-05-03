@@ -938,6 +938,19 @@ int Game::playDuelMinigameScore(int playerIndex, int minigameChoice) {
     return score;
 }
 
+//Input:playerIndex: Index of the player initiating the duel.
+//      amountDelta: Reference to an integer that will store the net money change (positive if player wins, negative if loses).
+//      forcedOpponentIndex: Index of a specific opponent, or -1 to select randomly.
+//pot: The wagered amount of money for the duel.
+//Output: Returns a string summarizing the duel result (who won, scores, payouts, loans).
+//Purpose:Executes a duel minigame between a player and an opponent.
+//        Randomly selects a minigame (Pong, Battleship, Hangman, Memory Match, Minesweeper).
+//        Determines scores, applies payouts, handles loans, and updates history.
+//Relation:Calls chooseRandomOpponentIndex if no opponent is forced.
+//        Uses playPongDuelMinigame or playDuelMinigameScore depending on minigame.
+//        Interacts with bank for charging/crediting money.
+//        Updates game history and shows UI popups.
+//        Closely tied to sabotage mechanics (executeSabotage) when a duel minigame is triggered.
 std::string Game::resolveDuelMinigameAction(int playerIndex,
                                             int& amountDelta,
                                             int forcedOpponentIndex,
@@ -1023,6 +1036,13 @@ std::string Game::resolveDuelMinigameAction(int playerIndex,
     return result.str();
 }
 
+//Input:player: Reference to the player.
+//      tileId: Current tile ID.
+//Output:Returns the ID of the previous tile (or the same tile if none found).
+//Purpose: Finds the tile that leads into the given tile, effectively moving backwards on the board.
+//         Handles special branching cases (college/career, family/life, safe/risky paths).
+//Relation: Used in trap resolution (checkTrapTrigger) when a player is forced backward.
+//          Relies on board structure (tile.next, tile.altNext) to determine valid predecessors.
 int Game::findPreviousTile(const Player& player, int tileId) const {
     std::vector<int> candidates;
     for (int i = 0; i < TILE_COUNT; ++i) {
@@ -1514,6 +1534,10 @@ std::string Game::movePlayerByAction(int playerIndex, int steps) {
     return out.str();
 }
 
+//Input: Player reference, Tile reference
+//Output: None
+//Purpose: Resolves a baby event by spinning for 0–3 babies, updating player’s family count.
+//Relation: Called when landing on a Baby tile (non-family path). Uses rollSpinner, babiesFromSpin, and updates history/UI.
 void Game::resolveBabyStop(Player& player, const Tile& tile) {
     const int playerIndex = findPlayerIndex(player);
     if (!isCpuPlayer(playerIndex)) {
@@ -1526,6 +1550,10 @@ void Game::resolveBabyStop(Player& player, const Tile& tile) {
     showInfoPopup(tile.label + " resolved", babiesLabel(babies));
 }
 
+//Input: Player reference.
+//Output: None
+//Purpose: Resolves Safe route choice with a guaranteed payout based on spin.
+//Relation: Called when landing on Safe route tile. Uses safeRoutePayout, credits bank, updates history/UI.
 void Game::resolveSafeRoute(Player& player) {
     int spin = rollSpinner("Safe Route", "Spin for a smaller guaranteed reward");
     int payout = safeRoutePayout(spin);
@@ -1534,6 +1562,10 @@ void Game::resolveSafeRoute(Player& player) {
     showInfoPopup("Safe Route", "Collected $" + std::to_string(payout) + ".");
 }
 
+//Input: Player reference.
+//Output: None
+//Purpose: Resolves Risky route choice with potential large win or loss.
+//Relation: Called when landing on Risky route tile. Uses riskyRoutePayout, applies bank charge/credit, handles loans, updates history/UI.
 void Game::resolveRiskyRoute(Player& player) {
     int spin = rollSpinner("Risky Route", "Spin for a big win or painful loss");
     int payout = riskyRoutePayout(spin);
@@ -1550,6 +1582,10 @@ void Game::resolveRiskyRoute(Player& player) {
     showInfoPopup("Risky Route", appendLoanText("You lost $" + std::to_string(-payout) + ".", payment));
 }
 
+//Input: Player index
+//Output: None
+//Purpose: Handles retirement choice (Millionaire Mansion or Countryside Acres), assigns retirement bonus, updates player state.
+//Relation: Called when landing on Retirement tile. Uses CPU/human choice logic, updates history/UI.
 void Game::resolveRetirement(int playerIndex) {
     Player& player = players[playerIndex];
     if (player.retired) {
@@ -1590,6 +1626,10 @@ void Game::resolveRetirement(int playerIndex) {
     showInfoPopup("Retirement: " + player.retirementHome, line.str());
 }
 
+//Input: Player reference.
+//Output: None
+//Purpose: Allows player to buy a house card, charges cost, sets house attributes.
+//Relation: Called when landing on House tile. Uses decks.drawHouseCard, bank.charge, updates history/UI, may award pet card.
 void Game::buyHouse(Player& player) {
     if (player.hasHouse) {
         showInfoPopup("House", "You already own " + player.houseName + ".");
@@ -1618,6 +1658,10 @@ void Game::buyHouse(Player& player) {
                                  ", spin sale base $" + std::to_string(house.saleValue) + ".", payment));
 }
 
+//Input: Player reference.
+//Output: None
+//Purpose: Assigns an investment card to player.
+//Relation: Called during setup or investment events. Uses decks.drawInvestCard, updates history/UI.
 void Game::assignInvestment(Player& player) {
     InvestCard card;
     if (!decks.drawInvestCard(card) || card.number <= 0) {
@@ -1633,6 +1677,10 @@ void Game::assignInvestment(Player& player) {
     addHistory(player.name + " invested on spinner " + std::to_string(card.number));
 }
 
+//Input: Spinner value.
+//Output: None
+//Purpose: Pays out investments if spinner matches player’s invested number.
+//Relation: Called after spins. Uses bank.credit, updates history/UI.
 void Game::resolveInvestmentPayouts(int spinnerValue) {
     if (!rules.toggles.investmentEnabled) {
         return;
@@ -1658,6 +1706,10 @@ void Game::resolveInvestmentPayouts(int spinnerValue) {
     }
 }
 
+//Input: Player reference, spinner value.
+//Output: None
+//Purpose: Awards Spin to Win token and prize if spinner lands on 10.
+//Relation: Called after spins. Updates history/UI.
 void Game::maybeAwardSpinToWin(Player& player, int spinnerValue) {
     if (!rules.toggles.spinToWinEnabled || spinnerValue != 10) {
         return;
@@ -1670,6 +1722,10 @@ void Game::maybeAwardSpinToWin(Player& player, int spinnerValue) {
                   std::to_string(rules.spinToWinPrize) + ".");
 }
 
+//Input: Player reference, reason string.
+//Output: None.
+//Purpose: Awards a pet card if pets are enabled.
+//Relation: Called after house purchase or other events. Uses decks.drawPetCard, updates history/UI
 void Game::maybeAwardPetCard(Player& player, const std::string& reason) {
     if (!rules.toggles.petsEnabled) {
         return;
@@ -1689,6 +1745,10 @@ void Game::maybeAwardPetCard(Player& player, const std::string& reason) {
     showInfoPopup(player.name + " adopted a " + pet.title, reason);
 }
 
+//Input: Player index, Tile reference.
+//Output: None.
+//Purpose: Applies effects based on tile type (start, college, career, marriage, family, risky/safe, payday, house, retirement, baby, etc.).
+//Relation: Central dispatcher for tile effects. Calls specialized functions like resolveBabyStop, resolveSafeRoute, resolveRiskyRoute, buyHouse, resolveRetirement
 void Game::applyTileEffect(int playerIndex, const Tile& tile) {
     Player& player = players[playerIndex];
     std::string line = "Keep moving.";
@@ -1824,6 +1884,10 @@ void Game::applyTileEffect(int playerIndex, const Tile& tile) {
     showInfoPopup(getTileDisplayName(tile) + " resolved", line);
 }
 
+//Input: Player reference, Tile reference.
+//Output: Next tile ID.
+//Purpose: Determines next tile based on player’s choices (college/career, family/life, safe/risky).
+//Relation: Used in movement logic (animateMove)
 int Game::chooseNextTile(Player& player, const Tile& tile) {
     if ((tile.kind == TILE_SPLIT_START || tile.kind == TILE_START) && player.startChoice == -1) {
         const int playerIndex = findPlayerIndex(player);
@@ -1886,6 +1950,10 @@ int Game::chooseNextTile(Player& player, const Tile& tile) {
     return tile.next;
 }
 
+//Input: Current player index, number of steps.
+//Output: Boolean (true if stopped early at a stop space).
+//Purpose: Animates player movement across tiles, applies traps and tile effects.
+//Relation: Called during movement spins. Uses chooseNextTile, applyTileEffect, checkTrapTrigger
 bool Game::animateMove(int currentPlayer, int steps) {
     Player& player = players[currentPlayer];
     for (int step = 0; step < steps; ++step) {
@@ -1912,6 +1980,10 @@ bool Game::animateMove(int currentPlayer, int steps) {
     return false;
 }
 
+//Input: Current player index, reason string.
+//Output: None.
+//Purpose: Executes a movement spin, applies penalties, awards bonuses, animates movement, applies tile effects, shows summary.
+//Relation: Core turn mechanic. Calls rollSpinner, animateMove, applyTileEffect, showTurnSummaryPopup
 void Game::takeMovementSpin(int currentPlayer, const std::string& reason) {
     Player& player = players[currentPlayer];
     if (boardViewMode == BoardViewMode::Mode1860 && !board.isMode1860WalkableTile(player.tile)) {
@@ -1988,7 +2060,11 @@ void Game::takeMovementSpin(int currentPlayer, const std::string& reason) {
                          startingLoans,
                          reason);
 }
-
+    
+//Input: None.
+//Output: Boolean (true if all players retired).
+//Purpose: Checks if game should end.
+//Relation: Used in main game loop (run)
 bool Game::allPlayersRetired() const {
     for (size_t i = 0; i < players.size(); ++i) {
         if (!players[i].retired) {
@@ -1998,6 +2074,10 @@ bool Game::allPlayersRetired() const {
     return true;
 }
 
+//Input: None.
+//Output: Boolean (false if quit).
+//Purpose: Main game loop: handles start screen, loading/saving, player turns, sabotage, movement, retirement, endgame scoring.
+//Relation: Central orchestrator of gameplay. Calls nearly all other functions, manages windows, history, scoring, and UI
 bool Game::run() {
     if (!ensureMinSize()) return false;
     while (true) {
