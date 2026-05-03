@@ -16,10 +16,19 @@
 namespace fs = std::filesystem;
 
 namespace {
+
+//Input: none
+//Output: filesystem path to saves/completed_history.log
+//Purpose: defines where completed game history is stored.
+//Relation: used by append/load functions.
 fs::path historyPath() {
     return fs::path("saves") / "completed_history.log";
 }
 
+//Input: line string, prefix string
+//Output: substring after prefix if line starts with prefix
+//Purpose: extracts values from log lines.
+//Relation: used in loadCompletedGameHistory.
 std::string valueAfter(const std::string& line, const std::string& prefix) {
     if (line.rfind(prefix, 0) != 0) {
         return "";
@@ -27,6 +36,10 @@ std::string valueAfter(const std::string& line, const std::string& prefix) {
     return line.substr(prefix.size());
 }
 
+//Input: string text, reference to integer
+//Output: true if parsed successfully, false otherwise
+//Purpose: safely parse integer values from log.
+//Relation: used in loadCompletedGameHistory.
 bool parseHistoryInt(const std::string& text, int& value) {
     if (text.empty()) {
         return false;
@@ -40,6 +53,10 @@ bool parseHistoryInt(const std::string& text, int& value) {
     return true;
 }
 
+//Input: completed game entry
+//Output: vector of detail strings
+//Purpose: generates fallback detail lines if none recorded.
+//Relation: used in showCompletedGameDetailScreen.
 std::vector<std::string> fallbackDetailLines(const CompletedGameEntry& entry) {
     std::vector<std::string> lines;
     lines.push_back("Winner: " + entry.winner + " with $" + std::to_string(entry.winnerScore));
@@ -60,6 +77,10 @@ std::vector<std::string> fallbackDetailLines(const CompletedGameEntry& entry) {
     return lines;
 }
 
+//Input: entry, color flag
+//Output: ncurses popup with detail lines
+//Purpose: displays detailed breakdown of a completed game.
+//Relation: called from history screen when user selects entry
 void showCompletedGameDetailScreen(const CompletedGameEntry& entry, bool hasColor) {
     std::vector<std::string> lines = entry.detailLines.empty()
         ? fallbackDetailLines(entry)
@@ -135,6 +156,10 @@ void showCompletedGameDetailScreen(const CompletedGameEntry& entry, bool hasColo
 }
 }
 
+//Input: entry, error string reference
+//Output: true if written successfully, false otherwise
+//Purpose: appends completed game entry to log file.
+//Relation: called at end of game to persist results
 bool appendCompletedGameHistory(const CompletedGameEntry& entry, std::string& error) {
     std::error_code ec;
     fs::create_directories(historyPath().parent_path(), ec);
@@ -168,6 +193,10 @@ bool appendCompletedGameHistory(const CompletedGameEntry& entry, std::string& er
     return true;
 }
 
+//Input: error string reference
+//Output: vector of completed game entries
+//Purpose: loads and parses history log into structured entries.
+//Relation: used to populate history screen.
 std::vector<CompletedGameEntry> loadCompletedGameHistory(std::string& error) {
     std::vector<CompletedGameEntry> entries;
     std::ifstream in(historyPath().string().c_str());
@@ -226,6 +255,10 @@ std::vector<CompletedGameEntry> loadCompletedGameHistory(std::string& error) {
     return entries;
 }
 
+//Input: color flag
+//Output: ncurses popup with list of completed games
+//Purpose: displays history list with navigation and detail view.
+//Relation: integrates with loadCompletedGameHistory and showCompletedGameDetailScreen.
 void showCompletedGameHistoryScreen(bool hasColor) {
     std::string error;
     const std::vector<CompletedGameEntry> entries = loadCompletedGameHistory(error);
