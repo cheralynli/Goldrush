@@ -6,6 +6,11 @@
 
 namespace {
 template <typename T>
+
+//Input: prototype cards, desired count
+//Output: expanded deck with unique IDs (id-1, id-2, …)
+//Purpose: generates full deck from prototypes
+//Relation: used in DeckManager::initDecks
 std::vector<T> expandDeck(const std::vector<T>& prototypes, int desiredCount) {
     std::vector<T> cards;
     if (desiredCount <= 0 || prototypes.empty()) {
@@ -25,6 +30,8 @@ std::vector<T> expandDeck(const std::vector<T>& prototypes, int desiredCount) {
     return cards;
 }
 
+//Purpose: constructs an ActionEffect object.
+//Relation: used in action card creation
 ActionEffect makeActionEffect(ActionEffectKind kind, int amount, bool useTileValue) {
     ActionEffect effect;
     effect.kind = kind;
@@ -33,6 +40,8 @@ ActionEffect makeActionEffect(ActionEffectKind kind, int amount, bool useTileVal
     return effect;
 }
 
+//Purpose: build RollCondition objects for dice/spin outcomes.
+//Relation: used in roll-based action cards
 RollCondition makeAnyCondition() {
     RollCondition condition;
     condition.kind = ROLL_ANY;
@@ -42,18 +51,24 @@ RollCondition makeAnyCondition() {
     return condition;
 }
 
+//Purpose: build RollCondition objects for dice/spin outcomes.
+//Relation: used in roll-based action cards
 RollCondition makeOddCondition() {
     RollCondition condition = makeAnyCondition();
     condition.kind = ROLL_ODD;
     return condition;
 }
 
+//Purpose: build RollCondition objects for dice/spin outcomes.
+//Relation: used in roll-based action cards
 RollCondition makeEvenCondition() {
     RollCondition condition = makeAnyCondition();
     condition.kind = ROLL_EVEN;
     return condition;
 }
 
+//Purpose: build RollCondition objects for dice/spin outcomes.
+//Relation: used in roll-based action cards
 RollCondition makeRangeCondition(int minValue, int maxValue) {
     RollCondition condition = makeAnyCondition();
     condition.kind = ROLL_RANGE;
@@ -62,6 +77,8 @@ RollCondition makeRangeCondition(int minValue, int maxValue) {
     return condition;
 }
 
+//Purpose: build RollCondition objects for dice/spin outcomes.
+//Relation: used in roll-based action cards
 RollCondition makeExactCondition(int exactValue) {
     RollCondition condition = makeAnyCondition();
     condition.kind = ROLL_EXACT;
@@ -69,6 +86,8 @@ RollCondition makeExactCondition(int exactValue) {
     return condition;
 }
 
+//Purpose: constructs ActionRollOutcome.
+//Relation: ties condition → effect → description
 ActionRollOutcome makeRollOutcome(const RollCondition& condition,
                                   const ActionEffect& effect,
                                   const std::string& text) {
@@ -79,6 +98,8 @@ ActionRollOutcome makeRollOutcome(const RollCondition& condition,
     return outcome;
 }
 
+//Purpose: build action cards (simple or roll-based).
+//Relation: used in actionPrototypes
 ActionCard makeActionCard(const std::string& id,
                           const std::string& title,
                           const std::string& description,
@@ -94,6 +115,8 @@ ActionCard makeActionCard(const std::string& id,
     return card;
 }
 
+//Purpose: build action cards (simple or roll-based).
+//Relation: used in actionPrototypes
 ActionCard makeRollActionCard(const std::string& id,
                               const std::string& title,
                               const std::string& description,
