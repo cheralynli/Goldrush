@@ -1253,8 +1253,8 @@ void Game::showScoreboardPopup() const {
     const int scoreWinH = getmaxy(scoreWin);
     const int scoreWinW = getmaxx(scoreWin);
     mvwprintw(scoreWin, 1, 2, "SCOREBOARD");
-    mvwprintw(scoreWin, 2, 2, "Rk %-10s %-7s %-7s %-7s %-4s %-7s",
-              "Player", "Type", "Space", "Cash", "Loan", "Worth");
+    mvwprintw(scoreWin, 2, 2, "Rk %-9s %-3s %-7s %-7s %-6s %-4s %-6s",
+              "Player", "Tok", "Type", "Space", "Cash", "Loan", "Worth");
 
     std::vector<int> order;
     for (size_t i = 0; i < players.size(); ++i) {
@@ -1269,7 +1269,7 @@ void Game::showScoreboardPopup() const {
         const Player& player = players[static_cast<std::size_t>(playerIndex)];
         const Tile& tile = board.tileAt(player.tile);
         const int y = 4 + static_cast<int>(row);
-        const std::string name = clipMenuText(player.name, 10);
+        const std::string name = clipMenuText(player.name, 9);
         const std::string tileText = clipMenuText(std::to_string(player.tile) + " " + getTileAbbreviation(tile), 7);
         const std::string typeText = player.type == PlayerType::CPU
             ? clipMenuText("CPU-" + cpuDifficultyLabel(player.cpuDifficulty), 7)
@@ -1282,12 +1282,16 @@ void Game::showScoreboardPopup() const {
         if (playerIndex == currentPlayerIndex) {
             wattron(scoreWin, A_REVERSE);
         }
+
+        std::string tokenStr = "[" + std::string(1, player.token) + "]";
+        
         mvwprintw(scoreWin,
                   y,
                   2,
-                  "%-2d %-10s %-7s %-7s $%-6d %-4d $%-6d",
+                  "%-2d %-9s %-3s %-7s %-7s $%-6d %-4d $%-6d",
                   static_cast<int>(row + 1),
                   name.c_str(),
+                  tokenStr.c_str(),
                   typeText.c_str(),
                   tileText.c_str(),
                   player.cash,
