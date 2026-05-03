@@ -9,12 +9,20 @@
 #include "ui_helpers.h"
 
 namespace {
+//Input: string label, string value, int colorPair
+//Output: none
+//Purpose: structure for each line in summary
+//Relation: used to complete summary with important information
 struct SummaryLine {
     std::string label;
     std::string value;
     int colorPair;
 };
 
+//Input: WINDOW win, int y(rows), string text, int attrs
+//Output: none
+//Purpose: draws text horizontally and centered
+//Relation: used by turn_summary UI functions
 void centerPrint(WINDOW* win, int y, const std::string& text, int attrs = A_NORMAL) {
     int h = 0;
     int w = 0;
@@ -30,6 +38,10 @@ void centerPrint(WINDOW* win, int y, const std::string& text, int attrs = A_NORM
     }
 }
 
+//Input: vector lines, amount, string gainLabel, string lossLabel, string unit, int gainColor, int lossColor
+//Output: none
+//Purpose: add line to summary regarding unit changes, when change amount != 0
+//Relation: during a turn when a unit is changed, a line is added to the summary to inform the user
 void addChange(std::vector<SummaryLine>& lines,
                int amount,
                const std::string& gainLabel,
@@ -42,11 +54,15 @@ void addChange(std::vector<SummaryLine>& lines,
     }
     lines.push_back({
         amount > 0 ? gainLabel : lossLabel,
-        formatSignedChange(amount, unit),
+        unit == "cash" ? formatMoney(amount) : formatSignedChange(amount, unit),
         amount > 0 ? gainColor : lossColor
     });
 }
 
+//Input: vector lines, string label, string value, int colorPair
+//Output: none
+//Purpose: add additional text regarding important events
+//Relation: during a turn when events occur, a line is added to the summary to inform the user
 void addText(std::vector<SummaryLine>& lines,
              const std::string& label,
              const std::string& value,
@@ -56,6 +72,10 @@ void addText(std::vector<SummaryLine>& lines,
     }
 }
 
+//Input: WINDOW win, int y(rows), SummaryLine line, int width
+//Output: none
+//Purpose: draws summary section with important information
+//Relation: called by showTurnSummaryReport
 void drawSummarySection(WINDOW* win, int& y, const SummaryLine& line, int width) {
     if (y + 1 >= getmaxy(win) - 2) {
         return;
@@ -72,16 +92,28 @@ void drawSummarySection(WINDOW* win, int& y, const SummaryLine& line, int width)
 }
 }
 
+//Input: int amount
+//Output: string formatted to +-$amount
+//Purpose: to format amount for display
+//Relation: used when user money/investment changes
 std::string formatMoney(int amount) {
     const int absolute = std::abs(amount);
     return std::string(amount < 0 ? "-$" : "$") + std::to_string(absolute);
 }
 
+//Input: int amount, string unit (item being changed)
+//Output: string formatted to +-amount unit
+//Purpose: to format amount for display
+//Relation: used when user property changes
 std::string formatSignedChange(int amount, const std::string& unit) {
     const std::string sign = amount > 0 ? "+" : "-";
     return sign + std::to_string(std::abs(amount)) + (unit.empty() ? "" : " " + unit);
 }
 
+//Input: TurnSummary summary, bool hasColor
+//Output: none
+//Purpose: build Summary popup at end of turn
+//Relation: called during end of turn to inform user on important events and changes
 void showTurnSummaryReport(const TurnSummary& summary, bool hasColor) {
     std::vector<SummaryLine> lines;
     addChange(lines, summary.moneyChange, "MONEY GAIN", "MONEY LOSS", "cash", GOLDRUSH_BLACK_FOREST, GOLDRUSH_GOLD_TERRA);
@@ -155,11 +187,11 @@ void showTurnSummaryReport(const TurnSummary& summary, bool hasColor) {
         if (hasColor) {
             wattron(popup, COLOR_PAIR(GOLDRUSH_GOLD_SAND) | A_BOLD);
         }
-        centerPrint(popup, 1, " ____  _   _ __  __ __  __    _    ____  __   __", A_BOLD);
-        centerPrint(popup, 2, "/ ___|| | | |  \\/  |  \\/  |  / \\  |  _ \\ \\ \\ / /", A_BOLD);
-        centerPrint(popup, 3, "\\___ \\| | | | |\\/| | |\\/| | / _ \\ | |_) | \\ V / ", A_BOLD);
-        centerPrint(popup, 4, " ___) | |_| | |  | | |  | |/ ___ \\|  _ <   | |  ", A_BOLD);
-        centerPrint(popup, 5, "|____/ \\___/|_|  |_|_|  |_/_/   \\_\\_| \\_\\  |_|  ", A_BOLD);
+            centerPrint(popup, 1, " ____  _   _ __  __ __  __    _     ____  __    __", A_BOLD);
+            centerPrint(popup, 2, "/ ___|| | | |  \\/ |  \\/ |  / \\  |  _ \\ \\  / /", A_BOLD);
+            centerPrint(popup, 3, "\\___ \\| | | | \\/| | \\/| |/ _ \\ | |_) | \\ V /", A_BOLD);
+            centerPrint(popup, 4, " ___) | |_| | |  | | |  | |  __/ |  _ <   | |", A_BOLD);
+            centerPrint(popup, 5, "|____/ \\___/|_|  |_|_|  |_|\\___| |_| \\_\\  |_|", A_BOLD);
         if (hasColor) {
             wattroff(popup, COLOR_PAIR(GOLDRUSH_GOLD_SAND) | A_BOLD);
         }
@@ -174,7 +206,7 @@ void showTurnSummaryReport(const TurnSummary& summary, bool hasColor) {
         }
 
         mvwprintw(popup, actualH - 2, 3, "%s",
-                  clipUiText("Press ENTER to continue...", static_cast<std::size_t>(std::max(1, actualW - 5))).c_str());
+                  clipUiText("Press ENTER or ESC to continue...", static_cast<std::size_t>(std::max(1, actualW - 5))).c_str());
         wrefresh(popup);
 
         const int ch = wgetch(popup);
@@ -186,7 +218,4 @@ void showTurnSummaryReport(const TurnSummary& summary, bool hasColor) {
             break;
         }
     }
-
-    touchwin(stdscr);
-    refresh();
 }

@@ -831,128 +831,16 @@ void drawEventMessage(WINDOW* messageWin, const std::string& title, const std::s
     wrefresh(messageWin);
 }
 
-char minimap1860Glyph(const Tile& tile) {
-    switch (tile.kind) {
-        case TILE_START: return 'S';
-        case TILE_RETIREMENT: return 'R';
-        case TILE_PAYDAY: return '$';
-        case TILE_BLACK: return tile.value >= 3 ? 'M' : 'A';
-        case TILE_RISKY:
-        case TILE_SPLIT_RISK: return '!';
-        case TILE_SAFE: return '+';
-        case TILE_CAREER:
-        case TILE_CAREER_2:
-        case TILE_COLLEGE:
-        case TILE_GRADUATION:
-        case TILE_NIGHT_SCHOOL: return 'J';
-        case TILE_MARRIAGE:
-        case TILE_SPLIT_FAMILY:
-        case TILE_FAMILY:
-        case TILE_BABY:
-        case TILE_HOUSE: return 'F';
-        case TILE_EMPTY:
-        default: return '.';
-    }
-}
-
-void draw1860MiniChar(WINDOW* panelWin, int y, int x, char glyph, int colorPair, bool highlight) {
-    const int attrs = A_BOLD | (highlight ? A_REVERSE : A_NORMAL);
-    wattron(panelWin, COLOR_PAIR(colorPair) | attrs);
-    mvwaddch(panelWin, y, x, glyph);
-    wattroff(panelWin, COLOR_PAIR(colorPair) | attrs);
-}
-
-void draw1860MinimapPanel(WINDOW* panelWin,
-                          const Board& board,
-                          const std::vector<Player>& players,
-                          int currentPlayer,
-                          const std::vector<int>* reachableTiles,
-                          int cursorTile) {
-    const int panelHeight = getmaxy(panelWin);
-    const int panelWidth = getmaxx(panelWin);
-    const int mapTop = 2;
-    const int mapLeft = std::max(2, (panelWidth - board.mode1860Cols()) / 2);
-    const int maxRows = std::min(board.mode1860Rows(), std::max(0, panelHeight - mapTop - 2));
-    const std::set<int> reachable = reachableTiles
-        ? std::set<int>(reachableTiles->begin(), reachableTiles->end())
-        : std::set<int>();
-    const int cameraCenter = cursorTile >= 0
-        ? cursorTile
-        : (!players.empty() && currentPlayer >= 0 && currentPlayer < static_cast<int>(players.size())
-            ? players[static_cast<std::size_t>(currentPlayer)].tile
-            : board.mode1860StartTileId());
-    const BoardRect camera = board.mode1860CameraViewport(cameraCenter, 11, 11);
-
-    for (int row = 0; row < maxRows; ++row) {
-        for (int col = 0; col < board.mode1860Cols() && mapLeft + col < panelWidth - 1; ++col) {
-            const int tileId = board.mode1860TileIdAt(row, col);
-            const Tile& tile = board.tileAt(tileId);
-            int occupants = 0;
-            int firstPlayer = -1;
-            for (std::size_t p = 0; p < players.size(); ++p) {
-                if (players[p].tile == tileId) {
-                    if (firstPlayer < 0) {
-                        firstPlayer = static_cast<int>(p);
-                    }
-                    ++occupants;
-                }
-            }
-
-            char glyph = minimap1860Glyph(tile);
-            int color = getTileColorPair(tile);
-            if (reachable.count(tileId) != 0) {
-                glyph = '*';
-                color = GOLDRUSH_GOLD_TERRA;
-            }
-            if (occupants > 1) {
-                glyph = '@';
-                color = GOLDRUSH_GOLD_TERRA;
-            } else if (occupants == 1) {
-                glyph = firstPlayer == currentPlayer ? 'P' : 'o';
-                color = ui_player_color_pair(firstPlayer);
-            }
-            if (tileId == cursorTile) {
-                glyph = 'X';
-                color = GOLDRUSH_GOLD_TERRA;
-            }
-
-            const bool cameraEdge =
-                (row == camera.row || row == camera.row + camera.rows - 1 ||
-                 col == camera.col || col == camera.col + camera.cols - 1) &&
-                row >= camera.row && row < camera.row + camera.rows &&
-                col >= camera.col && col < camera.col + camera.cols;
-            draw1860MiniChar(panelWin, mapTop + row, mapLeft + col, glyph, color, cameraEdge);
-        }
-    }
-
-    const int legendY = mapTop + maxRows;
-    if (legendY < panelHeight - 1) {
-        mvwprintw(panelWin, legendY, 2, "%-.34s", "P current o player @ stack * reach");
-    }
-    if (legendY + 1 < panelHeight - 1) {
-        mvwprintw(panelWin, legendY + 1, 2, "%-.34s", "S start R retire X cursor box camera");
-    }
-}
-
 void drawMinimapPanel(WINDOW* panelWin,
                       const Board& board,
                       const std::vector<Player>& players,
-                      int currentPlayer,
-                      BoardViewMode viewMode,
-                      const std::vector<int>* reachableTiles,
-                      int cursorTile) {
+                      int currentPlayer) {
     werase(panelWin);
     drawBoxSafe(panelWin);
 
     wattron(panelWin, COLOR_PAIR(GOLDRUSH_GOLD_BLACK) | A_BOLD);
     mvwprintw(panelWin, 1, 2, "MINIMAP");
     wattroff(panelWin, COLOR_PAIR(GOLDRUSH_GOLD_BLACK) | A_BOLD);
-
-    if (viewMode == BoardViewMode::Mode1860) {
-        draw1860MinimapPanel(panelWin, board, players, currentPlayer, reachableTiles, cursorTile);
-        wrefresh(panelWin);
-        return;
-    }
 
     const int panelHeight = getmaxy(panelWin);
     const int mapTop = 3;
@@ -1147,7 +1035,7 @@ void draw_message_ui(WINDOW* msgWin, const std::string& line1, const std::string
     drawBoxSafe(msgWin);
 
     wattron(msgWin, COLOR_PAIR(GOLDRUSH_GOLD_SAND) | A_BOLD);
-    mvwprintw(msgWin, 1, 2, "%s",
+    mvwprintw(msgWin, 2, 3, "%s",
               clipPanelText(line1, static_cast<std::size_t>(std::max(8, width - 4))).c_str());
     wattroff(msgWin, COLOR_PAIR(GOLDRUSH_GOLD_SAND) | A_BOLD);
 
@@ -1156,7 +1044,7 @@ void draw_message_ui(WINDOW* msgWin, const std::string& line1, const std::string
     const int maxLines = std::min(std::max(0, height - 4), static_cast<int>(lines.size()));
     wattron(msgWin, COLOR_PAIR(GOLDRUSH_BROWN_CREAM));
     for (int i = 0; i < maxLines; ++i) {
-        mvwprintw(msgWin, 2 + i, 2, "%s", lines[static_cast<std::size_t>(i)].c_str());
+        mvwprintw(msgWin, 3 + i, 3, "%s", lines[static_cast<std::size_t>(i)].c_str());
     }
     wattroff(msgWin, COLOR_PAIR(GOLDRUSH_BROWN_CREAM));
     wrefresh(msgWin);

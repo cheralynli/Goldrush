@@ -8,6 +8,10 @@
 #include "board.hpp"
 #include "rules.hpp"
 
+//Input: tutorial flags
+//Output: none
+//Purpose: declare tutorial flags to be defaulted false
+//Relation: initialise all flags to be false until displayed for the first time
 struct TutorialFlags {
     bool automaticLoan = false;
     bool manualLoan = false;
@@ -25,6 +29,10 @@ struct TutorialFlags {
     bool endgameScoring = false;
 };
 
+//Input: none
+//Output: enumerated values representing tile types
+//Purpose: defines all possible tutorial topics
+//Relation: used by tutorialLines, tutorialTitle, tutorialFlagForTopic
 enum class TutorialTopic {
     AutomaticLoan,
     ManualLoan,
@@ -42,10 +50,18 @@ enum class TutorialTopic {
     EndgameScoring
 };
 
+//Inputs: TutorialFlags flags, TutorialTopic topic
+//Output: string tutorialTitle and tutorialLines, bool tutorialFlagForTopic
+//Purpose: declare tutorial labels and flags
+//Relation: manage tutorial UI state
 bool& tutorialFlagForTopic(TutorialFlags& flags, TutorialTopic topic);
 std::string tutorialTitle(TutorialTopic topic);
 std::vector<std::string> tutorialLines(TutorialTopic topic);
 
+//Inputs: by function
+//Output: none
+//Purpose: provide tutorials and guides throughout the game
+//Relation: all functions integrate with ncurses UI
 void showPagedGuide(const std::string& title,
                     const std::vector<std::vector<std::string> >& pages,
                     bool hasColor);

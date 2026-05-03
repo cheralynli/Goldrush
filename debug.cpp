@@ -630,34 +630,30 @@ void debugCPUDecision() {
 void debugMinigames() {
     while (true) {
         std::cout << "\n===== MINIGAME DEBUG MENU =====\n"
-                  << "1. Test memory minigame\n"
-                  << "2. Test math minigame\n"
-                  << "3. Test reaction minigame\n"
-                  << "4. Test luck-based minigame\n"
-                  << "5. Test hangman minigame\n"
-                  << "6. Test battleship minigame\n"
-                  << "7. Return to main debug menu\n";
+                  << "1. Test Pong\n"
+                  << "2. Test Battleship\n"
+                  << "3. Test Hangman\n"
+                  << "4. Test Memory Match\n"
+                  << "5. Test Minesweeper\n"
+                  << "6. Return to main debug menu\n";
 
-        const int choice = readMenuChoice(1, 7);
+        const int choice = readMenuChoice(1, 6);
         if (choice == 1) {
-            runCursesMemory();
-            pauseForEnter();
-        } else if (choice == 2) {
-            debugMathMinigameStub();
-            pauseForEnter();
-        } else if (choice == 3) {
             runCursesPong();
             pauseForEnter();
-        } else if (choice == 4) {
-            runCursesMinesweeper();
-            pauseForEnter();
-        } else if (choice == 5) {
-            runCursesHangman();
-            pauseForEnter();
-        } else if (choice == 6) {
+        } else if (choice == 2) {
             runCursesBattleship();
             pauseForEnter();
-        } else if (choice == 7) {
+        } else if (choice == 3) {
+            runCursesHangman();
+            pauseForEnter();
+        } else if (choice == 4) {
+            runCursesMemory();
+            pauseForEnter();
+        } else if (choice == 5) {
+            runCursesMinesweeper();
+            pauseForEnter();
+        } else if (choice == 6) {
             return;
         }
     }
@@ -1079,132 +1075,6 @@ void debugClassicFullBoardMode() {
                      BoardViewMode::ClassicFull);
 }
 
-void debug1860BoardMode() {
-    RuleSet rules = makeNormalRules();
-    Board board;
-    std::vector<Player> players = makeBoardPreviewPlayers();
-    players[0].tile = board.mode1860StartTileId();
-    players[1].tile = board.mode1860TileIdAt(20, 5);
-    players[2].tile = board.mode1860TileIdAt(10, 11);
-    players[3].tile = board.mode1860RetirementTileId();
-    showBoardPreview("1860 Free Movement Board",
-                     "The main board should follow the active player while the 25x25 checkered board remains available through the minimap.",
-                     players,
-                     0,
-                     std::vector<std::string>{
-                         "Infancy / Start is near the bottom-left.",
-                         "Happy Old Age / Retirement is near the top-right.",
-                         "Players can choose any valid orthogonal landing space after spinning."
-                     },
-                     rules,
-                     BoardViewMode::Mode1860);
-}
-
-void debug1860FreeMovementRules() {
-    std::cout << "\n===== 1860 FREE MOVEMENT DEBUG =====\n";
-    Board board;
-    const int startTile = board.mode1860StartTileId();
-    const Tile& start = board.tileAt(startTile);
-    const int steps = readInt("Movement steps to inspect", 1, 10, 5);
-    const std::vector<int> reachable = board.reachable1860Tiles(startTile, steps);
-
-    bool allValid = true;
-    for (std::size_t i = 0; i < reachable.size(); ++i) {
-        allValid = allValid && board.isValid1860Move(startTile, reachable[i], steps);
-    }
-
-    std::cout << "Board size: " << board.mode1860Rows() << "x" << board.mode1860Cols() << "\n";
-    std::cout << "Start tile: " << startTile << " at row " << start.mode1860Y
-              << ", col " << start.mode1860X << "\n";
-    std::cout << "Retirement tile: " << board.mode1860RetirementTileId() << "\n";
-    std::cout << "Reachable destinations at exactly " << steps << " steps: "
-              << reachable.size() << "\n";
-    std::cout << "Validation: " << (allValid ? "all destinations are exact-distance moves" : "FAILED") << "\n";
-    std::cout << "Sample destinations:\n";
-    for (std::size_t i = 0; i < reachable.size() && i < 10; ++i) {
-        const Tile& tile = board.tileAt(reachable[i]);
-        std::cout << "  " << reachable[i] << " row " << tile.mode1860Y
-                  << ", col " << tile.mode1860X << " -> "
-                  << getTileFullName(tile) << " (zone "
-                  << board.mode1860LifeZone(tile.mode1860Y, tile.mode1860X) << ")\n";
-    }
-    pauseForEnter();
-}
-
-void debugBoardModeParsing() {
-    std::cout << "\n===== BOARD MODE PARSING DEBUG =====\n";
-    const std::vector<std::string> samples{
-        "classic-full",
-        "Classic Full Board",
-        "follow-camera",
-        "Follow Camera",
-        "1860",
-        "Mode1860",
-        "Checkered1860"
-    };
-
-    for (std::size_t i = 0; i < samples.size(); ++i) {
-        const BoardViewMode mode = boardViewModeFromName(samples[i]);
-        std::cout << samples[i] << " -> " << boardViewModeName(mode) << "\n";
-    }
-    pauseForEnter();
-}
-
-void debugBoardModeSaveLoad() {
-    std::cout << "\n===== BOARD MODE SAVE/LOAD DEBUG =====\n";
-    SaveManager manager;
-    std::string error;
-    if (!manager.ensureSaveDirectory(error)) {
-        std::cout << "Save directory check failed: " << error << "\n";
-        pauseForEnter();
-        return;
-    }
-
-    initialize_game_ui();
-    Game game(20260502);
-    game.boardViewMode = BoardViewMode::Mode1860;
-    game.rules = makeNormalRules();
-    game.settings = createLifeModeSettings();
-    game.bank.configure(game.rules);
-    game.players.clear();
-    Player player = makeDebugPlayer("Mode Tester", 0);
-    player.tile = game.board.mode1860StartTileId();
-    game.players.push_back(player);
-    Player other = makeDebugPlayer("Second", 1);
-    other.tile = game.board.mode1860TileIdAt(20, 5);
-    game.players.push_back(other);
-    game.currentPlayerIndex = 0;
-    game.gameId = "DEBUG_BOARD_MODE_1860";
-    game.assignedSaveFilename = "debug_board_mode_1860.sav";
-    destroy_game_ui();
-
-    const std::string filename = "debug_board_mode_1860.sav";
-    if (!manager.saveGame(game, filename, error)) {
-        std::cout << "Save failed: " << error << "\n";
-        pauseForEnter();
-        return;
-    }
-
-    initialize_game_ui();
-    Game loaded(20260503);
-    destroy_game_ui();
-    if (!manager.loadGame(loaded, filename, error)) {
-        std::cout << "Load failed: " << error << "\n";
-        pauseForEnter();
-        return;
-    }
-
-    std::cout << "Saved mode: " << boardViewModeName(game.boardViewMode) << "\n";
-    std::cout << "Loaded mode: " << boardViewModeName(loaded.boardViewMode) << "\n";
-    std::cout << "Loaded players: " << loaded.players.size() << "\n";
-    std::cout << "Loaded 1860 size: " << loaded.board.mode1860Rows()
-              << "x" << loaded.board.mode1860Cols() << "\n";
-    if (!loaded.players.empty()) {
-        std::cout << "First player tile: " << loaded.players.front().tile << "\n";
-    }
-    pauseForEnter();
-}
-
 void debugMinimapSupport() {
     initialize_game_ui();
     Board board;
@@ -1278,15 +1148,11 @@ void debugBoardUi() {
                   << "10. Test event message panel\n"
                   << "11. Test follow camera board mode\n"
                   << "12. Test classic/full board mode\n"
-                  << "13. Test 1860 checkered board mode\n"
-                  << "14. Test board mode parsing\n"
-                  << "15. Test board mode save/load\n"
-                  << "16. Test 1860 free movement rules\n"
-                  << "17. Test minimap support\n"
-                  << "18. Test popup over follow-camera mode\n"
-                  << "19. Return\n";
+                  << "13. Test minimap support\n"
+                  << "14. Test popup over follow-camera mode\n"
+                  << "15. Return\n";
 
-        const int choice = readMenuChoice(1, 19);
+        const int choice = readMenuChoice(1, 15);
         if (choice == 1) {
             debugTileColorsAndSymbols();
         } else if (choice == 2) {
@@ -1312,16 +1178,8 @@ void debugBoardUi() {
         } else if (choice == 12) {
             debugClassicFullBoardMode();
         } else if (choice == 13) {
-            debug1860BoardMode();
-        } else if (choice == 14) {
-            debugBoardModeParsing();
-        } else if (choice == 15) {
-            debugBoardModeSaveLoad();
-        } else if (choice == 16) {
-            debug1860FreeMovementRules();
-        } else if (choice == 17) {
             debugMinimapSupport();
-        } else if (choice == 18) {
+        } else if (choice == 14) {
             debugPopupOverFollowCamera();
         } else {
             return;
@@ -1868,6 +1726,98 @@ void debugGameSettingsMenu() {
     }
 }
 
+void debugEndScreen() {
+    // Build fake players with varied stats to test the breakdown display
+    RuleSet rules = makeNormalRules();
+    Bank bank(rules);
+
+    Player p1 = makeDebugPlayer("Alice", 0);
+    p1.cash = 120000;
+    p1.houseValue = 200000;
+    p1.finalHouseSaleValue = 250000;
+    p1.actionCards = {"Bonus Payday", "Stock Options"};
+    p1.petCards = {"Dog"};
+    p1.kids = 3;
+    p1.retirementBonus = 50000;
+    p1.loans = 2;   // will affect totalLoanDebt
+
+    Player p2 = makeDebugPlayer("Bob", 1);
+    p2.cash = 300000;
+    p2.houseValue = 100000;
+    p2.finalHouseSaleValue = 0;
+    p2.actionCards = {};
+    p2.petCards = {};
+    p2.kids = 0;
+    p2.retirementBonus = 20000;
+    p2.loans = 0;
+
+    Player p3 = makeDebugPlayer("CPU Easy", 2);
+    p3.type = PlayerType::CPU;
+    p3.cpuDifficulty = CpuDifficulty::Easy;
+    p3.cash = 60000;
+    p3.houseValue = 150000;
+    p3.kids = 1;
+    p3.retirementBonus = 0;
+    p3.loans = 4;
+
+    std::vector<Player> players = {p1, p2, p3};
+
+    // Replicate calculateFinalWorth inline (since it's a private Game method)
+    auto calcWorth = [&](const Player& p) {
+        int worth = p.cash;
+        worth += p.finalHouseSaleValue > 0 ? p.finalHouseSaleValue : p.houseValue;
+        worth += static_cast<int>(p.actionCards.size()) * 100000;
+        worth += static_cast<int>(p.petCards.size()) * 100000;
+        worth += p.kids * 50000;
+        worth += p.retirementBonus;
+        worth -= bank.totalLoanDebt(p);
+        return worth;
+    };
+
+    // Find winner
+    int winner = 0;
+    int best = calcWorth(players[0]);
+    for (std::size_t i = 1; i < players.size(); ++i) {
+        int worth = calcWorth(players[i]);
+        if (worth > best) { best = worth; winner = static_cast<int>(i); }
+    }
+
+    // Ranked order
+    std::vector<std::size_t> ranked = {0, 1, 2};
+    std::sort(ranked.begin(), ranked.end(), [&](std::size_t a, std::size_t b) {
+        return calcWorth(players[a]) > calcWorth(players[b]);
+    });
+
+    // Build the lines (mirrors what you'll put in game.cpp)
+    std::vector<std::string> endgameLines;
+    endgameLines.push_back(players[winner].name + " wins with $" + std::to_string(best) + ".");
+    endgameLines.push_back("");
+    const char* medals[] = {"1st", "2nd", "3rd", "4th"};
+    for (std::size_t rank = 0; rank < ranked.size(); ++rank) {
+        const Player& p = players[ranked[rank]];
+        const int house     = p.finalHouseSaleValue > 0 ? p.finalHouseSaleValue : p.houseValue;
+        const int actions   = static_cast<int>(p.actionCards.size()) * 100000;
+        const int pets      = static_cast<int>(p.petCards.size()) * 100000;
+        const int family    = p.kids * 50000;
+        const int loans     = bank.totalLoanDebt(p);
+        endgameLines.push_back(std::string(medals[rank]) + " " + p.name +
+                               "  TOTAL: $" + std::to_string(calcWorth(p)));
+        endgameLines.push_back("  Cash $" + std::to_string(p.cash) +
+                               "  House $" + std::to_string(house) +
+                               "  Actions $" + std::to_string(actions));
+        endgameLines.push_back("  Pets $" + std::to_string(pets) +
+                               "  Family $" + std::to_string(family) +
+                               "  Retire $" + std::to_string(p.retirementBonus));
+        endgameLines.push_back("  Loans -$" + std::to_string(loans));
+        endgameLines.push_back("");
+    }
+    endgameLines.push_back("Press ENTER to return to the main menu.");
+
+    initialize_game_ui();
+    showPopupMessage("Player " + std::to_string(winner + 1) + " Wins!", endgameLines, has_colors(), false);
+    destroy_game_ui();
+}
+
 void runDebugMenu() {
     while (true) {
         std::cout << "\n===== DEBUG MENU =====\n"
@@ -1883,9 +1833,10 @@ void runDebugMenu() {
                   << "10. Test board UI features\n"
                   << "11. Test playtest fixes\n"
                   << "12. Test game settings\n"
-                  << "13. Exit\n";
+                  << "13. Test endgame screen\n"
+                  << "14. Exit\n";
 
-        const int choice = readMenuChoice(1, 13);
+        const int choice = readMenuChoice(1, 14);
         switch (choice) {
             case 1:
                 debugDiceRoll();
@@ -1924,6 +1875,9 @@ void runDebugMenu() {
                 debugGameSettingsMenu();
                 break;
             case 13:
+                debugEndScreen();
+                break;
+            case 14:
                 std::cout << "Exiting debug menu.\n";
                 return;
             default:

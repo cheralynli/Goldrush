@@ -1077,8 +1077,6 @@ bool SaveManager::saveGame(const Game& game,
     out << "GAME\tLAST_SAVED_AT\t" << static_cast<long long>(game.lastSavedTime) << "\n";
     out << "GAME\tASSIGNED_FILE\t" << escapeField(game.assignedSaveFilename) << "\n";
     out << "GAME\tBOARD_VIEW\t" << escapeField(boardViewModeName(game.boardViewMode)) << "\n";
-    out << "GAME\tBOARD_1860_ROWS\t" << game.board.mode1860Rows() << "\n";
-    out << "GAME\tBOARD_1860_COLS\t" << game.board.mode1860Cols() << "\n";
     out << "GAME\tCURRENT_PLAYER\t" << game.currentPlayerIndex << "\n";
     out << "GAME\tTURN_COUNTER\t" << game.turnCounter << "\n";
     out << "GAME\tRETIRED_COUNT\t" << game.retiredCount << "\n";
@@ -1227,12 +1225,6 @@ bool SaveManager::loadGame(Game& game,
                 data.assignedFilename = parts[2];
             } else if (parts[1] == "BOARD_VIEW") {
                 data.boardViewMode = boardViewModeFromName(parts[2]);
-            } else if (parts[1] == "BOARD_1860_ROWS" || parts[1] == "BOARD_1860_COLS") {
-                int ignoredBoardDimension = 0;
-                if (!parseInt(parts[2], ignoredBoardDimension) || ignoredBoardDimension <= 0) {
-                    error = "Invalid 1860 board dimension.";
-                    return false;
-                }
             } else if (parts[1] == "CURRENT_PLAYER") {
                 if (!parseInt(parts[2], data.currentPlayerIndex)) {
                     error = "Invalid current player index.";
@@ -1396,11 +1388,8 @@ bool SaveManager::loadGame(Game& game,
                 error = "Invalid trap field.";
                 return false;
             }
-            const int maxTrapTile = data.boardViewMode == BoardViewMode::Mode1860
-                ? game.board.tileCount()
-                : TILE_COUNT;
             if (trap.tileId < 0 ||
-                trap.tileId >= maxTrapTile ||
+                trap.tileId >= TILE_COUNT ||
                 trap.ownerIndex < 0 ||
                 trap.ownerIndex >= static_cast<int>(data.players.size()) ||
                 trap.strengthLevel <= 0) {
@@ -1456,15 +1445,6 @@ bool SaveManager::loadGame(Game& game,
     applyGameSettingsToRules(game.settings, game.rules);
     game.bank.configure(game.rules);
     game.players = data.players;
-    if (game.boardViewMode == BoardViewMode::Mode1860) {
-        for (std::size_t i = 0; i < game.players.size(); ++i) {
-            if (!game.board.isMode1860TileId(game.players[i].tile)) {
-                game.players[i].tile = game.players[i].retired
-                    ? game.board.mode1860RetirementTileId()
-                    : game.board.mode1860StartTileId();
-            }
-        }
-    }
     game.currentPlayerIndex = data.currentPlayerIndex;
     game.turnCounter = data.turnCounter;
     game.retiredCount = data.retiredCount;

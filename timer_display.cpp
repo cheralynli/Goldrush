@@ -7,10 +7,19 @@
 #include <iomanip>
 #include <sstream>
 
+
+//Input: int remainingSeconds
+//Output: string of time remaining
+//Purpose: to display to the user the amount of time remaining in minigame
+//Relation: used in memory and minesweeper minigames
 std::string countdownTimerText(int remainingSeconds) {
     return "Time Remaining: " + std::to_string(std::max(0, remainingSeconds));
 }
 
+//Input: double remainingSeconds
+//Output: string of time remaining
+//Purpose: to display to the user the amount of time remaining in minigame
+//Relation:
 std::string countdownTimerText(double remainingSeconds) {
     std::ostringstream out;
     out << "Time Remaining: " << std::fixed << std::setprecision(1)
@@ -18,6 +27,10 @@ std::string countdownTimerText(double remainingSeconds) {
     return out.str();
 }
 
+//Input: WINDOW win, int y(rows), int x(columns), int remainingSeconds, bool hasColor
+//Output: none
+//Purpose: draws countdown timer with optional coloring
+//Relation: used in memory and minesweeper minigames
 void drawCountdownTimer(WINDOW* win, int y, int x, int remainingSeconds, bool hasColor) {
     if (!win) {
         return;
@@ -35,6 +48,10 @@ void drawCountdownTimer(WINDOW* win, int y, int x, int remainingSeconds, bool ha
     }
 }
 
+//Input: WINDOW win, int y(rows), int x(columns), double remainingSeconds, bool hasColor
+//Output: none
+//Purpose: draws countdown timer with optional coloring
+//Relation:
 void drawCountdownTimer(WINDOW* win, int y, int x, double remainingSeconds, bool hasColor) {
     if (!win) {
         return;
@@ -52,6 +69,10 @@ void drawCountdownTimer(WINDOW* win, int y, int x, double remainingSeconds, bool
     }
 }
 
+//Input: int seconds, bool hasColor
+//Output: none
+//Purpose: displays and counts down the timer
+//Relation: used in memory and minesweeper minigames
 void displayCountdownTimer(int seconds, bool hasColor) {
     int popupH = 7;
     int popupW = 42;

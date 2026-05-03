@@ -503,6 +503,15 @@ HangmanResult playHangmanMinigame(const std::string& playerName, bool hasColor) 
 
         int ch = wgetch(win);
 
+        // Resize handling here
+        if (ch == KEY_RESIZE) {
+            int newH, newW;
+            getmaxyx(stdscr, newH, newW);
+            wresize(win, newH, newW);
+            mvwin(win, 0, 0);
+            continue;  // Redraw on next iteration
+        }
+
         if (isCancelKey(ch)) {
             res.abandoned = true;
             break;

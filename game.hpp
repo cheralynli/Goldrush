@@ -5,6 +5,7 @@
 #include <ctime>
 #include <string>
 #include <vector>
+#include <set>
 
 #include "bank.hpp"
 #include "board.hpp"
@@ -31,7 +32,6 @@ public:
 
 private:
     friend class SaveManager;
-    friend void debugBoardModeSaveLoad();
 
     enum StartChoice {
         START_NEW_GAME,
@@ -81,7 +81,7 @@ private:
 
     bool isTerminalSizeValid() const;
     bool ensureMinSize() const;
-    bool recoverTerminalLayout(int currentPlayer, const std::string& msg, const std::string& detail);
+
     void createWindows();
     void destroyWindows();
     void waitForEnter(WINDOW* w, int y, int x, const std::string& text) const;
@@ -96,6 +96,8 @@ private:
     bool chooseSaveFileToLoad(SaveFileInfo& selected);
     bool saveCurrentGame();
     bool loadSavedGame();
+    bool windowsValid; //member variable to track if windows are currently created, to avoid unnecessary create/destroy calls
+    bool recoverTerminalLayout(int currentPlayer, const std::string& msg, const std::string& detail);
 
     StartChoice showStartScreen();
     bool chooseBoardViewMode();
@@ -128,6 +130,7 @@ private:
     void checkTrapTrigger(int playerIndex);
     void setupRules();
     bool setupPlayers();
+    char showCharacterCustomisationPopup(const std::vector<char>& unavailable, const std::string& name, int index, PlayerType type);
     void setupInvestments();
     int waitForTurnCommand(int currentPlayer);
     void renderGame(int currentPlayer, const std::string& msg, const std::string& detail) const;
@@ -181,11 +184,6 @@ private:
     void maybeAwardPetCard(Player& player, const std::string& reason);
     int chooseNextTile(Player& player, const Tile& tile);
     bool animateMove(int currentPlayer, int steps);
-    int choose1860Destination(int currentPlayer, int steps);
-    int chooseCPU1860Destination(const Player& player, const std::vector<int>& reachableTiles);
-    bool animate1860Move(int currentPlayer, int destinationTile, int steps);
-    void take1860MovementSpin(int currentPlayer, const std::string& reason);
-    bool canRetire1860(const Player& player) const;
     void takeMovementSpin(int currentPlayer, const std::string& reason);
     bool allPlayersRetired() const;
     void finalizeScoring();
@@ -194,4 +192,5 @@ private:
 
     int minRewardForTier(int tier) const;
     int maxRewardForTier(int tier) const;
+    void triggerBabyEvent(Player& player);
 };

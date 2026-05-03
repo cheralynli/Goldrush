@@ -3,6 +3,10 @@
 #include <algorithm>
 
 namespace {
+//Input: Player player, rng generator
+//Output: random integer (Human:40-85, cpuEasy:20-55, cpuNormal:45-75, cpuHard:65-95)
+//Purpose: generates random score for Forced Duel minigame
+//Relation: compare duel score to decide winner of Forced Duel
 int cpuDuelScore(const Player& player, RandomService& rng) {
     if (player.type != PlayerType::CPU) {
         return rng.uniformInt(40, 85);
@@ -19,6 +23,10 @@ int cpuDuelScore(const Player& player, RandomService& rng) {
     }
 }
 
+//Input: Player player
+//Output: profile type of player
+//Purpose: determine type of player to display on interface
+//Relation: used when showing Forced Duel matchups
 std::string duelProfileText(const Player& player) {
     if (player.type != PlayerType::CPU) {
         return "Human controlled";
@@ -28,14 +36,18 @@ std::string duelProfileText(const Player& player) {
 }  // namespace
 
 namespace {
+//Input: SabotageCard, int FixedRoll, bool success flag, bool critical flag
+//Output: FixedRoll value
+//Purpose: toggles success/critical flags and returns FixedRoll output
+//Relation: returns a fixed roll value for debugging traptile/lawsuit
 int rollOutcomeFromValue(const SabotageCard& card, int roll, bool& success, bool& critical) {
     critical = false;
-    if (!card.requiresDiceRoll) {
+    if (!card.requiresDiceRoll) { //trap tile
         success = roll <= card.successChance;
         return 0;
     }
 
-    if (roll <= 3) {
+    if (roll <= 3) { //lawsuit
         success = false;
         return roll;
     }
@@ -45,11 +57,19 @@ int rollOutcomeFromValue(const SabotageCard& card, int roll, bool& success, bool
 }
 }
 
+//Input: bankRef, random
+//Output: none
+//Purpose: binds SabotageManager to external Bank and RandomService dependencies
+//Relation: called when creating a SabotageManager instance
 SabotageManager::SabotageManager(Bank& bankRef, RandomService& random)
     : bank(bankRef),
       rng(random) {
 }
 
+//Input: int percentage chance of TRUE
+//Output: bool value returns true with percent chance
+//Purpose: determines if a random event suceeds based on a given percentage chance
+//Relation: gets called if !requiresDiceRoll 
 bool SabotageManager::rollChance(int percent) {
     if (percent <= 0) {
         return false;
@@ -60,14 +80,18 @@ bool SabotageManager::rollChance(int percent) {
     return rng.uniformInt(1, 100) <= percent;
 }
 
+//Input: SabotageCard, bool success flag, bool critical flag
+//Output: int roll
+//Purpose: toggles success/critical flags and returns roll output
+//Relation: determines success/critical result for traptile/lawsuit
 int SabotageManager::rollOutcome(const SabotageCard& card, bool& success, bool& critical) {
     critical = false;
-    if (!card.requiresDiceRoll) {
+    if (!card.requiresDiceRoll) { // trap tile
         success = rollChance(card.successChance);
         return 0;
     }
 
-    const int roll = rng.roll10();
+    const int roll = rng.roll10(); // lawsuit
     if (roll <= 3) {
         success = false;
         return roll;
@@ -77,10 +101,18 @@ int SabotageManager::rollOutcome(const SabotageCard& card, bool& success, bool& 
     return roll;
 }
 
+//Input: int baseAmount, bool critical flag
+//Output: int moneyAmount (baseAmount*2 if critical flag is raised)
+//Purpose: double sabotage effect if critical flag is raised
+//Relation: increases sabotage effects depending on chance
 int SabotageManager::moneyAmount(int baseAmount, bool critical) const {
     return critical ? baseAmount * 2 : baseAmount;
 }
 
+//Input: Player target
+//Output: bool consumeShield
+//Purpose: checks if player has a shield available
+//Relation: for use against tile traps
 bool SabotageManager::consumeShield(Player& target, std::string& message) {
     if (target.itemDisableTurns > 0) {
         return false;
@@ -93,6 +125,10 @@ bool SabotageManager::consumeShield(Player& target, std::string& message) {
     return true;
 }
 
+//Input: Player target, int charged amount 
+//Output: Reduced charged amount
+//Purpose: decrease amount owed if player has insurance, decrement target.insuranceUses.
+//Relation: for use against lawsuit, tile traps, property damage 
 int SabotageManager::applyInsurance(Player& target, int amount, std::string& message) {
     if (target.itemDisableTurns > 0 || target.insuranceUses <= 0 || amount <= 0) {
         return amount;
@@ -104,10 +140,18 @@ int SabotageManager::applyInsurance(Player& target, int amount, std::string& mes
     return reduced;
 }
 
+//Input: Player attacker, Player target
+//Output: resolveLawsuit()
+//Purpose: simplify resolveLawsuit not needing to pass rng.roll10()
+//Relation: convenience wrapper for resolveLawsuit()
 SabotageResult SabotageManager::resolveLawsuit(Player& attacker, Player& target) {
     return resolveLawsuit(attacker, target, rng.roll10(), rng.roll10());
 }
 
+//Input: Player attacker, Player target, attackerRoll rng.roll10(), targetRoll rng.roll10()
+//Output: lawsuit result
+//Purpose: calculates amount owed in lawsuit sabotage and updates summary
+//Relation: resolves lawsuit sabotage
 SabotageResult SabotageManager::resolveLawsuit(Player& attacker, Player& target, int attackerRoll, int targetRoll) {
     SabotageResult result;
     result.attempted = true;
@@ -147,6 +191,10 @@ SabotageResult SabotageManager::resolveLawsuit(Player& attacker, Player& target,
     return result;
 }
 
+//Input: Player attacker, Player target
+//Output: Force Duel result
+//Purpose: calculates amount owed in Forced Duel sabotage and updates summary
+//Relation: resolves Forced Duel sabotage
 SabotageResult SabotageManager::resolveForcedDuel(Player& attacker, Player& target) {
     SabotageResult result;
     result.attempted = true;
@@ -183,6 +231,10 @@ SabotageResult SabotageManager::resolveForcedDuel(Player& attacker, Player& targ
     return result;
 }
 
+//Input: SabotageCard, Player attacker, Player target, vector Players, int attackerIndex, int targetIndex
+//Output: applyDirectSabotage()
+//Purpose: simplify applyDirectSabotage without passing a forcedRoll
+//Relation: convenience wrapper for applyDirectSabotage()
 SabotageResult SabotageManager::applyDirectSabotage(const SabotageCard& card,
                                                     Player& attacker,
                                                     Player& target,
@@ -192,6 +244,10 @@ SabotageResult SabotageManager::applyDirectSabotage(const SabotageCard& card,
     return applyDirectSabotage(card, attacker, target, players, attackerIndex, targetIndex, -1);
 }
 
+//Input: SabotageCard, Player attacker, Player target, vector Players, int attackerIndex, int targetIndex, int forcedRoll
+//Output: Sabotage result for other sabotages
+//Purpose: calculates amount owed for each sabotage and updates summary
+//Relation: resolves other sabotages
 SabotageResult SabotageManager::applyDirectSabotage(const SabotageCard& card,
                                                     Player& attacker,
                                                     Player& target,
@@ -335,10 +391,18 @@ SabotageResult SabotageManager::applyDirectSabotage(const SabotageCard& card,
     return result;
 }
 
+//Input: ActiveTrap trap, Player target
+//Output: triggerTrap()
+//Purpose: simplify triggerTrap without passing a forcedRoll
+//Relation: convenience wrapper for triggerTrap()
 SabotageResult SabotageManager::triggerTrap(const ActiveTrap& trap, Player& target) {
     return triggerTrap(trap, target, -1);
 }
 
+//Input: ActiveTrap trap, Player target, int forcedRoll
+//Output: Trap triggered results
+//Purpose: checks for shield, calculates trap penalty, updates summary
+//Relation: resolves landing on a trap tile
 SabotageResult SabotageManager::triggerTrap(const ActiveTrap& trap, Player& target, int forcedRoll) {
     SabotageResult result;
     result.attempted = true;

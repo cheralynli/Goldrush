@@ -364,8 +364,8 @@ MinesweeperResult playMinesweeperMinigame(const std::string& playerName, bool ha
     const std::time_t startTime = std::time(nullptr);
 
     while (true) {
-        int screenH = 0;
-        int screenW = 0;
+        int screenH, screenW;
+
         getmaxyx(stdscr, screenH, screenW);
         wresize(overlay, screenH, screenW);
         mvwin(overlay, 0, 0);
@@ -375,11 +375,16 @@ MinesweeperResult playMinesweeperMinigame(const std::string& playerName, bool ha
             wbkgd(overlay, COLOR_PAIR(GOLDRUSH_GOLD_BLACK));
         }
 
+        //Recalculate arena dimensions each frame to handle resizing
         const int arenaWidth = 72;
         const int arenaHeight = 26;
         const int arenaLeft = (screenW - arenaWidth) / 2;
         const int arenaTop = 9;
         const int arenaBottom = arenaTop + arenaHeight - 1;
+
+        // Resize overlay
+        wresize(overlay, screenH, screenW);
+        mvwin(overlay, 0, 0);
 
         drawAsciiTitle(overlay, screenW, hasColor);
 
@@ -477,6 +482,14 @@ MinesweeperResult playMinesweeperMinigame(const std::string& playerName, bool ha
         }
 
         const int ch = wgetch(overlay);
+        // Resize handling here
+        if (ch == KEY_RESIZE) {
+            int newH, newW;
+            getmaxyx(stdscr, newH, newW);
+            wresize(overlay, newH, newW);
+            mvwin(overlay, 0, 0);
+            continue;  // Redraw on next iteration
+        }
         if (ch == ERR) {
             napms(40);
             continue;
