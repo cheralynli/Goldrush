@@ -1911,10 +1911,7 @@ bool Game::run() {
                 continue;
             }
             setupInvestments();
-            if (rules.toggles.tutorialEnabled) {
-                showPreGameQuickGuide(hasColor, boardViewMode == BoardViewMode::Mode1860);
-                addHistory("Quick guide reviewed");
-            }
+            showTutorial();
             break;
         }
 
