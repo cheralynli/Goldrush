@@ -84,6 +84,17 @@ const short MODE1860_PAIR_TILE_RISK = 30;
 const short MODE1860_PAIR_TILE_CAREER = 31;
 const short MODE1860_PAIR_TILE_FAMILY = 32;
 const short MODE1860_PAIR_TILE_BASIC = 33;
+const short MODE1860_PAIR_TILE_MARRIAGE = 34;
+const short MODE1860_PAIR_TILE_WORK = 35;
+const short MODE1860_PAIR_TILE_COLLEGE = 36;
+const short MODE1860_COLOR_MUSTARD = 34;
+const short MODE1860_COLOR_TEAL_LIGHT = 35;
+const short MODE1860_COLOR_TEAL_DARK = 36;
+const short MODE1860_COLOR_BRICK = 37;
+const short MODE1860_COLOR_MAUVE = 38;
+const short MODE1860_COLOR_OLIVE = 39;
+const short MODE1860_COLOR_PAYDAY = 40;
+const short MODE1860_COLOR_DARK_WARM = 41;
 
 //Input: areaLeft (left boundary), areaWidth (width of area), textWidth (width of text)->(all integer)
 //Output: integer x-coordinate
@@ -821,20 +832,51 @@ bool tileHasMode1860Position(const Tile& tile) {
 }
 
 bool initMode1860ColorPairs(bool hasColor) {
-    if (!hasColor || COLOR_PAIRS <= MODE1860_PAIR_TILE_BASIC) {
+    if (!hasColor || COLOR_PAIRS <= MODE1860_PAIR_TILE_COLLEGE) {
         return false;
     }
 
-    init_pair(MODE1860_PAIR_CHECKER_LIGHT, COLOR_BLACK, COLOR_WHITE);
-    init_pair(MODE1860_PAIR_CHECKER_DARK, COLOR_WHITE, COLOR_BLUE);
-    init_pair(MODE1860_PAIR_TILE_ROUTE, COLOR_BLACK, COLOR_YELLOW);
-    init_pair(MODE1860_PAIR_TILE_PAYDAY, COLOR_BLACK, COLOR_GREEN);
-    init_pair(MODE1860_PAIR_TILE_ACTION, COLOR_BLACK, COLOR_CYAN);
-    init_pair(MODE1860_PAIR_TILE_MINIGAME, COLOR_WHITE, COLOR_MAGENTA);
-    init_pair(MODE1860_PAIR_TILE_RISK, COLOR_WHITE, COLOR_RED);
-    init_pair(MODE1860_PAIR_TILE_CAREER, COLOR_WHITE, COLOR_BLUE);
-    init_pair(MODE1860_PAIR_TILE_FAMILY, COLOR_BLACK, COLOR_WHITE);
-    init_pair(MODE1860_PAIR_TILE_BASIC, COLOR_BLACK, COLOR_WHITE);
+    short mustard = COLOR_YELLOW;
+    short darkWarm = COLOR_BLACK;
+    short tealLight = COLOR_CYAN;
+    short tealDark = COLOR_BLUE;
+    short brick = COLOR_RED;
+    short mauve = COLOR_MAGENTA;
+    short olive = COLOR_GREEN;
+    short payday = COLOR_GREEN;
+
+    if (can_change_color() && COLORS > MODE1860_COLOR_DARK_WARM) {
+        init_color(MODE1860_COLOR_MUSTARD, 980, 792, 471);
+        init_color(MODE1860_COLOR_TEAL_LIGHT, 408, 780, 757);
+        init_color(MODE1860_COLOR_TEAL_DARK, 102, 224, 251);
+        init_color(MODE1860_COLOR_BRICK, 867, 325, 255);
+        init_color(MODE1860_COLOR_MAUVE, 706, 510, 608);
+        init_color(MODE1860_COLOR_OLIVE, 333, 322, 149);
+        init_color(MODE1860_COLOR_PAYDAY, 329, 506, 275);
+        init_color(MODE1860_COLOR_DARK_WARM, 80, 60, 40);
+        mustard = MODE1860_COLOR_MUSTARD;
+        darkWarm = MODE1860_COLOR_DARK_WARM;
+        tealLight = MODE1860_COLOR_TEAL_LIGHT;
+        tealDark = MODE1860_COLOR_TEAL_DARK;
+        brick = MODE1860_COLOR_BRICK;
+        mauve = MODE1860_COLOR_MAUVE;
+        olive = MODE1860_COLOR_OLIVE;
+        payday = MODE1860_COLOR_PAYDAY;
+    }
+
+    init_pair(MODE1860_PAIR_CHECKER_LIGHT, COLOR_BLACK, mustard);
+    init_pair(MODE1860_PAIR_CHECKER_DARK, COLOR_WHITE, darkWarm);
+    init_pair(MODE1860_PAIR_TILE_ROUTE, COLOR_BLACK, mustard);
+    init_pair(MODE1860_PAIR_TILE_PAYDAY, COLOR_BLACK, payday);
+    init_pair(MODE1860_PAIR_TILE_ACTION, COLOR_BLACK, tealLight);
+    init_pair(MODE1860_PAIR_TILE_MINIGAME, COLOR_BLACK, mauve);
+    init_pair(MODE1860_PAIR_TILE_RISK, COLOR_WHITE, brick);
+    init_pair(MODE1860_PAIR_TILE_CAREER, COLOR_WHITE, tealDark);
+    init_pair(MODE1860_PAIR_TILE_FAMILY, COLOR_BLACK, mauve);
+    init_pair(MODE1860_PAIR_TILE_BASIC, COLOR_BLACK, mustard);
+    init_pair(MODE1860_PAIR_TILE_MARRIAGE, COLOR_WHITE, brick);
+    init_pair(MODE1860_PAIR_TILE_WORK, COLOR_BLACK, olive);
+    init_pair(MODE1860_PAIR_TILE_COLLEGE, COLOR_BLACK, tealLight);
     return true;
 }
 
@@ -853,13 +895,16 @@ int mode1860TileColorPair(const Tile& tile) {
         case TILE_RISKY:
         case TILE_SPLIT_RISK:
             return MODE1860_PAIR_TILE_RISK;
-        case TILE_CAREER:
-        case TILE_CAREER_2:
         case TILE_COLLEGE:
         case TILE_GRADUATION:
         case TILE_NIGHT_SCHOOL:
+            return MODE1860_PAIR_TILE_COLLEGE;
+        case TILE_CAREER:
             return MODE1860_PAIR_TILE_CAREER;
+        case TILE_CAREER_2:
+            return MODE1860_PAIR_TILE_WORK;
         case TILE_MARRIAGE:
+            return MODE1860_PAIR_TILE_MARRIAGE;
         case TILE_SPLIT_FAMILY:
         case TILE_FAMILY:
         case TILE_BABY:

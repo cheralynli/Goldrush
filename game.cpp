@@ -485,38 +485,7 @@ void Game::drawSetupTitle() const {
     if (!msgWin) {
         return;
     }
-
-    const char* lines[] = {
-        "  ________         .__       .___                       .__      ",
-        " /  _____/    ____ |  |    __| _/______ __ __     _____ |  |__   ",
-        "/   \\  ___  /  _\\|  |   / __ |\\_  __ \\  |  \\/  ___/|     \\ ",
-        "\\   \\_\\  (  <_> )  |__/ /_/ |  |  | \\/  |  /\\___ \\|   Y  \\",
-        " \\______  /\\____/|____/\\____|  |__|   |____/  /____  >___|  / ",
-        "        \\/                  \\/                     \\/    \\/  "
-    };
-    const int artW = 60;
-
-    int h, w;
-    getmaxyx(stdscr, h, w);
-    int startY = (h / 2) - 6;
-    int startX = (w - artW) / 2;
-    if (startY < 1) startY = 1;
-    if (startX < 0) startX = 0;
-
-    if (hasColor) {
-        attron(COLOR_PAIR(GOLDRUSH_GOLD_BLACK) | A_BOLD);
-    }
-    for (int i = 0; i < 6; ++i) {
-        mvprintw(startY + i, startX, "%s", lines[i]);
-    }
-    if (hasColor) {
-        attroff(COLOR_PAIR(GOLDRUSH_GOLD_BLACK) | A_BOLD);
-        attron(COLOR_PAIR(GOLDRUSH_GOLD_SAND) | A_BOLD);
-    }
-    mvprintw(startY + 9, (w - 8) / 2, "GOLDRUSH");
-    if (hasColor) {
-        attroff(COLOR_PAIR(GOLDRUSH_GOLD_SAND) | A_BOLD);
-    }
+    drawGoldrushTitleArt(hasColor);
     refresh();
 }
 
@@ -2390,6 +2359,24 @@ void Game::showTurnSummaryPopup(int playerIndex,
                                       " to Space " + std::to_string(endTile) + ".");
     summary.importantEvents.push_back("Landed on " + getTileDisplayName(end) + ".");
     summary.importantEvents.push_back(describeTileEffectText(end));
+
+    if (titleWin) {
+        draw_title_banner_ui(titleWin);
+    }
+    if (boardWin) {
+        draw_board_ui(boardWin, board, players, playerIndex, endTile, boardViewMode);
+    }
+    if (infoWin) {
+        draw_sidebar_ui(infoWin, board, players, playerIndex, history.recent(), rules);
+    }
+    if (msgWin) {
+        draw_message_ui(msgWin,
+                        clipUiText(player.name + " turn summary",
+                                   static_cast<std::size_t>(std::max(8, getmaxx(msgWin) - 4))),
+                        clipUiText("Reviewing the turn before continuing...",
+                                   static_cast<std::size_t>(std::max(8, getmaxx(msgWin) - 4))));
+    }
+
     showTurnSummaryReport(summary, hasColor);
     if (titleWin) touchwin(titleWin);
     if (boardWin) touchwin(boardWin);
