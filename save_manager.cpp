@@ -17,6 +17,10 @@
 namespace fs = std::filesystem;
 
 namespace {
+//Input: none
+//Output: temporary save/load fields
+//Purpose: stores parsed save records before they are applied to a Game instance
+//Relation: used only inside SaveManager::loadGame
 struct LoadedGameState {
     RuleSet rules;
     GameSettings settings;
@@ -1388,9 +1392,10 @@ bool SaveManager::loadGame(Game& game,
                 error = "Invalid trap field.";
                 return false;
             }
-            if (trap.tileId < 0 ||
-                trap.tileId >= TILE_COUNT ||
-                trap.ownerIndex < 0 ||
+            const int maxTrapTile = data.boardViewMode == BoardViewMode::Mode1860
+                ? game.board.tileCount()
+                : TILE_COUNT;
+            if (trap.ownerIndex < 0 ||
                 trap.ownerIndex >= static_cast<int>(data.players.size()) ||
                 trap.strengthLevel <= 0) {
                 error = "Trap entry is out of range.";
@@ -1400,6 +1405,12 @@ bool SaveManager::loadGame(Game& game,
             if (sabotageTypeName(trap.effectType) != parts[3]) {
                 error = "Unknown trap sabotage type.";
                 return false;
+            }
+            if (trap.tileId < 0 ||
+                trap.tileId >= maxTrapTile ||
+                (data.boardViewMode == BoardViewMode::Mode1860 &&
+                 !game.board.isMode1860WalkableTile(trap.tileId))) {
+                continue;
             }
             data.activeTraps.push_back(trap);
             continue;
@@ -1445,6 +1456,15 @@ bool SaveManager::loadGame(Game& game,
     applyGameSettingsToRules(game.settings, game.rules);
     game.bank.configure(game.rules);
     game.players = data.players;
+    if (game.boardViewMode == BoardViewMode::Mode1860) {
+        for (std::size_t i = 0; i < game.players.size(); ++i) {
+            if (!game.board.isMode1860WalkableTile(game.players[i].tile)) {
+                game.players[i].tile = game.players[i].retired
+                    ? game.board.mode1860RetirementTileId()
+                    : game.board.mode1860StartTileId();
+            }
+        }
+    }
     game.currentPlayerIndex = data.currentPlayerIndex;
     game.turnCounter = data.turnCounter;
     game.retiredCount = data.retiredCount;
@@ -1455,6 +1475,15 @@ bool SaveManager::loadGame(Game& game,
     game.sabotageUnlockAnnounced = data.sabotageUnlockAnnounced;
     game.tutorialFlags = data.tutorialFlags;
     game.activeTraps = data.activeTraps;
+    if (game.boardViewMode == BoardViewMode::Mode1860) {
+        game.activeTraps.erase(
+            std::remove_if(game.activeTraps.begin(),
+                           game.activeTraps.end(),
+                           [&](const ActiveTrap& trap) {
+                               return !game.board.isMode1860WalkableTile(trap.tileId);
+                           }),
+            game.activeTraps.end());
+    }
     game.decks.reset(game.rules, false);
     migrateLoadedDeckState(data, version);
 

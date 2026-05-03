@@ -164,6 +164,31 @@ private:
     int playActionCard(int playerIndex, const Tile& tile);
     void applyTileEffect(int playerIndex, const Tile& tile);
     int findPreviousTile(const Player& player, int tileId) const;
+    //Input: fromTileId (current 1860 tile id)
+    //Output: vector of adjacent legal 1860 tile ids
+    //Purpose: finds one-step manual movement options without using classic next links
+    //Relation: used by human and CPU 1860 movement
+    std::vector<int> validAdjacent1860Tiles(int fromTileId) const;
+    //Input: fromTileId and toTileId
+    //Output: true if the step is legal for 1860 movement
+    //Purpose: prevents invalid, blank, diagonal, and backward-loop 1860 movement
+    //Relation: used by validAdjacent1860Tiles and movement validation
+    bool isLegal1860Step(int fromTileId, int toTileId) const;
+    //Input: currentPlayer index and remaining movement points
+    //Output: next 1860 tile id or current tile id if no move is available
+    //Purpose: chooses one CPU 1860 step with difficulty-aware retirement progress
+    //Relation: used by moveCPUManually1860
+    int chooseCPU1860NextStep(int currentPlayer, int remainingSteps) const;
+    //Input: currentPlayer index and available movement points
+    //Output: true if the human moved at least one 1860 step
+    //Purpose: lets a human move tile-by-tile in 1860 mode using keyboard controls
+    //Relation: used by takeMovementSpin and action-card movement in Mode1860
+    bool moveHumanManually1860(int currentPlayer, int steps);
+    //Input: currentPlayer index and available movement points
+    //Output: true if the CPU moved at least one 1860 step
+    //Purpose: moves CPU players one 1860 tile at a time toward Retirement
+    //Relation: used by takeMovementSpin and action-card movement in Mode1860
+    bool moveCPUManually1860(int currentPlayer, int steps);
     std::string movePlayerByAction(int playerIndex, int steps);
     std::string applyActionEffect(int playerIndex,
                                   const Tile& tile,

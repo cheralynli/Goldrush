@@ -13,6 +13,10 @@
 
 namespace {
 
+//Input: none
+//Output: x/y coordinate pair
+//Purpose: stores a classic board drawing coordinate
+//Relation: used by CLASSIC_BOARD_POSITIONS
 struct UiPos {
     int x;
     int y;
@@ -29,6 +33,10 @@ static const UiPos CLASSIC_BOARD_POSITIONS[TILE_COUNT] = {
     {37, 25}, {41, 25}
 };
 
+//Input: none
+//Output: classic row segment metadata
+//Purpose: groups contiguous classic board tiles by row for route drawing
+//Relation: used by drawClassicBoardGrid
 struct RowSegment {
     int y;
     int startIndex;
@@ -47,6 +55,10 @@ static const RowSegment CLASSIC_ROW_SEGMENTS[] = {
     {25, 87, 2}
 };
 
+//Input: none
+//Output: classic region label metadata
+//Purpose: stores text and position for region names on the classic board
+//Relation: used by drawClassicRegions
 struct RegionLabel {
     const char* name;
     int y;
@@ -730,6 +742,10 @@ void drawClassicTokens(WINDOW* boardWin,
     }
 }
 
+//Input: Tile reference
+//Output: 1860-flavored tile name
+//Purpose: gives 1860 mode historical-style names without changing tile effects
+//Relation: used by renderMode1860TileDetails
 std::string mode1860FlavorName(const Tile& tile) {
     switch (tile.kind) {
         case TILE_START:
@@ -775,6 +791,10 @@ std::string mode1860FlavorName(const Tile& tile) {
     }
 }
 
+//Input: Tile reference
+//Output: short 1860 display abbreviation
+//Purpose: keeps tile details compact while preserving full names elsewhere
+//Relation: used by renderMode1860TileDetails
 std::string mode1860Abbreviation(const Tile& tile) {
     switch (tile.kind) {
         case TILE_START:
@@ -816,14 +836,26 @@ std::string mode1860Abbreviation(const Tile& tile) {
     }
 }
 
+//Input: viewport top coordinate and visible 1860 tile
+//Output: screen y coordinate for the tile cell
+//Purpose: converts 1860 grid rows to terminal cell positions
+//Relation: used by 1860 tile and token rendering
 int mode1860CellTop(int top, const Tile& tile) {
     return top + (tile.mode1860Y * MODE1860_CELL_H);
 }
 
+//Input: viewport left coordinate and visible 1860 tile
+//Output: screen x coordinate for the tile cell
+//Purpose: converts 1860 grid columns to terminal cell positions
+//Relation: used by 1860 tile and token rendering
 int mode1860CellLeft(int left, const Tile& tile) {
     return left + (tile.mode1860X * MODE1860_CELL_W);
 }
 
+//Input: Tile reference
+//Output: true when the tile has a valid 1860 grid position
+//Purpose: rejects invalid or non-1860 tile coordinates during rendering
+//Relation: used by 1860 board, token, and detail rendering
 bool tileHasMode1860Position(const Tile& tile) {
     return tile.mode1860Y >= 0 &&
            tile.mode1860Y < MODE1860_ROWS &&
@@ -831,6 +863,10 @@ bool tileHasMode1860Position(const Tile& tile) {
            tile.mode1860X < MODE1860_COLS;
 }
 
+//Input: hasColor flag from the UI
+//Output: true when 1860-specific color pairs are available
+//Purpose: initializes solid 1860 tile and checkerboard colors safely
+//Relation: used by drawMode1860Board before drawing cells
 bool initMode1860ColorPairs(bool hasColor) {
     if (!hasColor || COLOR_PAIRS <= MODE1860_PAIR_TILE_COLLEGE) {
         return false;
@@ -880,11 +916,19 @@ bool initMode1860ColorPairs(bool hasColor) {
     return true;
 }
 
+//Input: 1860 board row and column
+//Output: checkerboard background color pair
+//Purpose: alternates base colors behind playable 1860 cells
+//Relation: used by drawMode1860Board
 int mode1860CheckerColorPair(int row, int col) {
     return ((row + col) % 2) == 0 ? MODE1860_PAIR_CHECKER_LIGHT
                                   : MODE1860_PAIR_CHECKER_DARK;
 }
 
+//Input: Tile reference
+//Output: 1860 tile color pair
+//Purpose: maps each gameplay tile type to a consistent solid color
+//Relation: used by drawMode1860Tile
 int mode1860TileColorPair(const Tile& tile) {
     switch (tile.kind) {
         case TILE_PAYDAY:
@@ -921,6 +965,10 @@ int mode1860TileColorPair(const Tile& tile) {
     }
 }
 
+//Input: Tile reference
+//Output: fallback character for terminals without color
+//Purpose: preserves readable 1860 categories when color pairs are unavailable
+//Relation: used by drawMode1860Tile
 char mode1860FallbackFill(const Tile& tile) {
     switch (tile.kind) {
         case TILE_PAYDAY:
@@ -954,6 +1002,10 @@ char mode1860FallbackFill(const Tile& tile) {
     }
 }
 
+//Input: Tile reference
+//Output: tiny symbol shown inside important 1860 cells
+//Purpose: avoids dense cell text while still marking major spaces
+//Relation: used by drawMode1860Tile
 std::string mode1860TileSymbol(const Tile& tile) {
     switch (tile.kind) {
         case TILE_START:
@@ -988,6 +1040,10 @@ std::string mode1860TileSymbol(const Tile& tile) {
     }
 }
 
+//Input: Tile reference
+//Output: concise text describing the tile effect
+//Purpose: moves full 1860 tile meaning into the detail panel
+//Relation: used by renderMode1860TileDetails
 std::string mode1860EffectHint(const Tile& tile) {
     switch (tile.kind) {
         case TILE_START:
@@ -1033,6 +1089,10 @@ std::string mode1860EffectHint(const Tile& tile) {
     }
 }
 
+//Input: board window, rectangle coordinates/dimensions, and fill character
+//Output: none
+//Purpose: paints a solid block for one 1860 checker or tile cell
+//Relation: used by drawMode1860Board and drawMode1860Tile
 void fillMode1860Rect(WINDOW* boardWin,
                       int y,
                       int x,
@@ -1052,6 +1112,10 @@ void fillMode1860Rect(WINDOW* boardWin,
     }
 }
 
+//Input: board window, tile, viewport origin, highlight flags, and color flag
+//Output: none
+//Purpose: draws one solid 1860 playable tile over the checkerboard background
+//Relation: used by drawMode1860Board
 void drawMode1860Tile(WINDOW* boardWin,
                       const Tile& tile,
                       int top,
@@ -1095,6 +1159,10 @@ void drawMode1860Tile(WINDOW* boardWin,
     }
 }
 
+//Input: player indices occupying one tile
+//Output: compact player marker text
+//Purpose: keeps one or more players visible on the same 1860 cell
+//Relation: used by drawMode1860Tokens
 std::string mode1860PlayerMarker(const std::vector<int>& occupants) {
     if (occupants.empty()) {
         return "";
@@ -1111,6 +1179,10 @@ std::string mode1860PlayerMarker(const std::vector<int>& occupants) {
     return clipText(marker, MODE1860_CELL_W - 1);
 }
 
+//Input: board window, marker position/text, player color, focus flag, and color flag
+//Output: none
+//Purpose: draws a highly visible 1860 player marker above tile colors
+//Relation: used by drawMode1860Tokens
 void drawMode1860PlayerMarker(WINDOW* boardWin,
                               int y,
                               int x,
@@ -1132,6 +1204,10 @@ void drawMode1860PlayerMarker(WINDOW* boardWin,
     }
 }
 
+//Input: board window, players, visible tiles, viewport origin, focus player, and color flag
+//Output: none
+//Purpose: overlays player markers on the 1860 camera board
+//Relation: used by drawMode1860Board after tiles are painted
 void drawMode1860Tokens(WINDOW* boardWin,
                         const std::vector<Player>& players,
                         const std::vector<Tile>& tiles,
@@ -1168,6 +1244,10 @@ void drawMode1860Tokens(WINDOW* boardWin,
     }
 }
 
+//Input: board window, row/column, label, color/fallback, color flag, and max width
+//Output: next x coordinate after the legend item
+//Purpose: draws one compact legend swatch for 1860 tile categories
+//Relation: used by renderMode1860Legend
 int drawMode1860LegendItem(WINDOW* boardWin,
                            int y,
                            int x,
@@ -1198,6 +1278,10 @@ int drawMode1860LegendItem(WINDOW* boardWin,
     return x + static_cast<int>(clipped.size()) + 2;
 }
 
+//Input: board window, row, and color flag
+//Output: none
+//Purpose: draws the 1860 color legend
+//Relation: used by drawMode1860Board
 void renderMode1860Legend(WINDOW* boardWin, int y, bool hasColor) {
     const int maxX = getmaxx(boardWin);
     int x = 2;
@@ -1223,6 +1307,10 @@ void renderMode1860Legend(WINDOW* boardWin, int y, bool hasColor) {
     drawMode1860LegendItem(boardWin, y, x, "Family", MODE1860_PAIR_TILE_FAMILY, '@', hasColor, maxX);
 }
 
+//Input: board window, row, and color flag
+//Output: none
+//Purpose: explains the tiny symbols used on important 1860 spaces
+//Relation: used by drawMode1860Board when there is enough terminal height
 void renderMode1860SymbolLegend(WINDOW* boardWin, int y, bool hasColor) {
     const int maxX = getmaxx(boardWin);
     const std::string symbols = "Symbols: S Start  R Retire  A Action  M Mini  ! Risk  + Safe  J Job  F Family";
@@ -1244,6 +1332,10 @@ void renderMode1860SymbolLegend(WINDOW* boardWin, int y, bool hasColor) {
     }
 }
 
+//Input: players and tile id
+//Output: human-readable occupant list
+//Purpose: shows which players are on the selected 1860 tile
+//Relation: used by renderMode1860TileDetails
 std::string mode1860PlayersAtTileText(const std::vector<Player>& players, int tileIndex) {
     std::string text = "Players here:";
     bool found = false;
@@ -1258,6 +1350,10 @@ std::string mode1860PlayersAtTileText(const std::vector<Player>& players, int ti
     return found ? text : "Players here: none";
 }
 
+//Input: board window, 1860 tile list, players, focus tile, row, and color flag
+//Output: none
+//Purpose: renders full selected/current 1860 tile details outside the board cells
+//Relation: used by drawMode1860Board
 void renderMode1860TileDetails(WINDOW* boardWin,
                                const std::vector<Tile>& tiles,
                                const std::vector<Player>& players,
@@ -1300,6 +1396,10 @@ void renderMode1860TileDetails(WINDOW* boardWin,
     }
 }
 
+//Input: board window, 1860 tiles, players, focus/cursor ids, reachable set, remaining movement, and color flag
+//Output: none
+//Purpose: draws the 1860 camera-follow board and manual movement highlights
+//Relation: used by Board::render and Board::render1860Selection
 void drawMode1860Board(WINDOW* boardWin,
                        const std::vector<Tile>& tiles,
                        const std::vector<Player>& players,
@@ -1336,7 +1436,7 @@ void drawMode1860Board(WINDOW* boardWin,
     const int startX = std::max(2, ((maxX - borderW) / 2) + 1);
 
     const std::string title = movementSteps > 0
-        ? "1860 Movement Selection"
+        ? "1860 Manual Movement"
         : "1860 Free Movement Board";
     mvwprintw(boardWin,
               1,
@@ -1347,6 +1447,8 @@ void drawMode1860Board(WINDOW* boardWin,
     if (roomy) {
         renderMode1860SymbolLegend(boardWin, 3, useModeColors);
     }
+    const std::string goalLine = "Goal: move toward Retirement in the top-right. A sufficient spin can enter Retirement.";
+    mvwprintw(boardWin, roomy ? 4 : 3, 2, "%s", clipText(goalLine, maxX - 4).c_str());
 
     for (int row = 0; row < visibleRows; ++row) {
         for (int col = 0; col < visibleCols; ++col) {
@@ -1420,9 +1522,8 @@ void drawMode1860Board(WINDOW* boardWin,
 
     if (movementSteps > 0 && maxY > 4) {
         const std::string instruction =
-            "Spin result: " + std::to_string(movementSteps) +
-            " | Choose a highlighted tile exactly " + std::to_string(movementSteps) +
-            " steps away. Arrows move cursor, Enter confirms, Esc cancels.";
+            "Remaining: " + std::to_string(movementSteps) +
+            " | Move one highlighted adjacent tile. Enter stops. Esc/Q cancels before moving or stops after moving.";
         mvwprintw(boardWin, maxY - 2, 2, "%s", clipText(instruction, maxX - 4).c_str());
     }
 }
@@ -1501,31 +1602,74 @@ const Tile& Board::tileAt(int id) const {
     return tiles[std::max(0, std::min(id, static_cast<int>(tiles.size()) - 1))];
 }
 
+//Input: none
+//Output: total count of classic and 1860 tile ids
+//Purpose: exposes the full valid tile id range
+//Relation: used by traps, saves, and debug helpers
 int Board::tileCount() const {
     return MODE1860_BASE_TILE_ID + static_cast<int>(mode1860Tiles.size());
 }
 
+//Input: integer tile id
+//Output: true when the id belongs to the 1860 board
+//Purpose: distinguishes expanded 1860 ids from classic tile ids
+//Relation: used by movement, rendering, traps, and save/load repair
 bool Board::isMode1860TileId(int id) const {
     return id >= MODE1860_BASE_TILE_ID &&
            id < MODE1860_BASE_TILE_ID + static_cast<int>(mode1860Tiles.size());
 }
 
+//Input: integer tile id
+//Output: true if the 1860 tile can be occupied
+//Purpose: filters invalid or blank 1860 coordinates before movement, traps, or saves use them
+//Relation: used by 1860 movement and save/load repair
+bool Board::isMode1860WalkableTile(int id) const {
+    if (!isMode1860TileId(id)) {
+        return false;
+    }
+    const Tile& tile = tileAt(id);
+    return tile.mode1860Y >= 0 &&
+           tile.mode1860Y < MODE1860_ROWS &&
+           tile.mode1860X >= 0 &&
+           tile.mode1860X < MODE1860_COLS;
+}
+
+//Input: none
+//Output: 1860 start tile id
+//Purpose: centralizes the 1860 start coordinate
+//Relation: used by setup, movement repair, and save/load migration
 int Board::mode1860StartTileId() const {
     return mode1860TileIdAt(MODE1860_ROWS - 1, 0);
 }
 
+//Input: none
+//Output: 1860 retirement tile id
+//Purpose: centralizes the 1860 retirement coordinate
+//Relation: used by movement, rendering, retirement, and save/load migration
 int Board::mode1860RetirementTileId() const {
     return mode1860TileIdAt(0, MODE1860_COLS - 1);
 }
 
+//Input: none
+//Output: 1860 board row count
+//Purpose: exposes 1860 dimensions without duplicating constants
+//Relation: used by game movement, rendering, and save/load
 int Board::mode1860Rows() const {
     return MODE1860_ROWS;
 }
 
+//Input: none
+//Output: 1860 board column count
+//Purpose: exposes 1860 dimensions without duplicating constants
+//Relation: used by game movement, rendering, and save/load
 int Board::mode1860Cols() const {
     return MODE1860_COLS;
 }
 
+//Input: 1860 row and column
+//Output: tile id or -1 if coordinates are out of bounds
+//Purpose: converts grid coordinates into actual 1860 tile ids
+//Relation: used by manual movement and camera rendering
 int Board::mode1860TileIdAt(int row, int col) const {
     if (row < 0 || row >= MODE1860_ROWS || col < 0 || col >= MODE1860_COLS) {
         return -1;
@@ -1533,12 +1677,20 @@ int Board::mode1860TileIdAt(int row, int col) const {
     return MODE1860_BASE_TILE_ID + (row * MODE1860_COLS) + col;
 }
 
+//Input: 1860 row and column
+//Output: life progression zone from 0 to 5
+//Purpose: approximates life stage by distance from Start
+//Relation: used by tile generation and region names
 int Board::mode1860LifeZone(int row, int col) const {
     const int fromStart = std::max(0, (MODE1860_ROWS - 1 - row) + col);
     const int maxDistance = (MODE1860_ROWS - 1) + (MODE1860_COLS - 1);
     return std::min(5, (fromStart * 6) / (maxDistance + 1));
 }
 
+//Input: center tile id and requested visible rows/columns
+//Output: clamped 1860 camera viewport rectangle
+//Purpose: keeps the focused player or cursor visible on the large 1860 board
+//Relation: used by 1860 camera-follow rendering
 BoardRect Board::mode1860CameraViewport(int centerTileId, int visibleRows, int visibleCols) const {
     const Tile& center = tileAt(centerTileId);
     const int rows = std::max(5, std::min(MODE1860_ROWS, visibleRows));
@@ -1551,24 +1703,34 @@ BoardRect Board::mode1860CameraViewport(int centerTileId, int visibleRows, int v
     return rect;
 }
 
+//Input: start tile id and exact movement step count
+//Output: 1860 tile ids at exact Manhattan distance
+//Purpose: supports legacy/debug 1860 reachability checks
+//Relation: retained for debug and compatibility with earlier 1860 movement helpers
 std::vector<int> Board::reachable1860Tiles(int startTileId, int steps) const {
     std::vector<int> reachable;
-    if (!isMode1860TileId(startTileId) || steps < 0) {
+    if (!isMode1860WalkableTile(startTileId) || steps < 0) {
         return reachable;
     }
     const Tile& start = tileAt(startTileId);
     for (int row = 0; row < MODE1860_ROWS; ++row) {
         for (int col = 0; col < MODE1860_COLS; ++col) {
-            if (std::abs(row - start.mode1860Y) + std::abs(col - start.mode1860X) == steps) {
-                reachable.push_back(mode1860TileIdAt(row, col));
+            const int tileId = mode1860TileIdAt(row, col);
+            if (isMode1860WalkableTile(tileId) &&
+                std::abs(row - start.mode1860Y) + std::abs(col - start.mode1860X) == steps) {
+                reachable.push_back(tileId);
             }
         }
     }
     return reachable;
 }
 
+//Input: from tile id, destination tile id, and exact movement step count
+//Output: true when the Manhattan distance matches the requested steps
+//Purpose: supports legacy/debug exact-distance validation
+//Relation: retained for debug and compatibility with earlier 1860 movement helpers
 bool Board::isValid1860Move(int fromTileId, int toTileId, int steps) const {
-    if (!isMode1860TileId(fromTileId) || !isMode1860TileId(toTileId) || steps < 0) {
+    if (!isMode1860WalkableTile(fromTileId) || !isMode1860WalkableTile(toTileId) || steps < 0) {
         return false;
     }
     const Tile& from = tileAt(fromTileId);
@@ -1941,6 +2103,10 @@ void Board::initTiles() {
     init1860FreeMovementBoard();
 }
 
+//Input: none
+//Output: none
+//Purpose: initializes every 1860 grid tile and places major life milestones
+//Relation: called by initTiles and read by 1860 rendering/movement
 void Board::init1860FreeMovementBoard() {
     mode1860Tiles.clear();
     mode1860Tiles.resize(MODE1860_ROWS * MODE1860_COLS);
@@ -2114,20 +2280,20 @@ void Board::initRegions() {
     regions.push_back({"Retirement Ridge", 87, 88});
 }
 
-//Input: boardWin (WINDOW* untuk ncurses output), players (vector berisi semua pemain),
-//       focusPlayerIndex (index pemain yang jadi fokus kamera),
-//       highlightedTile (tile yang sedang disorot),
-//       hasColor (flag apakah warna diaktifkan),
-//       viewMode (mode tampilan board: ClassicFull atau FollowCamera)
-//Output: none
-//Purpose: menggambar keseluruhan papan permainan ke window,
-//         termasuk grid, region, landmark, tile, dan token pemain.
-//Relation: ini adalah fungsi utama untuk visualisasi board.
-//          Memanggil drawClassicBoardGrid, drawClassicTreeGuides,
-//          drawClassicRegions, drawClassicLandmarks, drawClassicTile,
-//          drawClassicTokens, serta drawTileBox untuk menampilkan detail.
-//          Bergantung pada hasil dari buildVisibleTrail untuk menentukan
-//          tile mana yang terlihat sesuai mode kamera.
+// Input: boardWin (WINDOW* for ncurses output), players (vector containing all players),
+//        focusPlayerIndex (index of the player that the camera focuses on),
+//        highlightedTile (the tile currently being highlighted),
+//        hasColor (flag indicating whether colors are enabled),
+//        viewMode (board display mode: ClassicFull or FollowCamera)
+// Output: none
+// Purpose: draws the entire game board to the window,
+//          including the grid, regions, landmarks, tiles, and player tokens.
+// Relation: this is the main function for board visualization.
+//           It calls drawClassicBoardGrid, drawClassicTreeGuides,
+//           drawClassicRegions, drawClassicLandmarks, drawClassicTile,
+//           drawClassicTokens, and drawTileBox to display details.
+//           It depends on the result from buildVisibleTrail to determine
+//          which tiles and connections to show based on the focused player's position.
 void Board::render(WINDOW* boardWin,
                    const std::vector<Player>& players,
                    int focusPlayerIndex,

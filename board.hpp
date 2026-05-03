@@ -63,6 +63,10 @@ struct BoardRegion {
     int endTileIndex;
 };
 
+//Input: none
+//Output: rectangle fields for row, column, row count, and column count
+//Purpose: describes a visible window over the larger 1860 board
+//Relation: returned by Board::mode1860CameraViewport and used by 1860 rendering
 struct BoardRect {
     int row;
     int col;
@@ -71,7 +75,7 @@ struct BoardRect {
 };
 
 //Input: none
-//Output: enumerated values (FollowCamera, ClassicFull)
+//Output: enumerated values (FollowCamera, ClassicFull, Mode1860)
 //Purpose: defines how the board is displayed to the player
 //Relation: used by Board::render to determine view mode
 enum class BoardViewMode {
@@ -105,16 +109,65 @@ public:
     //Purpose: retrieves tile by id
     //Relation: used by tutorialLegend, render, and gameplay logic
     const Tile& tileAt(int id) const;
+    //Input: none
+    //Output: total number of classic and 1860 tile ids
+    //Purpose: exposes the valid tile-id range for modes that use expanded boards
+    //Relation: used by save/load, traps, and validation code
     int tileCount() const;
+    //Input: integer tile id
+    //Output: bool indicating whether the id belongs to the 1860 board
+    //Purpose: separates 1860 grid ids from classic route ids
+    //Relation: used by movement, rendering, traps, and save/load migration
     bool isMode1860TileId(int id) const;
+    //Input: integer tile id
+    //Output: bool indicating whether the 1860 tile may be occupied
+    //Purpose: rejects invalid or blank 1860 spaces before movement/traps use them
+    //Relation: used by Game 1860 movement and save/load repair
+    bool isMode1860WalkableTile(int id) const;
+    //Input: none
+    //Output: tile id for 1860 start
+    //Purpose: centralizes the 1860 start location
+    //Relation: used by setup, movement repair, and save/load migration
     int mode1860StartTileId() const;
+    //Input: none
+    //Output: tile id for 1860 retirement
+    //Purpose: centralizes the 1860 retirement location
+    //Relation: used by movement, retirement, rendering, and save/load migration
     int mode1860RetirementTileId() const;
+    //Input: none
+    //Output: number of rows on the 1860 board
+    //Purpose: avoids hardcoding 1860 dimensions outside Board
+    //Relation: used by Game movement, rendering, and save/load
     int mode1860Rows() const;
+    //Input: none
+    //Output: number of columns on the 1860 board
+    //Purpose: avoids hardcoding 1860 dimensions outside Board
+    //Relation: used by Game movement, rendering, and save/load
     int mode1860Cols() const;
+    //Input: row and column
+    //Output: 1860 tile id, or -1 when coordinates are outside the board
+    //Purpose: converts grid coordinates into the actual 1860 tile id
+    //Relation: used by rendering and manual movement
     int mode1860TileIdAt(int row, int col) const;
+    //Input: row and column
+    //Output: life-stage zone from 0 to 5
+    //Purpose: maps 1860 board distance into broad life progression zones
+    //Relation: used by tile generation, region names, and movement scoring
     int mode1860LifeZone(int row, int col) const;
+    //Input: center tile id and requested visible dimensions
+    //Output: camera viewport rectangle
+    //Purpose: keeps the current 1860 player or cursor visible
+    //Relation: used by 1860 camera-follow rendering
     BoardRect mode1860CameraViewport(int centerTileId, int visibleRows, int visibleCols) const;
+    //Input: start tile id and movement step count
+    //Output: 1860 tile ids at exact Manhattan distance
+    //Purpose: supports legacy/debug 1860 distance checks
+    //Relation: kept for debug and compatibility with prior 1860 helpers
     std::vector<int> reachable1860Tiles(int startTileId, int steps) const;
+    //Input: from tile id, destination tile id, and movement step count
+    //Output: bool indicating whether the move has exact Manhattan distance
+    //Purpose: supports legacy/debug 1860 distance validation
+    //Relation: kept for debug and compatibility with prior 1860 helpers
     bool isValid1860Move(int fromTileId, int toTileId, int steps) const;
     //Input: Tile reference
     //Output: bool
@@ -141,6 +194,10 @@ public:
                 int highlightedTile,
                 bool hasColor,
                 BoardViewMode viewMode = BoardViewMode::FollowCamera) const;
+    //Input: board window, players, focus player, cursor tile, reachable tiles, remaining movement, color flag
+    //Output: none
+    //Purpose: renders 1860 manual movement state with adjacent highlights
+    //Relation: used by Game::moveHumanManually1860
     void render1860Selection(WINDOW* boardWin,
                              const std::vector<Player>& players,
                              int focusPlayerIndex,
@@ -159,6 +216,10 @@ private:
     //Purpose: initializes all tiles with positions, labels, kinds, and connections
     //Relation: core setup for board structure, called by constructor
     void initTiles();
+    //Input: none
+    //Output: none
+    //Purpose: initializes the 1860 board tile grid and special spaces
+    //Relation: called by initTiles for Mode1860 support
     void init1860FreeMovementBoard();
     //Input: none
     //Output: none

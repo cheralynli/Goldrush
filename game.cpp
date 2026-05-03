@@ -1869,12 +1869,13 @@ int Game::chooseSabotageTarget(int attackerIndex) {
 int Game::chooseTrapTile(int attackerIndex) {
     Player& player = players[static_cast<std::size_t>(attackerIndex)];
     std::string errorText;
+    const int maxTrapTile = boardViewMode == BoardViewMode::Mode1860 ? board.tileCount() - 1 : TILE_COUNT - 1;
     while (true) {
         noecho();
         curs_set(1);
         werase(msgWin);
         drawBoxSafe(msgWin);
-        mvwprintw(msgWin, 1, 2, "Trap tile id (0-%d) [%d]: ", TILE_COUNT - 1, player.tile);
+        mvwprintw(msgWin, 1, 2, "Trap tile id (0-%d) [%d]: ", maxTrapTile, player.tile);
         mvwprintw(msgWin, 2, 2, "Tip: choose a tile ahead of the leader. Blank uses your current tile.");
         if (!errorText.empty()) {
             mvwprintw(msgWin, 3, 2, "%s", errorText.c_str());
@@ -1895,8 +1896,11 @@ int Game::chooseTrapTile(int attackerIndex) {
         }
 
         int tileId = -1;
-        if (!parseStrictInt(buffer, tileId) || tileId < 0 || tileId >= TILE_COUNT) {
-            errorText = "Invalid tile id. Enter a number from 0 to " + std::to_string(TILE_COUNT - 1) + ".";
+        if (!parseStrictInt(buffer, tileId) ||
+            tileId < 0 ||
+            tileId > maxTrapTile ||
+            (boardViewMode == BoardViewMode::Mode1860 && !board.isMode1860WalkableTile(tileId))) {
+            errorText = "Invalid tile id. Enter a walkable tile from 0 to " + std::to_string(maxTrapTile) + ".";
             continue;
         }
         return tileId;
@@ -1907,7 +1911,8 @@ void Game::placeTrap(int attackerIndex, int tileId, SabotageType type) {
     if (attackerIndex < 0 ||
         attackerIndex >= static_cast<int>(players.size()) ||
         tileId < 0 ||
-        tileId >= TILE_COUNT) {
+        tileId >= (boardViewMode == BoardViewMode::Mode1860 ? board.tileCount() : TILE_COUNT) ||
+        (boardViewMode == BoardViewMode::Mode1860 && !board.isMode1860WalkableTile(tileId))) {
         return;
     }
     Player& attacker = players[static_cast<std::size_t>(attackerIndex)];
@@ -2211,8 +2216,26 @@ void Game::checkTrapTrigger(int playerIndex) {
 
         if (result.success && trap.effectType == SabotageType::MovementPenalty) {
             const int stepsBack = result.critical ? 3 : 2;
-            for (int step = 0; step < stepsBack; ++step) {
-                player.tile = findPreviousTile(player, player.tile);
+            if (boardViewMode == BoardViewMode::Mode1860) {
+                for (int step = 0; step < stepsBack && board.isMode1860WalkableTile(player.tile); ++step) {
+                    const Tile& current = board.tileAt(player.tile);
+                    const int downTile = board.mode1860TileIdAt(current.mode1860Y + 1, current.mode1860X);
+                    const int leftTile = board.mode1860TileIdAt(current.mode1860Y, current.mode1860X - 1);
+                    int nextTile = player.tile;
+                    if (board.isMode1860WalkableTile(downTile)) {
+                        nextTile = downTile;
+                    } else if (board.isMode1860WalkableTile(leftTile)) {
+                        nextTile = leftTile;
+                    }
+                    if (nextTile == player.tile) {
+                        break;
+                    }
+                    player.tile = nextTile;
+                }
+            } else {
+                for (int step = 0; step < stepsBack; ++step) {
+                    player.tile = findPreviousTile(player, player.tile);
+                }
             }
             renderGame(playerIndex,
                        player.name + " was pushed backward by a trap",
@@ -2374,7 +2397,7 @@ bool Game::setupPlayers() {
         }
         p.token = showCharacterCustomisationPopup(used, p.name, i, playerType); //tokenForName(p.name, i);
         used.push_back(p.token);
-        p.tile = 0;
+        p.tile = boardViewMode == BoardViewMode::Mode1860 ? board.mode1860StartTileId() : 0;
         p.cash = settings.startingCash;
         p.job = "Unemployed";
         p.salary = 0;
@@ -3522,10 +3545,306 @@ int Game::findPreviousTile(const Player& player, int tileId) const {
     return candidates.back();
 }
 
+//Input: Board reference and 1860 tile id
+//Output: integer progress score where larger means closer to top-right
+//Purpose: gives 1860 movement a simple forward direction without classic next links
+//Relation: used by isLegal1860Step and CPU movement scoring
+static int mode1860ProgressScore(const Board& board, int tileId) {
+    if (!board.isMode1860WalkableTile(tileId)) {
+        return -1000000;
+    }
+    const Tile& tile = board.tileAt(tileId);
+    return (board.mode1860Rows() - 1 - tile.mode1860Y) + tile.mode1860X;
+}
+
+//Input: Board reference and 1860 tile id
+//Output: Manhattan distance to the 1860 retirement tile
+//Purpose: lets CPU movement prefer paths that visibly approach Retirement
+//Relation: used by chooseCPU1860NextStep
+static int mode1860DistanceToRetirement(const Board& board, int tileId) {
+    if (!board.isMode1860WalkableTile(tileId)) {
+        return 1000000;
+    }
+    const Tile& tile = board.tileAt(tileId);
+    const Tile& retirement = board.tileAt(board.mode1860RetirementTileId());
+    return std::abs(tile.mode1860Y - retirement.mode1860Y) +
+           std::abs(tile.mode1860X - retirement.mode1860X);
+}
+
+//Input: fromTileId and toTileId
+//Output: true if toTileId is a legal one-step 1860 move
+//Purpose: blocks invalid, diagonal, and backward-progress loop movement in 1860 mode
+//Relation: used by validAdjacent1860Tiles and manual movement
+bool Game::isLegal1860Step(int fromTileId, int toTileId) const {
+    if (!board.isMode1860WalkableTile(fromTileId) ||
+        !board.isMode1860WalkableTile(toTileId) ||
+        fromTileId == toTileId) {
+        return false;
+    }
+
+    const Tile& from = board.tileAt(fromTileId);
+    const Tile& to = board.tileAt(toTileId);
+    const int distance = std::abs(from.mode1860Y - to.mode1860Y) +
+                         std::abs(from.mode1860X - to.mode1860X);
+    if (distance != 1) {
+        return false;
+    }
+
+    return toTileId == board.mode1860RetirementTileId() ||
+           mode1860ProgressScore(board, toTileId) > mode1860ProgressScore(board, fromTileId);
+}
+
+//Input: fromTileId (current 1860 tile id)
+//Output: legal adjacent 1860 tile ids
+//Purpose: finds one-step movement options for manual 1860 movement
+//Relation: used by human and CPU 1860 movement
+std::vector<int> Game::validAdjacent1860Tiles(int fromTileId) const {
+    std::vector<int> tiles;
+    if (!board.isMode1860WalkableTile(fromTileId)) {
+        return tiles;
+    }
+
+    const Tile& from = board.tileAt(fromTileId);
+    const int dRow[] = {-1, 0, 1, 0};
+    const int dCol[] = {0, 1, 0, -1};
+    for (int i = 0; i < 4; ++i) {
+        const int nextTile = board.mode1860TileIdAt(from.mode1860Y + dRow[i], from.mode1860X + dCol[i]);
+        if (isLegal1860Step(fromTileId, nextTile)) {
+            tiles.push_back(nextTile);
+        }
+    }
+    return tiles;
+}
+
+//Input: currentPlayer index and remaining movement points
+//Output: selected next tile id, or current tile id if no legal step exists
+//Purpose: chooses one CPU step on the 1860 board while favoring retirement progress
+//Relation: used by moveCPUManually1860
+int Game::chooseCPU1860NextStep(int currentPlayer, int remainingSteps) const {
+    const Player& player = players[static_cast<std::size_t>(currentPlayer)];
+    const std::vector<int> options = validAdjacent1860Tiles(player.tile);
+    if (options.empty()) {
+        return player.tile;
+    }
+
+    const int retirementTile = board.mode1860RetirementTileId();
+    for (std::size_t i = 0; i < options.size(); ++i) {
+        if (options[i] == retirementTile) {
+            return retirementTile;
+        }
+    }
+
+    if (player.cpuDifficulty == CpuDifficulty::Easy && options.size() > 1U) {
+        const int pick = std::abs(player.tile + remainingSteps + player.cash) % static_cast<int>(options.size());
+        return options[static_cast<std::size_t>(pick)];
+    }
+
+    int bestTile = options.front();
+    int bestScore = -1000000;
+    for (std::size_t i = 0; i < options.size(); ++i) {
+        const Tile& tile = board.tileAt(options[i]);
+        int score = mode1860ProgressScore(board, options[i]) * 8;
+        score -= mode1860DistanceToRetirement(board, options[i]) * 5;
+
+        if (player.cpuDifficulty == CpuDifficulty::Hard) {
+            switch (tile.kind) {
+                case TILE_RETIREMENT:
+                    score += 10000;
+                    break;
+                case TILE_PAYDAY:
+                case TILE_SAFE:
+                    score += 45;
+                    break;
+                case TILE_CAREER:
+                case TILE_CAREER_2:
+                case TILE_COLLEGE:
+                case TILE_GRADUATION:
+                case TILE_NIGHT_SCHOOL:
+                    score += player.job == "Unemployed" ? 55 : 25;
+                    break;
+                case TILE_RISKY:
+                case TILE_SPLIT_RISK:
+                    score += player.cash > 120000 ? 10 : -35;
+                    break;
+                default:
+                    break;
+            }
+        } else if (player.cpuDifficulty == CpuDifficulty::Normal) {
+            if (tile.kind == TILE_RISKY || tile.kind == TILE_SPLIT_RISK) {
+                score -= 15;
+            }
+            if (tile.kind == TILE_PAYDAY || tile.kind == TILE_SAFE) {
+                score += 15;
+            }
+        }
+
+        if (score > bestScore || (score == bestScore && options[i] < bestTile)) {
+            bestScore = score;
+            bestTile = options[i];
+        }
+    }
+    return bestTile;
+}
+
+//Input: currentPlayer index and movement steps
+//Output: true if the player moved at least one tile
+//Purpose: lets a human manually spend 1860 movement points one adjacent tile at a time
+//Relation: used by takeMovementSpin and 1860 action-card movement
+bool Game::moveHumanManually1860(int currentPlayer, int steps) {
+    Player& player = players[static_cast<std::size_t>(currentPlayer)];
+    if (!board.isMode1860WalkableTile(player.tile)) {
+        player.tile = board.mode1860StartTileId();
+    }
+
+    int remaining = std::max(0, steps);
+    bool moved = false;
+    keypad(boardWin, TRUE);
+    while (remaining > 0 && !player.retired) {
+        const std::vector<int> adjacent = validAdjacent1860Tiles(player.tile);
+        if (adjacent.empty()) {
+            showInfoPopup("1860 Movement", "No legal adjacent 1860 spaces are available.");
+            break;
+        }
+
+        board.render1860Selection(boardWin,
+                                  players,
+                                  currentPlayer,
+                                  player.tile,
+                                  adjacent,
+                                  remaining,
+                                  hasColor);
+        const Tile& current = board.tileAt(player.tile);
+        draw_sidebar_ui(infoWin, board, players, currentPlayer, history.recent(), rules);
+        draw_message_ui(
+            msgWin,
+            "1860 movement: " + std::to_string(remaining) + " point" + (remaining == 1 ? "" : "s") + " left",
+            "Current: Space " + std::to_string(player.tile) + " - " + getTileDisplayName(current) +
+                " | Goal: move toward Retirement in the top-right. Arrows/WASD move, Enter stops, Esc/Q cancel or stop.");
+
+        const int ch = wgetch(boardWin);
+        if (isConfirmKey(ch)) {
+            break;
+        }
+        if (ch == 27 || ch == 'q' || ch == 'Q') {
+            if (!moved) {
+                showInfoPopup("1860 Movement", "Movement cancelled before any step was taken.");
+                return false;
+            }
+            break;
+        }
+
+        int dRow = 0;
+        int dCol = 0;
+        if (ch == KEY_UP || ch == 'w' || ch == 'W') {
+            dRow = -1;
+        } else if (ch == KEY_RIGHT || ch == 'd' || ch == 'D') {
+            dCol = 1;
+        } else if (ch == KEY_DOWN || ch == 's' || ch == 'S') {
+            dRow = 1;
+        } else if (ch == KEY_LEFT || ch == 'a' || ch == 'A') {
+            dCol = -1;
+        } else {
+            continue;
+        }
+
+        const int nextTile = board.mode1860TileIdAt(current.mode1860Y + dRow, current.mode1860X + dCol);
+        if (!isLegal1860Step(player.tile, nextTile)) {
+            beep();
+            continue;
+        }
+
+        player.tile = nextTile;
+        moved = true;
+        --remaining;
+        renderGame(currentPlayer,
+                   player.name + " moved to " + getTileDisplayName(board.tileAt(player.tile)),
+                   "1860 manual movement. Goal: move toward Retirement in the top-right.");
+        napms(120);
+        checkTrapTrigger(currentPlayer);
+        if (!board.isMode1860WalkableTile(player.tile)) {
+            player.tile = board.mode1860StartTileId();
+            break;
+        }
+        if (board.isStopSpace(board.tileAt(player.tile))) {
+            applyTileEffect(currentPlayer, board.tileAt(player.tile));
+            return moved;
+        }
+    }
+
+    if (moved && !player.retired) {
+        applyTileEffect(currentPlayer, board.tileAt(player.tile));
+    }
+    return moved;
+}
+
+//Input: currentPlayer index and movement steps
+//Output: true if the player moved at least one tile
+//Purpose: moves a CPU player one legal 1860 step at a time toward Retirement
+//Relation: used by takeMovementSpin and 1860 action-card movement
+bool Game::moveCPUManually1860(int currentPlayer, int steps) {
+    Player& player = players[static_cast<std::size_t>(currentPlayer)];
+    if (!board.isMode1860WalkableTile(player.tile)) {
+        player.tile = board.mode1860StartTileId();
+    }
+
+    bool moved = false;
+    for (int remaining = std::max(0, steps); remaining > 0 && !player.retired; --remaining) {
+        const int nextTile = chooseCPU1860NextStep(currentPlayer, remaining);
+        if (nextTile == player.tile || !isLegal1860Step(player.tile, nextTile)) {
+            break;
+        }
+
+        player.tile = nextTile;
+        moved = true;
+        renderGame(currentPlayer,
+                   player.name + " advances on the 1860 board",
+                   "CPU movement point " + std::to_string(steps - remaining + 1) +
+                       " of " + std::to_string(steps) + ". Goal: Retirement top-right.");
+        napms(autoAdvanceUi ? 80 : 180);
+        checkTrapTrigger(currentPlayer);
+        if (!board.isMode1860WalkableTile(player.tile)) {
+            player.tile = board.mode1860StartTileId();
+            break;
+        }
+        if (board.isStopSpace(board.tileAt(player.tile))) {
+            applyTileEffect(currentPlayer, board.tileAt(player.tile));
+            return moved;
+        }
+    }
+
+    if (moved && !player.retired) {
+        applyTileEffect(currentPlayer, board.tileAt(player.tile));
+    }
+    return moved;
+}
+
 std::string Game::movePlayerByAction(int playerIndex, int steps) {
     Player& player = players[playerIndex];
     if (steps == 0) {
         return "No movement.";
+    }
+
+    if (boardViewMode == BoardViewMode::Mode1860) {
+        if (!board.isMode1860WalkableTile(player.tile)) {
+            player.tile = board.mode1860StartTileId();
+        }
+
+        const int totalSteps = steps > 0 ? steps : -steps;
+        if (steps > 0) {
+            const int startTile = player.tile;
+            const bool moved = isCpuPlayer(playerIndex)
+                ? moveCPUManually1860(playerIndex, totalSteps)
+                : moveHumanManually1860(playerIndex, totalSteps);
+            if (!moved) {
+                return "No legal 1860 movement step was taken.";
+            }
+            std::ostringstream out;
+            out << "Moved on the 1860 board from Space " << startTile
+                << " to Space " << player.tile << " - " << getTileDisplayName(board.tileAt(player.tile)) << ".";
+            return out.str();
+        }
+
+        return "1860 mode does not use classic backward pathing for action-card movement.";
     }
 
     const int totalSteps = steps > 0 ? steps : -steps;
@@ -3985,7 +4304,9 @@ void Game::resolveRetirement(int playerIndex) {
 
     player.retired = true;
     player.retirementHome = choice == 0 ? "Millionaire Mansion (MM)" : "Countryside Acres (CA)";
-    player.tile = choice == 0 ? 87 : 88;
+    player.tile = boardViewMode == BoardViewMode::Mode1860
+        ? board.mode1860RetirementTileId()
+        : (choice == 0 ? 87 : 88);
     ++retiredCount;
     player.retirementPlace = retiredCount;
     player.retirementBonus = rules.toggles.retirementBonusesEnabled ? retirementBonusForPlace(retiredCount) : 0;
@@ -4108,6 +4429,10 @@ void Game::applyTileEffect(int playerIndex, const Tile& tile) {
             addHistory(player.name + " started the journey");
             break;
         case TILE_BLACK:
+            if (boardViewMode == BoardViewMode::Mode1860 && tile.value < 3) {
+                playActionCard(playerIndex, tile);
+                return;
+            }
             playBlackTileMinigame(playerIndex);
             return;
         case TILE_COLLEGE: {
@@ -4319,6 +4644,9 @@ bool Game::animateMove(int currentPlayer, int steps) {
 
 void Game::takeMovementSpin(int currentPlayer, const std::string& reason) {
     Player& player = players[currentPlayer];
+    if (boardViewMode == BoardViewMode::Mode1860 && !board.isMode1860WalkableTile(player.tile)) {
+        player.tile = board.mode1860StartTileId();
+    }
     const int startTile = player.tile;
     const int startingCash = player.cash;
     const int startingLoans = player.loans;
@@ -4363,9 +4691,17 @@ void Game::takeMovementSpin(int currentPlayer, const std::string& reason) {
         return;
     }
 
-    bool stoppedEarly = animateMove(currentPlayer, roll);
-    if (!stoppedEarly) {
-        applyTileEffect(currentPlayer, board.tileAt(player.tile));
+    if (boardViewMode == BoardViewMode::Mode1860) {
+        if (isCpuPlayer(currentPlayer)) {
+            moveCPUManually1860(currentPlayer, roll);
+        } else {
+            moveHumanManually1860(currentPlayer, roll);
+        }
+    } else {
+        const bool stoppedEarly = animateMove(currentPlayer, roll);
+        if (!stoppedEarly) {
+            applyTileEffect(currentPlayer, board.tileAt(player.tile));
+        }
     }
     showTurnSummaryPopup(currentPlayer,
                          originalRoll,
