@@ -14,7 +14,9 @@ CORE_OBJS = game.o board.o player.o ui.o rules.o \
 		minigame_tutorials.o timer_display.o tile_display.o ui_layout.o \
 		input_helpers.o tutorials.o turn_summary.o completed_history.o \
 		game_settings.o \
-		pong.o battleship.o hangman.o memory.o minesweeper.o
+		pong.o battleship.o hangman.o memory.o minesweeper.o \
+		ui_manager.o economy_manager.o history_manager.o \
+		minigame_manager.o cpuai.o tutorial_manager.o
 
 OBJS = main.o $(CORE_OBJS)
 DEBUG_OBJS = debug.o $(CORE_OBJS)
@@ -61,3 +63,11 @@ minesweeper.o: minesweeper.cpp minesweeper.hpp ui.h ui_helpers.h minigame_tutori
 ui.o: ui.cpp ui.h ui_helpers.h tile_display.h ui_layout.h
 pong.o: pong.cpp pong.hpp ui.h ui_helpers.h minigame_tutorials.h input_helpers.h
 battleship.o: battleship.cpp battleship.hpp ui.h ui_helpers.h minigame_tutorials.h input_helpers.h
+
+game.o: game.cpp game.hpp cpu_player.hpp sabotage.h sabotage_card.h save_manager.hpp spins.hpp ui.h ui_helpers.h tile_display.h timer_display.h ui_layout.h input_helpers.h tutorials.h turn_summary.h completed_history.h game_settings.h
+ui_manager.o: ui_manager.cpp game.hpp save_manager.hpp ui.h ui_helpers.h ui_layout.h input_helpers.h tile_display.h completed_history.h tutorials.h spins.hpp
+economy_manager.o: economy_manager.cpp game.hpp ui.h ui_helpers.h spins.hpp tutorials.h
+history_manager.o: history_manager.cpp game.hpp completed_history.h player.hpp bank.hpp
+minigame_manager.o: minigame_manager.cpp game.hpp pong.hpp battleship.hpp hangman.hpp memory.hpp minesweeper.hpp ui.h ui_helpers.h tutorials.h spins.hpp
+cpuai.o: cpuai.cpp game.hpp cpu_player.hpp ui.h ui_helpers.h
+tutorial_manager.o: tutorial_manager.cpp game.hpp tutorials.h ui.h ui_helpers.h
