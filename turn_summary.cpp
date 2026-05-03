@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <cstdlib>
+#include <cstring>
 
 #include <ncurses.h>
 
@@ -114,7 +115,7 @@ void addText(std::vector<SummaryLine>& lines,
 //Purpose: draws summary section with important information
 //Relation: called by showTurnSummaryReport
 void drawSummarySection(WINDOW* win, int& y, const SummaryLine& line, int width) {
-    if (y + 1 >= getmaxy(win) - 2) {
+    if (y + 1 >= getmaxy(win) - 4) {
         return;
     }
     wattron(win, COLOR_PAIR(line.colorPair) | A_BOLD);

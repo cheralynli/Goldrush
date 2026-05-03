@@ -385,31 +385,22 @@ void showPopupMessage(const std::string& title,
     werase(popup);
     drawBoxSafe(popup);
 
-    // Title row: blinking is applied directly here, not one row below it.
-    const int titleY = 1;
-    const int titleX = 3;
-    const std::string titleText =
-        clipUiText(title, static_cast<std::size_t>(actualContentW));
-
     blinkIndicator(popup,
-                   titleY,
-                   titleX,
-                   titleText,
+                   2,
+                   3,
+                   clipUiText(title, static_cast<std::size_t>(actualContentW)),
                    hasColor,
                    GOLDRUSH_GOLD_SAND,
                    2,
                    0,
                    actualContentW);
 
-    const int bodyStartY = 4;
+    const int bodyStartY = 5;
 
-    // Bottom usable row, same visual placement as the turn summary popup.
+    // Keep the prompt on the very bottom usable row, matching the turn summary popup.
     const int promptY = std::max(1, actualH - 2);
 
-    // Keep prompt safely inside the border and prevent wrapping.
-    const int promptX = std::min(5, std::max(1, actualW - 2));
-
-    // Keep one blank row above the prompt.
+    // Reserve one blank line above the prompt.
     const int blankRowY = promptY - 1;
     const int maxBodyLines = std::max(0, blankRowY - bodyStartY);
 
@@ -435,38 +426,27 @@ void showPopupMessage(const std::string& title,
                              static_cast<std::size_t>(actualContentW)).c_str());
     }
 
-    // Clear interior rows without touching the border.
+    // Clear the blank row and prompt row so old/body text cannot visually touch the prompt.
     if (blankRowY > 0) {
-        for (int x = 1; x < actualW - 1; ++x) {
-            mvwaddch(popup, blankRowY, x, ' ');
-        }
+        mvwprintw(popup, blankRowY, 2, "%-*s", std::max(0, actualW - 4), "");
     }
-    for (int x = 1; x < actualW - 1; ++x) {
-        mvwaddch(popup, promptY, x, ' ');
-    }
-
-    const std::string promptText = autoAdvance
-        ? "Continuing..."
-        : "Press ENTER or ESC to continue...";
-
-    // Use addnstr instead of printw so the prompt cannot wrap.
-    const int maxPromptWidth = std::max(1, actualW - promptX - 2);
-    const std::string clippedPrompt =
-        clipUiText(promptText, static_cast<std::size_t>(maxPromptWidth));
-
-    mvwaddnstr(popup,
-               promptY,
-               promptX,
-               clippedPrompt.c_str(),
-               maxPromptWidth);
-
-    wrefresh(popup);
+    mvwprintw(popup, promptY, 2, "%-*s", std::max(0, actualW - 4), "");
 
     if (autoAdvance) {
+        mvwprintw(popup,
+                  promptY,
+                  3,
+                  "%s",
+                  clipUiText("Continuing...",
+                             static_cast<std::size_t>(actualContentW)).c_str());
+        wrefresh(popup);
         napms(2000);
     } else {
-        nodelay(popup, FALSE);
-        waitForConfirmOrCancel(popup);
+        waitForEnterPrompt(popup,
+                           promptY,
+                           3,
+                           clipUiText("Press ENTER or ESC to continue...",
+                                      static_cast<std::size_t>(actualContentW)));
     }
 
     delwin(popup);

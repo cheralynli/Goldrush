@@ -410,32 +410,6 @@ void showPreGameQuickGuide(bool hasColor, bool include1860Pages) {
             "Job spaces shape salary progress, and Family spaces push family-related events.",
             "The symbols help too: S Start, R Retire, A Action, M Mini, ! Risk, + Safe, J Job, F Family."
         });
-    } else {
-        pages.push_back({
-            "NORMAL BOARD TILE GUIDE",
-            "",
-            "The other board modes use abbreviations on the route. Read them as Full Name (ABBR).",
-            "START / ST: Start - the journey begins.",
-            "CO: College - pay tuition and aim for stronger careers.",
-            "CA: Career - choose a job and salary early.",
-            "GR: Graduation - college players choose a degree career.",
-            "PAY / SP: Salary Payday - collect salary and space payout.",
-            "ACT / A: Action - draw or resolve an action card.",
-            "MG / M: Minigame - play a side game for money.",
-            "JOB / J: Job or career event - career progress happens here."
-        });
-        pages.push_back({
-            "NORMAL BOARD LIFE TILES",
-            "",
-            "MAR: Marriage - resolve wedding gifts and family bonuses.",
-            "BABY / B: Baby - spin for children.",
-            "FAM / F: Family - family-path events may happen.",
-            "NS: Night School - optional career upgrade.",
-            "SAFE / +: Safe route - smaller but steadier payout.",
-            "RISK / !: Risky route - bigger swings, good or bad.",
-            "HOUSE / H: House - draw or buy a home.",
-            "RET / R: Retirement - choose retirement destination and final bonus."
-        });
     }
 
     pages.push_back({

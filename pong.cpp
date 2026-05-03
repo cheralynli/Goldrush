@@ -22,6 +22,10 @@ const std::vector<std::string> PONG_TITLE = {
     "                                         "
 };
 
+//Input: ncurses window, screen width, color flag
+//Output: none (prints ASCII Pong title)
+//Purpose: renders ASCII art banner centered on screen
+//Relation: called at the start of each frame in both minigames.
 void drawAsciiTitle(WINDOW* win, int screenW, bool hasColor) {
     if (hasColor) {
         wattron(win, COLOR_PAIR(GOLDRUSH_GOLD_SAND) | A_BOLD);
@@ -35,10 +39,16 @@ void drawAsciiTitle(WINDOW* win, int screenW, bool hasColor) {
     }
 }
 
+//Fields: float centerY
+//Purpose: represents paddle vertical position
+//Relation: used for player, CPU, and duel paddles.
 struct Paddle {
     float centerY;
 };
 
+//Fields: float x, y, vx, vy
+//Purpose: represents ball position and velocity
+//Relation: updated each frame, checked for collisions.
 struct Ball {
     float x;
     float y;
@@ -46,6 +56,10 @@ struct Ball {
     float vy;
 };
 
+//Input: integer value, min/max bounds
+//Output: clamped integer
+//Purpose: ensures paddle stays within arena bounds
+//Relation: used in paddle drawing.
 int clampInt(int value, int minValue, int maxValue) {
     if (value < minValue) {
         return minValue;
@@ -56,6 +70,10 @@ int clampInt(int value, int minValue, int maxValue) {
     return value;
 }
 
+//Input: float value, min/max bounds
+//Output: clamped float
+//Purpose: ensures paddle and ball positions remain valid
+//Relation: used in paddle movement and ball updates.
 float clampFloat(float value, float minValue, float maxValue) {
     if (value < minValue) {
         return minValue;
@@ -66,6 +84,10 @@ float clampFloat(float value, float minValue, float maxValue) {
     return value;
 }
 
+//Input: ncurses window, x-position, paddle struct, paddle size, bounds
+//Output: none (draws paddle as vertical bar)
+//Purpose: renders paddle at correct position
+//Relation: called each frame for player and CPU paddles.
 void drawPaddle(WINDOW* win, int x, const Paddle& paddle, int paddleHalfHeight, int topBound, int bottomBound) {
     const int top = clampInt(static_cast<int>(std::round(paddle.centerY)) - paddleHalfHeight,
                              topBound,
@@ -75,6 +97,10 @@ void drawPaddle(WINDOW* win, int x, const Paddle& paddle, int paddleHalfHeight, 
     }
 }
 
+//Input: ball struct, start coordinates, direction (-1 or 1)
+//Output: modifies ball position and velocity
+//Purpose: resets ball to center with initial velocity
+//Relation: used at start of game and after CPU misses.
 void resetBall(Ball& ball, float startX, float startY, int direction) {
     ball.x = startX;
     ball.y = startY;
@@ -82,6 +108,10 @@ void resetBall(Ball& ball, float startX, float startY, int direction) {
     ball.vy = 0.28f;
 }
 
+//Input: ncurses window, position, arena dimensions, text, positive/negative flag, color flag
+//Output: none (prints feedback message)
+//Purpose: shows feedback (return, miss, CPU missed)
+//Relation: triggered by ball/paddle events.
 void drawFeedbackBanner(WINDOW* win,
                         int y,
                         int arenaLeft,
@@ -113,6 +143,10 @@ void drawFeedbackBanner(WINDOW* win,
 }
 }
 
+//Input: player name, color flag
+//Output: PongMinigameResult (player score, CPU score, abandoned flag)
+//Purpose: runs single-player Pong minigame loop against CPU
+//Relation: Calls tutorial (showMinigameTutorial) and warnings (showTerminalSizeWarning), Uses utility functions (drawAsciiTitle, drawPaddle, resetBall, drawFeedbackBanner, clampFloat), Tracks paddle movement, ball physics, collisions, scoring, and feedback, Ends when player quits, misses, or CPU misses → returns result.
 PongMinigameResult playPongMinigame(const std::string& playerName, bool hasColor) {
     PongMinigameResult result;
     result.playerScore = 0;
@@ -264,9 +298,11 @@ PongMinigameResult playPongMinigame(const std::string& playerName, bool hasColor
                       "Press X to serve. Press ESC to leave early.");
         } else if (gameOver) {
             mvwprintw(overlay, arenaBottom + 4, arenaLeft,
-                      "Game over. Final score %d, payout $%d. Press ENTER or ESC.",
+                      "The rally ends. Final score %d, payout $%d.",
                       result.playerScore,
                       result.playerScore * 100);
+            mvwprintw(overlay, arenaBottom + 6, arenaLeft,
+                      "Press ENTER or ESC to continue.");
         }
 
         wrefresh(overlay);
@@ -386,6 +422,10 @@ PongMinigameResult playPongMinigame(const std::string& playerName, bool hasColor
     return result;
 }
 
+//Input: left/right player names, color flag, CPU flag for right side
+//Output: PongDuelResult (winner side, abandoned flag)
+//Purpose: runs two-player Pong duel (human vs human or human vs CPU)
+//Relation: Calls tutorial (showMinigameTutorial) and warnings (showTerminalSizeWarning), Uses utility functions (drawAsciiTitle, drawPaddle, resetBall, drawFeedbackBanner, clampFloat), Tracks both paddles, ball physics, collisions, and feedback, Ends when one side misses → winner determined, result returned.
 PongDuelResult playPongDuelMinigame(const std::string& leftPlayerName,
                                     const std::string& rightPlayerName,
                                     bool hasColor,
@@ -507,10 +547,12 @@ PongDuelResult playPongDuelMinigame(const std::string& leftPlayerName,
             mvwprintw(overlay, arenaBottom + 5, arenaLeft,
                       "Press X to serve. Press ESC to leave early.");
         } else if (gameOver) {
-            const std::string endLine = std::string("Winner: ") +
+            const std::string endLine = std::string("The duel is settled. Winner: ") +
                 (result.winnerSide == 0 ? leftPlayerName : rightPlayerName) +
-                ". Press ENTER or ESC.";
+                ".";
             mvwprintw(overlay, arenaBottom + 4, arenaLeft, "%s", endLine.c_str());
+            mvwprintw(overlay, arenaBottom + 6, arenaLeft,
+                      "Press ENTER or ESC to continue.");
         }
 
         wrefresh(overlay);

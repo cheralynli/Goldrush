@@ -2,10 +2,18 @@
 
 #include <algorithm>
 
+//Input: reference to RandomService
+//Output: initializes controller with RNG bound
+//Purpose: sets up CPU decision-making with randomness support
+//Relation: required for probabilistic choices (chance, uniformInt).
 CpuController::CpuController(RandomService& random)
     : rng(random) {
 }
 
+//Input: player object
+//Output: integer rank (Easy=0, Normal=1, Hard=2)
+//Purpose: converts difficulty enum into numeric rank
+//Relation: used in all decision functions to scale CPU logic.
 int CpuController::difficultyRank(const Player& player) const {
     switch (player.cpuDifficulty) {
         case CpuDifficulty::Easy:
@@ -18,6 +26,10 @@ int CpuController::difficultyRank(const Player& player) const {
     }
 }
 
+//Input: probability percentage
+//Output: true/false based on RNG roll
+//Purpose: probabilistic decision-making
+//Relation: used in Easy/Normal CPU choices.
 bool CpuController::chance(int percent) {
     if (percent <= 0) {
         return false;
@@ -28,6 +40,8 @@ bool CpuController::chance(int percent) {
     return rng.uniformInt(1, 100) <= percent;
 }
 
+//Purpose: decides between college or career start
+//Relation: depends on difficulty and player’s cash/salary.
 int CpuController::chooseStartRoute(const Player& player, const RuleSet& rules) {
     (void)rules;
     const int rank = difficultyRank(player);
@@ -40,6 +54,8 @@ int CpuController::chooseStartRoute(const Player& player, const RuleSet& rules) 
     return player.cash >= 50000 ? 0 : 1;
 }
 
+//Purpose: decides whether to take family path
+//Relation: depends on difficulty, kids, cash, and rules toggle
 int CpuController::chooseFamilyRoute(const Player& player, const RuleSet& rules) {
     if (!rules.toggles.familyPathEnabled) {
         return 1;
@@ -54,6 +70,8 @@ int CpuController::chooseFamilyRoute(const Player& player, const RuleSet& rules)
     return player.kids <= 1 ? 0 : 1;
 }
 
+//Purpose: decides whether to take risky route
+//Relation: depends on difficulty, cash, loans, and rules toggle
 int CpuController::chooseRiskRoute(const Player& player, const RuleSet& rules) {
     if (!rules.toggles.riskyRouteEnabled) {
         return 0;
@@ -68,6 +86,8 @@ int CpuController::chooseRiskRoute(const Player& player, const RuleSet& rules) {
     return player.cash >= 120000 ? 1 : 0;
 }
 
+//Purpose: decides whether to attend night school
+//Relation: depends on difficulty, salary, cash, and rules toggle.
 int CpuController::chooseNightSchool(const Player& player, const RuleSet& rules) {
     if (!rules.toggles.nightSchoolEnabled || player.usedNightSchool) {
         return 1;
@@ -82,6 +102,8 @@ int CpuController::chooseNightSchool(const Player& player, const RuleSet& rules)
     return player.salary < 55000 && player.cash >= 70000 ? 0 : 1;
 }
 
+//Purpose: decides retirement location (Millionaire Estates vs Countryside Acres)
+//Relation: depends on difficulty and total worth.
 int CpuController::chooseRetirement(const Player& player) {
     const int rank = difficultyRank(player);
     if (rank == 0) {
@@ -90,6 +112,8 @@ int CpuController::chooseRetirement(const Player& player) {
     return totalWorth(player) >= 750000 ? 0 : 1;
 }
 
+//Purpose: selects career card from options
+//Relation: Easy = random, Normal = mostly best salary with some randomness, Hard = always best salary.
 int CpuController::chooseCareer(const Player& player, const std::vector<CareerCard>& choices) {
     if (choices.empty()) {
         return 0;
@@ -112,6 +136,8 @@ int CpuController::chooseCareer(const Player& player, const std::vector<CareerCa
     return bestIndex;
 }
 
+//Purpose: simulates CPU performance in minigames (Pong, Battleship, Hangman, Memory, Minesweeper)
+//Relation: difficulty rank sets score range and success threshold; summary text generated per minigame.
 CpuMinigameResult CpuController::playBlackTileMinigame(const Player& player, int minigameChoice) {
     const int rank = difficultyRank(player);
     const int minScore = rank == 0 ? 0 : (rank == 1 ? 3 : 6);
@@ -145,6 +171,8 @@ CpuMinigameResult CpuController::playBlackTileMinigame(const Player& player, int
     return result;
 }
 
+//Purpose: decides whether CPU attempts sabotage
+//Relation: depends on difficulty, cash, cooldown, and turn count
 bool CpuController::shouldUseSabotage(const Player& player, int turnCounter) {
     if (player.sabotageCooldown > 0 || turnCounter < 2 || player.cash < 15000) {
         return false;
@@ -160,6 +188,8 @@ bool CpuController::shouldUseSabotage(const Player& player, int turnCounter) {
     return chance(28);
 }
 
+//Purpose: selects target player for sabotage
+//Relation: Hard = richest opponent, Easy = random opponent, Normal = richest with some randomness
 int CpuController::chooseSabotageTarget(const Player& player,
                                         const std::vector<Player>& players,
                                         int selfIndex) {
@@ -192,6 +222,8 @@ int CpuController::chooseSabotageTarget(const Player& player,
     return bestIndex;
 }
 
+//Purpose: decides sabotage type (MoneyLoss, MovementPenalty, DebtIncrease, StealCard, ItemDisable, PositionSwap, CareerPenalty, ForceMinigame)
+//Relation: depends on difficulty, target’s defenses, salaries, cash, and position
 SabotageType CpuController::chooseSabotageType(const Player& player,
                                                const Player& target,
                                                int turnCounter) {

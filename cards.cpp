@@ -6,6 +6,11 @@
 
 namespace {
 template <typename T>
+
+//Input: prototype cards, desired count
+//Output: expanded deck with unique IDs (id-1, id-2, …)
+//Purpose: generates full deck from prototypes
+//Relation: used in DeckManager::initDecks
 std::vector<T> expandDeck(const std::vector<T>& prototypes, int desiredCount) {
     std::vector<T> cards;
     if (desiredCount <= 0 || prototypes.empty()) {
@@ -25,6 +30,8 @@ std::vector<T> expandDeck(const std::vector<T>& prototypes, int desiredCount) {
     return cards;
 }
 
+//Purpose: constructs an ActionEffect object.
+//Relation: used in action card creation
 ActionEffect makeActionEffect(ActionEffectKind kind, int amount, bool useTileValue) {
     ActionEffect effect;
     effect.kind = kind;
@@ -33,6 +40,8 @@ ActionEffect makeActionEffect(ActionEffectKind kind, int amount, bool useTileVal
     return effect;
 }
 
+//Purpose: build RollCondition objects for dice/spin outcomes.
+//Relation: used in roll-based action cards
 RollCondition makeAnyCondition() {
     RollCondition condition;
     condition.kind = ROLL_ANY;
@@ -42,18 +51,24 @@ RollCondition makeAnyCondition() {
     return condition;
 }
 
+//Purpose: build RollCondition objects for dice/spin outcomes.
+//Relation: used in roll-based action cards
 RollCondition makeOddCondition() {
     RollCondition condition = makeAnyCondition();
     condition.kind = ROLL_ODD;
     return condition;
 }
 
+//Purpose: build RollCondition objects for dice/spin outcomes.
+//Relation: used in roll-based action cards
 RollCondition makeEvenCondition() {
     RollCondition condition = makeAnyCondition();
     condition.kind = ROLL_EVEN;
     return condition;
 }
 
+//Purpose: build RollCondition objects for dice/spin outcomes.
+//Relation: used in roll-based action cards
 RollCondition makeRangeCondition(int minValue, int maxValue) {
     RollCondition condition = makeAnyCondition();
     condition.kind = ROLL_RANGE;
@@ -62,6 +77,8 @@ RollCondition makeRangeCondition(int minValue, int maxValue) {
     return condition;
 }
 
+//Purpose: build RollCondition objects for dice/spin outcomes.
+//Relation: used in roll-based action cards
 RollCondition makeExactCondition(int exactValue) {
     RollCondition condition = makeAnyCondition();
     condition.kind = ROLL_EXACT;
@@ -69,6 +86,8 @@ RollCondition makeExactCondition(int exactValue) {
     return condition;
 }
 
+//Purpose: constructs ActionRollOutcome.
+//Relation: ties condition → effect → description
 ActionRollOutcome makeRollOutcome(const RollCondition& condition,
                                   const ActionEffect& effect,
                                   const std::string& text) {
@@ -79,6 +98,8 @@ ActionRollOutcome makeRollOutcome(const RollCondition& condition,
     return outcome;
 }
 
+//Purpose: build action cards (simple or roll-based).
+//Relation: used in actionPrototypes
 ActionCard makeActionCard(const std::string& id,
                           const std::string& title,
                           const std::string& description,
@@ -94,6 +115,8 @@ ActionCard makeActionCard(const std::string& id,
     return card;
 }
 
+//Purpose: build action cards (simple or roll-based).
+//Relation: used in actionPrototypes
 ActionCard makeRollActionCard(const std::string& id,
                               const std::string& title,
                               const std::string& description,
@@ -104,6 +127,7 @@ ActionCard makeRollActionCard(const std::string& id,
     return card;
 }
 
+//defines action cards (Tax Refund, Car Trouble, Casino Night, Jackpot, etc.)
 std::vector<ActionCard> actionPrototypes() {
     std::vector<ActionCard> cards;
     cards.push_back(makeActionCard("action-tax-refund", "Tax Refund",
@@ -183,6 +207,7 @@ std::vector<ActionCard> actionPrototypes() {
     return cards;
 }
 
+//defines degree careers (Doctor, Architect, Scientist, etc.)
 std::vector<CareerCard> collegeCareerPrototypes() {
     std::vector<CareerCard> cards;
     cards.push_back({"career-doctor", "Doctor", CARD_CAREER,
@@ -203,6 +228,7 @@ std::vector<CareerCard> collegeCareerPrototypes() {
     return cards;
 }
 
+//defines non-degree careers (Chef, Photographer, Developer, etc.)
 std::vector<CareerCard> careerPrototypes() {
     std::vector<CareerCard> cards;
     cards.push_back({"career-chef", "Chef", CARD_CAREER,
@@ -223,6 +249,7 @@ std::vector<CareerCard> careerPrototypes() {
     return cards;
 }
 
+//defines house cards (Lake Cabin, Townhouse, Beach House, etc.)
 std::vector<HouseCard> housePrototypes() {
     std::vector<HouseCard> cards;
     cards.push_back({"house-lake-cabin", "Lake Cabin", CARD_HOUSE,
@@ -243,6 +270,7 @@ std::vector<HouseCard> housePrototypes() {
     return cards;
 }
 
+//defines investment cards tied to spin values
 std::vector<InvestCard> investPrototypes(const RuleSet& rules) {
     std::vector<InvestCard> cards;
     cards.push_back({"invest-3", "Invest on 3", CARD_INVEST,
@@ -260,6 +288,7 @@ std::vector<InvestCard> investPrototypes(const RuleSet& rules) {
     return cards;
 }
 
+//defines pet cards (Dog, Cat, Rabbit, Parrot
 std::vector<PetCard> petPrototypes() {
     std::vector<PetCard> cards;
     cards.push_back({"pet-dog", "Dog", CARD_PET,
@@ -278,6 +307,8 @@ std::vector<PetCard> petPrototypes() {
 }
 
 template <typename T>
+//Purpose: converts deck into SerializedDeckState (IDs only).
+//Relation: used for save files
 SerializedDeckState serializeDeckState(const Deck<T>& deck) {
     SerializedDeckState state;
     const std::vector<T>& drawCards = deck.drawCards();
@@ -296,6 +327,8 @@ SerializedDeckState serializeDeckState(const Deck<T>& deck) {
 }
 
 template <typename T>
+//Purpose: builds map of card IDs → card objects.
+//Relation: used in restoration.
 std::map<std::string, T> buildCardIndex(const std::vector<T>& cards) {
     std::map<std::string, T> index;
     for (std::size_t i = 0; i < cards.size(); ++i) {
@@ -305,6 +338,8 @@ std::map<std::string, T> buildCardIndex(const std::vector<T>& cards) {
 }
 
 template <typename T>
+//Purpose: rebuilds deck from saved IDs, rejecting duplicates/unknowns.
+//Relation: used in DeckManager::restoreDeckState
 bool restoreDeckStateInternal(Deck<T>& deck,
                               const std::vector<T>& allCards,
                               const SerializedDeckState& state,
@@ -351,10 +386,14 @@ bool restoreDeckStateInternal(Deck<T>& deck,
 
 }
 
+//Purpose: checks if card has roll outcomes
+//Relation: used in gameplay resolution
 bool actionCardUsesRoll(const ActionCard& card) {
     return !card.rollOutcomes.empty();
 }
 
+//Purpose: evaluates if roll matches condition
+//Relation: used in findMatchingRollOutcome
 bool matchesRollCondition(const RollCondition& condition, int roll) {
     switch (condition.kind) {
         case ROLL_ANY:
@@ -372,6 +411,8 @@ bool matchesRollCondition(const RollCondition& condition, int roll) {
     }
 }
 
+//Purpose: finds first matching roll outcome
+//Relation: resolves roll-based cards
 const ActionRollOutcome* findMatchingRollOutcome(const ActionCard& card, int roll) {
     for (std::size_t i = 0; i < card.rollOutcomes.size(); ++i) {
         if (matchesRollCondition(card.rollOutcomes[i].condition, roll)) {
@@ -381,6 +422,8 @@ const ActionRollOutcome* findMatchingRollOutcome(const ActionCard& card, int rol
     return 0;
 }
 
+//Purpose: human-readable description of condition.
+//Relation: used in UI
 std::string describeRollCondition(const RollCondition& condition) {
     switch (condition.kind) {
         case ROLL_ANY:
@@ -398,6 +441,7 @@ std::string describeRollCondition(const RollCondition& condition) {
     }
 }
 
+//Initializes all decks (action, career, house, invest, pet) with rules and RNG
 DeckManager::DeckManager(const RuleSet& rules, RandomService& randomService)
     : ruleset(rules),
       actionDeck(randomService),
@@ -409,19 +453,23 @@ DeckManager::DeckManager(const RuleSet& rules, RandomService& randomService)
     initDecks(true);
 }
 
+//resets decks with new rules
 void DeckManager::reset(const RuleSet& rules, bool reshuffle) {
     ruleset = rules;
     initDecks(reshuffle);
 }
 
+//returns current ruleset
 const RuleSet& DeckManager::rules() const {
     return ruleset;
 }
 
+//manage action cards
 bool DeckManager::drawActionCard(ActionCard& card) {
     return actionDeck.draw(card);
 }
 
+//manage action cards
 void DeckManager::resolveActionCard(const ActionCard& card, bool keepCard) {
     if (keepCard) {
         return;
@@ -429,6 +477,7 @@ void DeckManager::resolveActionCard(const ActionCard& card, bool keepCard) {
     actionDeck.discard(card);
 }
 
+//manage career selection
 std::vector<CareerCard> DeckManager::drawCareerChoices(bool requiresDegree, int count) {
     std::vector<CareerCard> choices;
     if (count <= 0) {
@@ -448,6 +497,7 @@ std::vector<CareerCard> DeckManager::drawCareerChoices(bool requiresDegree, int 
     return choices;
 }
 
+//manage career selection
 void DeckManager::resolveCareerChoices(bool requiresDegree,
                                        const std::vector<CareerCard>& choices,
                                        int keptIndex) {
@@ -460,18 +510,22 @@ void DeckManager::resolveCareerChoices(bool requiresDegree,
     }
 }
 
+//draw other card types
 bool DeckManager::drawHouseCard(HouseCard& card) {
     return houseDeck.draw(card);
 }
 
+//draw other card types
 bool DeckManager::drawInvestCard(InvestCard& card) {
     return investDeck.draw(card);
 }
 
+//draw other card types
 bool DeckManager::drawPetCard(PetCard& card) {
     return petDeck.draw(card);
 }
 
+//serialize deck state
 SerializedDeckState DeckManager::deckState(DeckSlot slot) const {
     switch (slot) {
         case DECK_ACTION:
@@ -491,6 +545,7 @@ SerializedDeckState DeckManager::deckState(DeckSlot slot) const {
     }
 }
 
+//restore deck from save
 bool DeckManager::restoreDeckState(DeckSlot slot,
                                    const SerializedDeckState& state,
                                    std::string& error) {
@@ -539,6 +594,7 @@ bool DeckManager::restoreDeckState(DeckSlot slot,
     }
 }
 
+//initialize all decks
 void DeckManager::initDecks(bool reshuffle) {
     initActionDeck(reshuffle);
     initCareerDecks(reshuffle);
@@ -547,10 +603,12 @@ void DeckManager::initDecks(bool reshuffle) {
     initPetDeck(reshuffle);
 }
 
+//initialize specific decks
 void DeckManager::initActionDeck(bool reshuffle) {
     actionDeck.reset(expandDeck(actionPrototypes(), ruleset.components.actionCards), reshuffle);
 }
 
+//initialize specific decks
 void DeckManager::initCareerDecks(bool reshuffle) {
     collegeCareerDeck.reset(
         expandDeck(collegeCareerPrototypes(), ruleset.components.collegeCareerCards),
@@ -560,14 +618,17 @@ void DeckManager::initCareerDecks(bool reshuffle) {
         reshuffle);
 }
 
+//initialize specific decks
 void DeckManager::initHouseDeck(bool reshuffle) {
     houseDeck.reset(expandDeck(housePrototypes(), ruleset.components.houseCards), reshuffle);
 }
 
+//initialize specific decks
 void DeckManager::initInvestDeck(bool reshuffle) {
     investDeck.reset(expandDeck(investPrototypes(ruleset), ruleset.components.investCards), reshuffle);
 }
 
+//initialize specific decks
 void DeckManager::initPetDeck(bool reshuffle) {
     petDeck.reset(expandDeck(petPrototypes(), ruleset.components.petCards), reshuffle);
 }

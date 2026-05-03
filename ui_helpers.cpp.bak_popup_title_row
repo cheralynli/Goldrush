@@ -385,28 +385,22 @@ void showPopupMessage(const std::string& title,
     werase(popup);
     drawBoxSafe(popup);
 
-    // Title row: blinking is applied directly here, not one row below it.
-    const int titleY = 1;
-    const int titleX = 3;
-    const std::string titleText =
-        clipUiText(title, static_cast<std::size_t>(actualContentW));
-
     blinkIndicator(popup,
-                   titleY,
-                   titleX,
-                   titleText,
+                   2,
+                   3,
+                   clipUiText(title, static_cast<std::size_t>(actualContentW)),
                    hasColor,
                    GOLDRUSH_GOLD_SAND,
                    2,
                    0,
                    actualContentW);
 
-    const int bodyStartY = 4;
+    const int bodyStartY = 5;
 
     // Bottom usable row, same visual placement as the turn summary popup.
     const int promptY = std::max(1, actualH - 2);
 
-    // Keep prompt safely inside the border and prevent wrapping.
+    // Move the prompt 2 characters to the right compared with the old x=3.
     const int promptX = std::min(5, std::max(1, actualW - 2));
 
     // Keep one blank row above the prompt.
@@ -449,7 +443,7 @@ void showPopupMessage(const std::string& title,
         ? "Continuing..."
         : "Press ENTER or ESC to continue...";
 
-    // Use addnstr instead of printw so the prompt cannot wrap.
+    // Important: use addnstr instead of printw so the prompt cannot wrap.
     const int maxPromptWidth = std::max(1, actualW - promptX - 2);
     const std::string clippedPrompt =
         clipUiText(promptText, static_cast<std::size_t>(maxPromptWidth));

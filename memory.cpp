@@ -445,8 +445,7 @@ MemoryMatchResult playMemoryMatchMinigame(const std::string& playerName, bool ha
     
     result.won = (result.pairsMatched == TOTAL_PAIRS);
     
-    int screenH, screenW;
-    getmaxyx(stdscr, screenH, screenW);
+    const int screenW = getmaxx(stdscr);
     const int arenaWidth = 70;
     const int arenaHeight = 24;
     const int arenaLeft = (screenW - arenaWidth) / 2;

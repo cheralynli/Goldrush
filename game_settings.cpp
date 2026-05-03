@@ -13,14 +13,27 @@
 #include "ui_helpers.h"
 
 namespace {
+
+//Input: integer value, min, max
+//Output: clamped integer within bounds
+//Purpose: ensures numeric settings stay valid
+//Relation: used in validateGameSettings.
 int clampInt(int value, int low, int high) {
     return std::max(low, std::min(value, high));
 }
 
+//Input: boolean flag
+//Output: "ON" or "OFF" string
+//Purpose: converts toggle values to readable text
+//Relation: used in settings menu display.
 std::string onOff(bool value) {
     return value ? "ON" : "OFF";
 }
 
+//Input: text string, reference to integer
+//Output: true if parsed successfully, false otherwise
+//Purpose: safely parse integer input from user text
+//Relation: used in editNumericSetting.
 bool parseStrictIntSetting(const std::string& text, int& value) {
     std::size_t begin = 0;
     while (begin < text.size() && std::isspace(static_cast<unsigned char>(text[begin]))) {
@@ -55,6 +68,10 @@ bool parseStrictIntSetting(const std::string& text, int& value) {
     return true;
 }
 
+//Input: label, reference to value, min/max bounds, color flag
+//Output: true if value updated, false otherwise
+//Purpose: interactive popup for editing numeric settings
+//Relation: used in showCustomSettingsMenu.
 bool editNumericSetting(const std::string& label, int& value, int minValue, int maxValue, bool hasColor) {
     int popupW = 58;
     int popupH = 7;
@@ -105,6 +122,10 @@ bool editNumericSetting(const std::string& label, int& value, int minValue, int 
     return true;
 }
 
+//Input: ncurses window, coordinates, label, selection flag
+//Output: none (draws one line of settings menu)
+//Purpose: renders settings menu rows with highlighting
+//Relation: used in showCustomSettingsMenu.
 void drawSettingsLine(WINDOW* win, int y, int index, const std::string& label, bool selected) {
     const int width = getmaxx(win);
     const int textWidth = std::max(8, width - 8);
@@ -117,6 +138,8 @@ void drawSettingsLine(WINDOW* win, int y, int index, const std::string& label, b
 }
 }
 
+//Purpose: returns preset values for easier play (higher salaries, lower penalties, generous rewards).
+//Relation: used when player selects Relax Mode.
 GameSettings createRelaxModeSettings() {
     GameSettings settings;
     settings.modeName = "Relax Mode";
@@ -145,10 +168,14 @@ GameSettings createRelaxModeSettings() {
     return settings;
 }
 
+//Purpose: returns default balanced settings (struct defaults).
+//Relation: used when player selects Life Mode.
 GameSettings createLifeModeSettings() {
     return GameSettings();
 }
 
+//Purpose: returns preset values for harder play (lower salaries, higher penalties, stricter limits).
+//Relation: used when player selects Hell Mode.
 GameSettings createHellModeSettings() {
     GameSettings settings;
     settings.modeName = "Hell Mode";
@@ -177,6 +204,10 @@ GameSettings createHellModeSettings() {
     return settings;
 }
 
+//Input: reference to settings
+//Output: clamps values to safe ranges
+//Purpose: ensures settings are valid before use
+//Relation: called before applying or saving settings.
 void validateGameSettings(GameSettings& settings) {
     settings.minJobSalary = clampInt(settings.minJobSalary, 0, 1000000);
     settings.maxJobSalary = clampInt(settings.maxJobSalary, settings.minJobSalary, 1500000);
@@ -204,6 +235,10 @@ void validateGameSettings(GameSettings& settings) {
     settings.sabotagePenaltyMultiplierPercent = clampInt(settings.sabotagePenaltyMultiplierPercent, 10, 500);
 }
 
+//Input: settings, rules reference
+//Output: modifies rules according to settings
+//Purpose: maps high-level settings into gameplay rules
+//Relation: bridges configuration layer (GameSettings) with core mechanics (RuleSet).
 void applyGameSettingsToRules(const GameSettings& settings, RuleSet& rules) {
     rules.editionName = settings.modeName;
     rules.loanUnit = settings.loanAmount;
@@ -217,6 +252,10 @@ void applyGameSettingsToRules(const GameSettings& settings, RuleSet& rules) {
     rules.components.petCards = settings.allowPets ? 12 : 0;
 }
 
+//Input: settings
+//Output: human-readable summary string
+//Purpose: provides quick overview of current configuration
+//Relation: used in menus and logs.
 std::string gameSettingsSummary(const GameSettings& settings) {
     std::ostringstream out;
     out << settings.modeName
@@ -227,6 +266,10 @@ std::string gameSettingsSummary(const GameSettings& settings) {
     return out.str();
 }
 
+//Input: settings reference, color flag
+//Output: true if custom settings applied, false if cancelled
+//Purpose: interactive menu for editing/toggling settings
+//Relation: allows player customization beyond presets; integrates helpers (editNumericSetting, drawSettingsLine, onOff).
 bool showCustomSettingsMenu(GameSettings& settings, bool hasColor) {
     validateGameSettings(settings);
     int selected = 0;

@@ -325,37 +325,6 @@ void drawMinimapDot(WINDOW* panelWin, int y, int x, const char* glyph, int color
     wattroff(panelWin, COLOR_PAIR(colorPair) | A_BOLD);
 }
 
-std::string minimapPlayerGlyph(const std::vector<Player>& players, int playerIndex) {
-    if (playerIndex < 0 || playerIndex >= static_cast<int>(players.size())) {
-        return "?";
-    }
-
-    char token = players[static_cast<std::size_t>(playerIndex)].token;
-    if (token == '\0' || std::isspace(static_cast<unsigned char>(token))) {
-        return "?";
-    }
-
-    return std::string(1, token);
-}
-
-int minimapRepresentativePlayerOnTile(const std::vector<Player>& players,
-                                      int tileId,
-                                      int currentPlayer) {
-    if (currentPlayer >= 0 &&
-        currentPlayer < static_cast<int>(players.size()) &&
-        players[static_cast<std::size_t>(currentPlayer)].tile == tileId) {
-        return currentPlayer;
-    }
-
-    for (int p = 0; p < static_cast<int>(players.size()); ++p) {
-        if (players[static_cast<std::size_t>(p)].tile == tileId) {
-            return p;
-        }
-    }
-
-    return -1;
-}
-
 std::vector<std::pair<int, int> > minimapConnections(const Board& board) {
     std::vector<std::pair<int, int> > connections;
     for (int i = 0; i < TILE_COUNT; ++i) {
@@ -930,7 +899,7 @@ void drawMinimapPanel(WINDOW* panelWin,
                 int color = GOLDRUSH_BROWN_CREAM;
 
                 if (tile.kind == TILE_RETIREMENT) {
-                    color = GOLDRUSH_BLACK_FOREST;
+                    color = GOLDRUSH_GOLD_TERRA;
                 } else if (isSpecialMinimapTile(tile)) {
                     color = GOLDRUSH_BLACK_TERRA;
                 }
@@ -962,11 +931,10 @@ void drawMinimapPanel(WINDOW* panelWin,
                 wattron(panelWin, A_REVERSE | A_BOLD);
             }
 
-            const std::string playerGlyph = minimapPlayerGlyph(players, p);
             drawMinimapDot(panelWin,
                         drawY,
                         drawX,
-                        playerGlyph.c_str(),
+                        "o",
                         ui_player_color_pair(p));
 
             if (p == currentPlayer) {
@@ -991,7 +959,7 @@ void drawMinimapPanel(WINDOW* panelWin,
         }
 
         if (mapBottom + 3 < panelHeight - 1) {
-            mvwprintw(panelWin, mapBottom + 3, 2, ". tile  + special  * retire S start  token player");
+            mvwprintw(panelWin, mapBottom + 3, 2, ". tile  + special  * retire S start  o player");
         }
 
         wrefresh(panelWin);
@@ -1062,21 +1030,17 @@ void drawMinimapPanel(WINDOW* panelWin,
                 }
             }
 
-            if (occupants > 0) {
-                const int shownPlayer = minimapRepresentativePlayerOnTile(players, i, currentPlayer);
-                const std::string playerGlyph = minimapPlayerGlyph(players, shownPlayer);
-                drawMinimapDot(panelWin,
-                               drawY,
-                               drawX,
-                               playerGlyph.c_str(),
-                               ui_player_color_pair(shownPlayer));
+            if (occupants > 1) {
+                drawMinimapDot(panelWin, drawY, drawX, "@", GOLDRUSH_GOLD_TERRA);
+            } else if (occupants == 1) {
+                drawMinimapDot(panelWin, drawY, drawX, "o", ui_player_color_pair(firstPlayer));
             } else {
                 drawMinimapDot(panelWin,
                                drawY,
                                drawX,
                                minimapDotGlyph(tile),
                                tile.kind == TILE_RETIREMENT
-                                   ? GOLDRUSH_BLACK_FOREST
+                                   ? GOLDRUSH_GOLD_TERRA
                                    : (isSpecialMinimapTile(tile)
                                           ? GOLDRUSH_BLACK_TERRA
                                           : GOLDRUSH_BROWN_CREAM));
@@ -1100,7 +1064,7 @@ void drawMinimapPanel(WINDOW* panelWin,
         }
 
         if (mapBottom + 3 < panelHeight - 1) {
-            mvwprintw(panelWin, mapBottom + 3, 2, ". tile  + special  * retire  S start  token player");
+            mvwprintw(panelWin, mapBottom + 3, 2, ". tile  + special  * retire  S start  o player");
         }
     }
 
