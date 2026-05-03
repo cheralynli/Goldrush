@@ -15,6 +15,8 @@ namespace {
 
 const int MAX_WRONG_GUESSES = 8;
 
+//Fields:(won)true if the player guessed the word,(attemptsLeft)remaining guesses (starts at 8, decreases on wrong attempts),(lettersGuessed)total revealed slots (each correct guess increments),(abandoned)true if player pressed ESC/Q to quit.
+//Purpose: Encapsulates the outcome of a Hangman run.
 struct HangmanWord {
     std::string word;
     std::string category;
@@ -163,6 +165,10 @@ const std::vector<std::string> HANGMAN_STAGES = {
     "\n  +---+\n  |   |\n  X   |\n /|\\  |\n / \\  |\n      |\n========= GAME OVER!"
 };
 
+//Input: none
+//Output: randomly selected HangmanWord from WORD_BANK
+//Purpose: chooses a word, category, hint, and difficulty for the game
+//Relation: used at the start of playHangmanMinigame to initialize the puzzle.
 HangmanWord getRandomWord() {
     static bool seeded = false;
     if (!seeded) {
@@ -174,6 +180,10 @@ HangmanWord getRandomWord() {
     return WORD_BANK[static_cast<std::size_t>(pickedIndex)];
 }
 
+//Input: ncurses window, coordinates, wrong guess count, color flag
+//Output: none (draws ASCII hangman stage)
+//Purpose: renders hangman figure based on number of wrong guesses
+//Relation: called each frame to visually update progress toward game over.
 void drawHangman(WINDOW* win, int y, int x, int wrong, bool hasColor) {
     int stage = wrong > MAX_WRONG_GUESSES ? MAX_WRONG_GUESSES : wrong;
     std::string art = HANGMAN_STAGES[stage];
@@ -197,6 +207,10 @@ void drawHangman(WINDOW* win, int y, int x, int wrong, bool hasColor) {
     }
 }
 
+//Input: ncurses window, coordinates, display string, color flag
+//Output: none (draws word with underscores and revealed letters)
+//Purpose: shows current state of guessed word
+//Relation: updated after each guess.
 void drawWord(WINDOW* win, int y, int x, const std::string& disp, bool hasColor) {
     if (hasColor) {
         wattron(win, COLOR_PAIR(GOLDRUSH_GOLD_SAND) | A_BOLD | A_UNDERLINE);
@@ -216,6 +230,10 @@ void drawWord(WINDOW* win, int y, int x, const std::string& disp, bool hasColor)
     }
 }
 
+//Input: ncurses window, coordinates, guessed letters string, color flag
+//Output: none (draws letters already guessed)
+//Purpose: displays guessed letters to avoid repeats
+//Relation: updated after each guess.
 void drawGuessed(WINDOW* win, int y, int x, const std::string& guessed, bool hasColor) {
     if (hasColor) {
         wattron(win, COLOR_PAIR(GOLDRUSH_BROWN_CREAM));
@@ -240,6 +258,10 @@ void drawGuessed(WINDOW* win, int y, int x, const std::string& guessed, bool has
     }
 }
 
+//Input: ncurses window, screen width, color flag
+//Output: none (prints ASCII Hangman title)
+//Purpose: renders banner at top of screen
+//Relation: called each frame.
 void drawAsciiTitle(WINDOW* win, int screenW, bool hasColor) {
     if (hasColor) {
         wattron(win, COLOR_PAIR(GOLDRUSH_GOLD_SAND) | A_BOLD);
@@ -253,6 +275,10 @@ void drawAsciiTitle(WINDOW* win, int screenW, bool hasColor) {
     }
 }
 
+//Input: ncurses window, coordinates, text, color flag, color pair, blink count, final hold ms
+//Output: true if interrupted by input, false otherwise
+//Purpose: animates blinking text until user presses a key
+//Relation: used for feedback messages and win/lose screens.
 bool blinkHangmanIndicatorUntilInput(WINDOW* win,
                                      int y,
                                      int x,
@@ -298,6 +324,10 @@ bool blinkHangmanIndicatorUntilInput(WINDOW* win,
     return interrupted;
 }
 
+//Input: ncurses window, coordinates, arena dimensions, text, positive/negative flag, color flag
+//Output: none (displays feedback message briefly)
+//Purpose: shows feedback after guesses (correct, miss, already guessed)
+//Relation: called after each guess to provide immediate response.
 void flashFeedback(WINDOW* win,
                    int y,
                    int arenaLeft,
@@ -313,6 +343,10 @@ void flashFeedback(WINDOW* win,
 
 } // anonymous namespace
 
+//Input: player name, color flag
+//Output: HangmanResult (won, attempts left, letters guessed, abandoned flag)
+//Purpose: runs the Hangman minigame loop
+//Relation: Calls tutorial (showMinigameTutorial) and warnings (showTerminalSizeWarning), Uses utility functions (drawHangman, drawWord, drawGuessed, drawAsciiTitle, flashFeedback), Tracks guesses, wrong attempts, revealed letters, and feedback, Ends when player wins, loses, or quits → returns result.
 HangmanResult playHangmanMinigame(const std::string& playerName, bool hasColor) {
     HangmanResult res;
     res.won = false;
