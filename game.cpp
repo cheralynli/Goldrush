@@ -546,11 +546,6 @@ void Game::drawSetupTitle() const {
     }
     if (hasColor) {
         attroff(COLOR_PAIR(GOLDRUSH_GOLD_BLACK) | A_BOLD);
-        attron(COLOR_PAIR(GOLDRUSH_GOLD_SAND) | A_BOLD);
-    }
-    mvprintw(startY + 9, (w - 8) / 2, "GOLDRUSH");
-    if (hasColor) {
-        attroff(COLOR_PAIR(GOLDRUSH_GOLD_SAND) | A_BOLD);
     }
     refresh();
 }
